@@ -4,39 +4,391 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-lg-8 mx-auto">
-        <h1 class="mb-4">Search</h1>
+    <div class="col-lg-10 mx-auto">
+        <h1 class="mb-4">User Search</h1>
         
-        <form method="GET" action="{{ url_for('search.index') }}" class="mb-5">
+        <form id="searchForm" class="mb-5">
             <div class="input-group">
-                <input type="text" class="form-control form-control-lg" name="q" 
-                       placeholder="Enter name, email, phone, or username..." 
-                       value="{{ query }}" autofocus>
+                <input type="text" class="form-control form-control-lg" id="searchInput" 
+                       placeholder="Enter username or email address..." 
+                       autofocus>
                 <button class="btn btn-primary btn-lg" type="submit">Search</button>
             </div>
         </form>
         
-        {% if query %}
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Search Results for "{{ query }}"</h5>
+        <div id="loadingSpinner" class="text-center d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
-            <div class="card-body">
-                <p class="text-muted">Search functionality will be implemented in future updates.</p>
+            <p class="mt-2">Searching...</p>
+        </div>
+        
+        <div id="searchResults" class="d-none">
+            <h3 class="mb-3">Search Results</h3>
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Active Directory</h5>
+                        </div>
+                        <div class="card-body" id="ldapResults">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Genesys Cloud</h5>
+                        </div>
+                        <div class="card-body" id="genesysResults">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        {% else %}
-        <div class="text-center text-muted">
-            <p>Enter a search query above to get started.</p>
-            <p>You can search by:</p>
-            <ul class="list-unstyled">
-                <li>Full Name</li>
-                <li>Email Address</li>
-                <li>Phone Number</li>
-                <li>Username</li>
-            </ul>
+        
+        <div id="noResults" class="alert alert-info d-none">
+            No results found. Please try a different search term.
         </div>
-        {% endif %}
+        
+        <div id="errorMessage" class="alert alert-danger d-none">
+            An error occurred while searching. Please try again.
+        </div>
     </div>
 </div>
+
+<script>
+document.getElementById('searchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const searchTerm = document.getElementById('searchInput').value.trim();
+    if (!searchTerm) return;
+    
+    document.getElementById('searchResults').classList.add('d-none');
+    document.getElementById('noResults').classList.add('d-none');
+    document.getElementById('errorMessage').classList.add('d-none');
+    document.getElementById('loadingSpinner').classList.remove('d-none');
+    
+    try {
+        const response = await fetch('/search/user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ search_term: searchTerm })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Search failed');
+        }
+        
+        displayResults(data);
+        
+    } catch (error) {
+        console.error('Search error:', error);
+        document.getElementById('errorMessage').classList.remove('d-none');
+    } finally {
+        document.getElementById('loadingSpinner').classList.add('d-none');
+    }
+});
+
+function displayResults(data) {
+    const hasLdapResults = data.ldap !== null;
+    const hasGenesysResults = data.genesys !== null;
+    
+    if (!hasLdapResults && !hasGenesysResults) {
+        document.getElementById('noResults').classList.remove('d-none');
+        return;
+    }
+    
+    document.getElementById('ldapResults').innerHTML = formatLdapResults(data.ldap);
+    document.getElementById('genesysResults').innerHTML = formatGenesysResults(data.genesys);
+    document.getElementById('searchResults').classList.remove('d-none');
+}
+
+function formatLdapResults(user) {
+    if (!user) {
+        return '<p class="text-muted">No user found in Active Directory</p>';
+    }
+    
+    let html = '';
+    
+    // Profile image
+    if (user.thumbnailPhoto) {
+        html += '<div class="text-center mb-3">';
+        html += `<img src="${user.thumbnailPhoto}" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;" alt="Profile">`;
+        html += '</div>';
+    }
+    
+    html += '<dl class="row mb-0">';
+    
+    // Name
+    if (user.displayName) {
+        html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8">${user.displayName}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Email
+    if (user.mail) {
+        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8">${user.mail}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Username
+    if (user.sAMAccountName) {
+        html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8">${user.sAMAccountName}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Employee ID
+    if (user.employeeID) {
+        html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8">${user.employeeID}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Department
+    if (user.department) {
+        html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8">${user.department}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Title
+    if (user.title) {
+        html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8">${user.title}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Manager
+    if (user.manager) {
+        html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8">${user.manager}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Status - show enabled/disabled and locked status
+    html += `<dt class="col-sm-4">Status:</dt><dd class="col-sm-8">`;
+    if (user.enabled !== undefined) {
+        if (user.enabled) {
+            html += `<span class="badge bg-success">Enabled</span> `;
+        } else {
+            html += `<span class="badge bg-danger">Disabled</span> `;
+        }
+        
+        if (user.locked) {
+            html += `<span class="badge bg-warning text-dark">Locked</span>`;
+        } else {
+            html += `<span class="badge bg-info">Not Locked</span>`;
+        }
+    } else {
+        html += `<span class="text-muted">-</span>`;
+    }
+    html += `</dd>`;
+    
+    // Phone Numbers
+    html += `<dt class="col-sm-4">Phone Numbers:</dt><dd class="col-sm-8">`;
+    const hasPhones = (user.phoneNumbers && Object.keys(user.phoneNumbers).length > 0) || user.extension;
+    
+    if (hasPhones) {
+        if (user.phoneNumbers) {
+            // Display Genesys number if exists
+            if (user.phoneNumbers.genesys) {
+                html += `<strong>Office:</strong> ${user.phoneNumbers.genesys} <span class="badge bg-success">Genesys</span><br>`;
+            }
+            // Display Teams number if exists
+            if (user.phoneNumbers.teams) {
+                html += `<strong>Office:</strong> ${user.phoneNumbers.teams} <span class="badge bg-primary">Teams</span><br>`;
+            }
+        }
+        // Display extension
+        if (user.extension) {
+            html += `<strong>Extension:</strong> ${user.extension}`;
+        }
+    } else {
+        html += `<span class="text-muted">-</span>`;
+    }
+    html += `</dd>`;
+    
+    html += '</dl>';
+    
+    // Groups section at the bottom
+    if (user.groupMembership && user.groupMembership.length > 0) {
+        const groupId = 'ldap-groups-' + Math.random().toString(36).substr(2, 9);
+        html += '<hr class="my-3">';
+        html += '<div class="groups-section">';
+        html += `<h6>AD Groups (${user.groupMembership.length}) `;
+        html += `<a href="#" onclick="toggleGroups('${groupId}'); return false;" class="text-decoration-none">`;
+        html += `<small id="${groupId}-toggle">[Show]</small></a></h6>`;
+        html += `<div id="${groupId}" class="mt-2" style="display: none;">`;
+        html += '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px;">';
+        html += '<ul class="list-unstyled mb-0">';
+        user.groupMembership.forEach(group => {
+            html += `<li><small>${group}</small></li>`;
+        });
+        html += '</ul></div></div></div>';
+    }
+    return html;
+}
+
+function formatGenesysResults(user) {
+    if (!user) {
+        return '<p class="text-muted">No user found in Genesys Cloud</p>';
+    }
+    
+    // Debug log to check what we're getting
+    console.log('Genesys user data:', user);
+    if (user.skills) {
+        console.log('Skills:', user.skills);
+    }
+    if (user.queues) {
+        console.log('Queues:', user.queues);
+    }
+    
+    let html = '<dl class="row mb-0">';
+    
+    // Name
+    if (user.name) {
+        html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8">${user.name}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Email
+    if (user.email) {
+        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8">${user.email}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Username
+    if (user.username) {
+        html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8">${user.username}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Employee ID - placeholder for alignment
+    html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    
+    // Department
+    if (user.department) {
+        html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8">${user.department}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Title
+    if (user.title) {
+        html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8">${user.title}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Manager
+    if (user.manager) {
+        html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8">${user.manager}</dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Status
+    if (user.state) {
+        html += `<dt class="col-sm-4">Status:</dt><dd class="col-sm-8"><span class="badge ${user.state === 'active' ? 'bg-success' : 'bg-secondary'}">${user.state}</span></dd>`;
+    } else {
+        html += `<dt class="col-sm-4">Status:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    // Phone Numbers
+    if (user.phoneNumbers && Object.keys(user.phoneNumbers).length > 0) {
+        html += `<dt class="col-sm-4">Phone Numbers:</dt><dd class="col-sm-8">`;
+        const phoneDisplay = {};
+        
+        // Deduplicate and format phone numbers
+        for (const [type, number] of Object.entries(user.phoneNumbers)) {
+            // Skip duplicates
+            if (!Object.values(phoneDisplay).includes(number)) {
+                let label = '';
+                if (type === 'primary') label = 'Primary';
+                else if (type === 'work') label = 'Work';
+                else if (type === 'work2_ext') label = 'Extension';
+                else if (type === 'work3') label = 'Work 3';
+                else label = type.charAt(0).toUpperCase() + type.slice(1);
+                
+                phoneDisplay[type] = number;
+                html += `<strong>${label}:</strong> ${number}<br>`;
+            }
+        }
+        html += '</dd>';
+    } else {
+        html += `<dt class="col-sm-4">Phone Numbers:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+    }
+    
+    html += '</dl>';
+    
+    // Skills section (moved up, before groups)
+    if (user.skills && user.skills.length > 0) {
+        html += '<hr class="my-3">';
+        html += '<div class="mb-3">';
+        html += '<h6>Skills</h6>';
+        html += '<div>';
+        user.skills.forEach(skill => {
+            const skillName = typeof skill === 'string' ? skill : (skill.name || skill);
+            html += `<span class="badge bg-info me-1 mb-1">${skillName}</span>`;
+        });
+        html += '</div>';
+        html += '</div>';
+    }
+    
+    // Queues section
+    if (user.queues && user.queues.length > 0) {
+        html += '<div class="mb-3">';
+        html += '<h6>Queues</h6>';
+        html += '<div>';
+        user.queues.forEach(queue => {
+            const queueName = typeof queue === 'string' ? queue : (queue.name || queue);
+            html += `<span class="badge bg-warning text-dark me-1 mb-1">${queueName}</span>`;
+        });
+        html += '</div>';
+        html += '</div>';
+    }
+    
+    // Groups section at the bottom
+    if (user.groups && user.groups.length > 0) {
+        const groupId = 'genesys-groups-' + Math.random().toString(36).substr(2, 9);
+        html += '<hr class="my-3">';
+        html += '<div class="groups-section">';
+        html += `<h6>Genesys Groups (${user.groups.length}) `;
+        html += `<a href="#" onclick="toggleGroups('${groupId}'); return false;" class="text-decoration-none">`;
+        html += `<small id="${groupId}-toggle">[Show]</small></a></h6>`;
+        html += `<div id="${groupId}" class="mt-2" style="display: none;">`;
+        html += '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px;">';
+        html += '<ul class="list-unstyled mb-0">';
+        user.groups.forEach(group => {
+            html += `<li><small>${group}</small></li>`;
+        });
+        html += '</ul>';
+        html += '</div></div></div>';
+    }
+    return html;
+}
+function toggleGroups(groupId) {
+    const groupDiv = document.getElementById(groupId);
+    const toggleLink = document.getElementById(groupId + '-toggle');
+    
+    if (groupDiv.style.display === 'none') {
+        groupDiv.style.display = 'block';
+        toggleLink.textContent = '[Hide]';
+    } else {
+        groupDiv.style.display = 'none';
+        toggleLink.textContent = '[Show]';
+    }
+}
+</script>
 {% endblock %}
