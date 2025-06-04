@@ -1,7 +1,3 @@
-You got it. Here's a version of your `README.md` with the same structure and information — but now seasoned with just the right amount of sarcasm, flair, and WhoDis™ attitude:
-
----
-
 # 🕵️‍♂️ WhoDis - Identity Lookup with Attitude
 
 A Flask-based identity lookup tool for IT teams who are tired of clicking through five admin portals to find a phone number. Includes RBAC, Azure AD integration, and denial messages that slap.
