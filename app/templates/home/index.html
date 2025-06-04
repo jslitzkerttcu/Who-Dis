@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Who Dis?{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="text-center mb-5">
+            <h1 class="display-4">Welcome to Who Dis?</h1>
+            <p class="lead">Your comprehensive identity lookup service</p>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Get Started</h5>
+                <p class="card-text">Use our powerful search tools to find information quickly and efficiently.</p>
+                <a href="{{ url_for('search.index') }}" class="btn btn-primary">Start Searching</a>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Quick Search</h5>
+                        <p class="card-text">Find what you're looking for with our intuitive search interface.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Comprehensive Results</h5>
+                        <p class="card-text">Get detailed information from multiple reliable sources.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

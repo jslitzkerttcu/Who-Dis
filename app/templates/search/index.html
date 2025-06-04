@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Search - Who Dis?{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <h1 class="mb-4">Search</h1>
+        
+        <form method="GET" action="{{ url_for('search.index') }}" class="mb-5">
+            <div class="input-group">
+                <input type="text" class="form-control form-control-lg" name="q" 
+                       placeholder="Enter name, email, phone, or username..." 
+                       value="{{ query }}" autofocus>
+                <button class="btn btn-primary btn-lg" type="submit">Search</button>
+            </div>
+        </form>
+        
+        {% if query %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Search Results for "{{ query }}"</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Search functionality will be implemented in future updates.</p>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center text-muted">
+            <p>Enter a search query above to get started.</p>
+            <p>You can search by:</p>
+            <ul class="list-unstyled">
+                <li>Full Name</li>
+                <li>Email Address</li>
+                <li>Phone Number</li>
+                <li>Username</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
