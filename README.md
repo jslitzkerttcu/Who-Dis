@@ -1,128 +1,159 @@
-# WhoDis - Identity Lookup Service
+You got it. Here's a version of your `README.md` with the same structure and information — but now seasoned with just the right amount of sarcasm, flair, and WhoDis™ attitude:
 
-A Flask-based web application for identity lookup with role-based access control (RBAC) and Azure AD integration.
+---
 
-## Overview
+# 🕵️‍♂️ WhoDis - Identity Lookup with Attitude
 
-WhoDis is a secure identity lookup service that allows authorized users to search for people by various criteria including full name, email address, phone number, and username. The application features a robust authentication system with three role levels and comprehensive access logging.
+A Flask-based identity lookup tool for IT teams who are tired of clicking through five admin portals to find a phone number. Includes RBAC, Azure AD integration, and denial messages that slap.
 
-## Features
+---
 
-- **Role-Based Access Control (RBAC)** with three tiers:
-  - **Viewers**: Basic search access
-  - **Editors**: Enhanced permissions (to be implemented)
-  - **Admins**: Full system access including admin panel
-- **Azure AD Integration** for enterprise authentication
-- **Fallback HTTP Basic Authentication**
-- **Access Denial Logging** with humorous messages
-- **Responsive Bootstrap UI**
-- **Modular Blueprint Architecture**
+## 🤔 What Even Is This?
 
-## Tech Stack
+**WhoDis** is a secure(ish) internal web tool for finding out *who the heck someone is* based on name, email, username, or phone number.
+It authenticates via Azure AD (or fallback basic auth if you’re feeling retro), and includes role-based access so not everyone can break things.
+Best of all? Denied access results in a full-screen “NOPE.” because dignity is overrated.
 
-- **Backend**: Flask 3.0.0 (Python)
-- **Frontend**: Bootstrap 5.3.0, Bootstrap Icons
-- **Authentication**: Azure AD / Basic Auth
-- **Template Engine**: Jinja2
-- **Environment Management**: python-dotenv
+---
 
-## Installation
+## 🔐 Roles, Because Power Should Be Tiered
 
-1. Clone the repository:
-```bash
-git clone https://github.com/jslitzkerttcu/Who-Dis.git
-cd Who-Dis
-```
+* 👀 **Viewers**: Can search. Can’t break stuff.
+* 🛠 **Editors**: Can break stuff. (Coming soon.)
+* 👑 **Admins**: Own the console. And the consequences.
 
-2. Create and activate a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+---
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+## 🧠 Key Features
 
-4. Configure environment variables:
-   - Copy `.env.example` to `.env` (if available) or create `.env` with:
-```env
-FLASK_HOST=0.0.0.0
-FLASK_PORT=5000
-FLASK_DEBUG=True
-SECRET_KEY=your-secret-key-here
-VIEWERS=user1@example.com,user2@example.com
-EDITORS=editor1@example.com,editor2@example.com
-ADMINS=admin@example.com
-```
+* 🔒 **Role-Based Access Control** (RBAC): Three levels of permissions, zero room for error.
+* 🎭 **Azure AD Integration**: Because we like single sign-on more than you.
+* 🪵 **Access Denial Logging**: Every failed attempt is logged *and* ridiculed.
+* 🎨 **Bootstrap UI**: Because your eyes deserve better than raw HTML.
+* 🧱 **Modular Flask Blueprints**: Yes, we’ve heard of architecture.
 
-## Usage
+---
 
-Run the application:
-```bash
-python run.py
-```
+## 🛠 Tech Stack (a.k.a. The Nerd Stuff)
 
-The application will be available at `http://localhost:5000`
+| Layer      | Tool             |
+| ---------- | ---------------- |
+| Backend    | Flask 3.0.0      |
+| Frontend   | Bootstrap 5.3.0  |
+| Auth       | Azure AD / Basic |
+| Templating | Jinja2           |
+| Secrets    | `python-dotenv`  |
 
-## Project Structure
+---
+
+## 🚀 Quickstart
+
+1. Clone the repo like a boss:
+
+   ```bash
+   git clone https://github.com/jslitzkerttcu/Who-Dis.git
+   cd Who-Dis
+   ```
+
+2. Fire up a virtual environment:
+
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Or venv\Scripts\activate if you're stuck on Windows
+   ```
+
+3. Install the magic:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Configure your `.env` like a responsible adult:
+
+   ```env
+   FLASK_HOST=0.0.0.0
+   FLASK_PORT=5000
+   FLASK_DEBUG=True
+   SECRET_KEY=your-very-secret-key
+   VIEWERS=viewer@example.com
+   EDITORS=editor@example.com
+   ADMINS=admin@example.com
+   ```
+
+5. Run it like it owes you money:
+
+   ```bash
+   python run.py
+   ```
+
+> You’ll find it judging your access attempts at [http://localhost:5000](http://localhost:5000)
+
+---
+
+## 🗂 Project Layout
 
 ```
 WhoDis/
-├── app/                    # Main application package
-│   ├── blueprints/         # Flask blueprints
-│   │   ├── admin/         # Admin panel (requires admin role)
-│   │   ├── home/          # Landing page
-│   │   └── search/        # Search interface (requires viewer role)
-│   ├── middleware/        # Authentication middleware
-│   │   └── auth.py        # RBAC implementation
-│   ├── static/            # CSS and JavaScript
-│   └── templates/         # Jinja2 templates
-├── logs/                  # Application logs
-│   └── access_denied.log  # Unauthorized access attempts
-├── run.py                 # Application entry point
-└── requirements.txt       # Python dependencies
+├── app/                # All the brains
+│   ├── blueprints/     # Modular chunks of logic
+│   │   ├── admin/      # Admin-only secrets
+│   │   ├── home/       # The welcome mat
+│   │   └── search/     # Lookup logic
+│   ├── middleware/     # Auth, because trust issues
+│   └── templates/      # The visual lies we tell users
+├── static/             # CSS and JS wizardry
+├── logs/               # We saw what you did
+├── run.py              # Launch codes
+└── requirements.txt    # Feed this to pip
 ```
 
-## Authentication
+---
 
-The application supports two authentication methods:
+## 🛡 Authentication: The Gatekeeper
 
-1. **Azure AD** (Primary): Automatically detects user via `X-MS-CLIENT-PRINCIPAL-NAME` header
-2. **Basic Auth** (Fallback): Username/password authentication
+* **Azure AD**: Checks the `X-MS-CLIENT-PRINCIPAL-NAME` header to see who dares approach.
+* **Basic Auth**: For devs and rebels working without SSO.
 
-Users must be whitelisted in the `.env` file under the appropriate role category.
+💡 Whitelisted users only. No whitelist, no entry. Not sorry.
 
-## Security
+---
 
-- Change the `SECRET_KEY` in production
-- All access denials are logged with timestamp, user email, IP address, and requested path
-- User access is managed via environment variable whitelists
-- Sensitive files (.env, logs) are excluded from version control
+## 🚨 Security Notes
 
-## Development Status
+* Change the `SECRET_KEY` unless you like living dangerously
+* Logs unauthorized access attempts because we're petty like that
+* Never commit your `.env` unless you’re trying to get fired
 
-- ✅ Authentication and authorization system
-- ✅ Role-based access control
-- ✅ Basic UI framework
-- ✅ Logging system
-- ⏳ Search functionality (placeholder - to be implemented)
-- ⏳ Editor role features (to be defined)
-- ⏳ Database integration
+---
 
-## Contributing
+## 📈 Current MVP Status
 
-This project is in active development. Key areas for contribution:
-- Implementing the search functionality
-- Defining and implementing editor role capabilities
-- Adding database integration for identity storage
-- Implementing comprehensive test coverage
+* ✅ Auth system (you’ll be denied *beautifully*)
+* ✅ Role-based access
+* ✅ Logs for shame
+* ✅ The UI doesn’t suck
+* ⏳ Search logic coming soon (we promise)
+* ⏳ Editor tools pending imagination
+* ⏳ DB integration once we trust it with state
 
-## License
+---
 
-[License information to be added]
+## 🧑‍💻 Contributing
 
-## Authors
+Got ideas? Found a bug? Want to make the denial messages even more savage? Fork it. PR it. Flex it.
 
-- TTCU Development Team
+---
+
+## ⚖ License
+
+\[Insert serious license stuff here]
+
+---
+
+## 🤘 Made By
+
+The TTCU Dev Team — giving internal tools the sarcasm they deserve.
+
+---
+
+Let me know if you want it converted directly into the `README.md` file format with collapsible sections, emojis removed for terminals, or a badge section for added ✨ fake professionalism ✨.
