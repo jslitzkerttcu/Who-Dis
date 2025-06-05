@@ -114,17 +114,41 @@
         const minutes = date.getMinutes().toString().padStart(2, '0');
         const timeStr = `${hours}:${minutes}`;
 
-        // Calculate days difference
+        // Calculate smart date difference
         let daysInfo = '';
         let daysClass = '';
         if (showDaysInfo) {
             const daysDiff = Math.floor((date - now) / (1000 * 60 * 60 * 24));
+            const absDays = Math.abs(daysDiff);
+            
+            // Calculate years, months, and remaining days
+            const years = Math.floor(absDays / 365);
+            const months = Math.floor((absDays % 365) / 30);
+            const days = absDays % 30;
+            
+            // Build the string based on what's significant - use abbreviated units
+            let parts = [];
+            if (years > 0) {
+                parts.push(`${years}Yr`);
+                if (months > 0) {
+                    parts.push(`${months}Mo`);
+                }
+            } else if (months > 0) {
+                parts.push(`${months}Mo`);
+                if (days > 0 && months < 3) {
+                    parts.push(`${days}d`);
+                }
+            } else if (absDays > 0) {
+                parts.push(`${absDays}d`);
+            }
+            
+            // Format based on past or future
             if (daysDiff < 0) {
-                daysInfo = `${Math.abs(daysDiff)} days ago`;
+                daysInfo = parts.length > 0 ? parts.join(' ') + ' ago' : 'Today';
             } else if (daysDiff === 0) {
                 daysInfo = 'Today';
             } else {
-                daysInfo = `in ${daysDiff} days`;
+                daysInfo = 'in ' + parts.join(' ');
                 // Add color classes for expiration warnings
                 if (label.includes('Expires')) {
                     if (daysDiff < 7) daysClass = 'text-danger';
