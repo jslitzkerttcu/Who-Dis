@@ -1,5 +1,6 @@
 import os
 import requests
+from requests.exceptions import Timeout, ConnectionError
 from typing import Optional, Dict, Any
 import logging
 from datetime import datetime, timedelta
@@ -17,6 +18,8 @@ class GenesysCloudService:
         self.token_url = f'https://login.{self.region}/oauth/token'
         self._token = None
         self._token_expiry = None
+        # Timeout configuration
+        self.timeout = int(os.getenv('GENESYS_API_TIMEOUT', '15'))  # API timeout in seconds
         
     def _get_access_token(self) -> Optional[str]:
         """Get access token using client credentials grant."""
@@ -30,7 +33,8 @@ class GenesysCloudService:
                     'grant_type': 'client_credentials',
                     'client_id': self.client_id,
                     'client_secret': self.client_secret
-                }
+                },
+                timeout=self.timeout
             )
             
             if response.status_code == 200:
@@ -42,6 +46,9 @@ class GenesysCloudService:
             else:
                 logger.error(f"Failed to get access token: {response.status_code} - {response.text}")
                 
+        except Timeout:
+            logger.error(f"Timeout getting access token after {self.timeout} seconds")
+            raise TimeoutError(f"Authentication timed out. Please try again.")
         except Exception as e:
             logger.error(f"Error getting access token: {str(e)}")
             
@@ -63,146 +70,222 @@ class GenesysCloudService:
                 'Content-Type': 'application/json'
             }
             
-            # Search by exact email first
+            # Search using CONTAINS across multiple fields
             search_body = {
-                'pageSize': 25,
-                'pageNumber': 1,
                 'query': [
                     {
-                        'type': 'EXACT',
-                        'fields': ['email'],
-                        'values': [search_term]
+                        'value': search_term,
+                        'fields': ['name', 'email', 'username'],
+                        'type': 'CONTAINS'
                     }
                 ],
-                'sortOrder': 'ASC',
-                'sortBy': 'email'
+                'expand': [
+                    'groups',
+                    'dateLastLogin',
+                    'skills',
+                    'languages', 
+                    'locations',
+                    'manager',
+                    'profileSkills',
+                    'routingStatus',
+                    'conversationSummary',
+                    'outOfOffice',
+                    'station',
+                    'queues'
+                ]
             }
             
             response = requests.post(
                 f'{self.base_url}/api/v2/users/search',
                 headers=headers,
-                json=search_body
+                json=search_body,
+                timeout=self.timeout
             )
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get('results') and len(data['results']) > 0:
-                    user = data['results'][0]
-                else:
-                    # If no exact match, try searching by username
-                    search_body['query'] = [
-                        {
-                            'type': 'EXACT',
-                            'fields': ['username'],
-                            'values': [search_term]
-                        }
-                    ]
-                    response = requests.post(
-                        f'{self.base_url}/api/v2/users/search',
-                        headers=headers,
-                        json=search_body
-                    )
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data.get('results') and len(data['results']) > 0:
-                            user = data['results'][0]
-                        else:
-                            return None
-                    else:
-                        return None
+                total_results = data.get('total', 0)
                 
-                user_id = user.get('id')
-                if user_id:
-                    detailed_user = self._get_user_details(user_id, headers)
-                    if detailed_user:
-                        user = detailed_user
-                
-                try:
-                    result = {
-                        'id': user.get('id'),
-                        'name': user.get('name'),
-                        'email': user.get('email'),
-                        'username': user.get('username'),
-                        'department': user.get('department'),
-                        'title': user.get('title'),
-                        'manager': None,
-                        'state': user.get('state'),
-                        'presence': None,
-                        'phoneNumbers': {},
-                        'groups': [],
-                        'skills': [],
-                        'languages': [],
-                        'locations': []
+                # Check if too many results
+                if total_results > 25:
+                    return {
+                        'error': 'too_many_results',
+                        'message': f'Your search returned {total_results} results. Please be more specific.',
+                        'total': total_results
                     }
-                    
-                    # Safe extraction of manager
-                    if user.get('manager') and isinstance(user.get('manager'), dict):
-                        result['manager'] = user.get('manager', {}).get('name')
-                    
-                    # Safe extraction of presence
-                    if user.get('presence') and isinstance(user.get('presence'), dict):
-                        presence_def = user.get('presence', {}).get('presenceDefinition')
-                        if presence_def and isinstance(presence_def, dict):
-                            result['presence'] = presence_def.get('systemPresence')
-                    
-                    # Safe extraction of phone numbers
-                    try:
-                        result['phoneNumbers'] = self._extract_phone_numbers(user)
-                        if result['phoneNumbers']:
-                            logger.info(f"Extracted phone numbers: {result['phoneNumbers']}")
-                    except Exception as e:
-                        logger.error(f"Error extracting phone numbers: {str(e)}")
-                    
-                    # Safe extraction of lists
-                    for field in ['groups', 'skills', 'languages', 'locations', 'queues']:
-                        if user.get(field) and isinstance(user.get(field), list):
-                            result[field] = []
-                            for item in user.get(field):
-                                if isinstance(item, dict):
-                                    # Extract name from various possible fields
-                                    name = None
-                                    if 'name' in item:
-                                        name = item['name']
-                                    elif 'groupName' in item:
-                                        name = item['groupName']
-                                    elif field == 'groups' and item.get('id'):
-                                        # For groups without names, look up in cache
-                                        group_id = item.get('id')
-                                        name = genesys_cache.get_group_name(group_id)
-                                        if name == group_id:  # Cache miss
-                                            logger.debug(f"Group {group_id} not found in cache")
-                                    else:
-                                        # Use ID as fallback
-                                        name = item.get('id', 'Unknown')
-                                    result[field].append(name)
-                                elif isinstance(item, str):
-                                    # If the item is just a string (probably an ID)
-                                    if field == 'groups':
-                                        # Look up group name in cache
-                                        name = genesys_cache.get_group_name(item)
-                                        result[field].append(name)
-                                    else:
-                                        result[field].append(item)
-                                else:
-                                    result[field].append(str(item))
-                            
-                            # Sort groups and queues alphabetically
-                            if field in ['groups', 'queues']:
-                                result[field].sort()
-                    
-                    return result
-                    
-                except Exception as e:
-                    logger.error(f"Error processing user data: {str(e)}")
+                
+                # Check if we have results
+                if not data.get('results') or len(data['results']) == 0:
                     return None
+                
+                # If multiple results, return all of them for selection
+                if len(data['results']) > 1:
+                    return {
+                        'multiple_results': True,
+                        'results': data['results'],
+                        'total': total_results
+                    }
+                
+                # Single result - process it
+                user = data['results'][0]
+                return self._process_user_data(user)
                     
             else:
                 logger.error(f"User search failed: {response.status_code} - {response.text}")
                 
+        except Timeout:
+            logger.error(f"Genesys API timeout after {self.timeout} seconds")
+            raise TimeoutError(f"Genesys search timed out after {self.timeout} seconds. Please try a more specific search term.")
+        except ConnectionError as e:
+            logger.error(f"Connection error to Genesys API: {str(e)}")
+            raise
         except Exception as e:
             logger.error(f"Error searching for user in Genesys: {str(e)}")
             
         return None
+    
+    def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific user by ID."""
+        token = self._get_access_token()
+        if not token:
+            logger.error("Failed to get access token")
+            return None
+            
+        try:
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json'
+            }
+            
+            url = f'{self.base_url}/api/v2/users/{user_id}?expand=groups,skills,languages,locations,manager,profileSkills,routingStatus,conversationSummary,outOfOffice,station,dateLastLogin,queues'
+            response = requests.get(url, headers=headers, timeout=self.timeout)
+            
+            if response.status_code == 200:
+                user = response.json()
+                return self._process_user_data(user)
+            else:
+                logger.error(f"Failed to get user by ID: {response.status_code} - {response.text}")
+                
+        except Timeout:
+            logger.error(f"Genesys API timeout after {self.timeout} seconds")
+            raise TimeoutError(f"Genesys user fetch timed out after {self.timeout} seconds.")
+        except Exception as e:
+            logger.error(f"Error getting user by ID: {str(e)}")
+            
+        return None
+    
+    def _process_user_data(self, user: Dict[str, Any]) -> Dict[str, Any]:
+        """Process user data into standard format."""
+        try:
+            result = {
+                'id': user.get('id'),
+                'name': user.get('name'),
+                'email': user.get('email'),
+                'username': user.get('username'),
+                'department': user.get('department'),
+                'title': user.get('title'),
+                'manager': None,
+                'state': user.get('state'),
+                'presence': None,
+                'phoneNumbers': {},
+                'groups': [],
+                'skills': [],
+                'languages': [],
+                'locations': [],
+                'profileImage': None,
+                'dateLastLogin': user.get('dateLastLogin')
+            }
+            
+            # Extract profile image (highest resolution available)
+            if user.get('images') and isinstance(user.get('images'), list):
+                # Sort by resolution and get the highest
+                images = user['images']
+                for res in ['x400', 'x300', 'x200', 'x128', 'x96', 'x48']:
+                    for img in images:
+                        if img.get('resolution') == res and img.get('imageUri'):
+                            result['profileImage'] = img['imageUri']
+                            break
+                    if result['profileImage']:
+                        break
+            
+            # Safe extraction of manager
+            if user.get('manager') and isinstance(user.get('manager'), dict):
+                result['manager'] = user.get('manager', {}).get('name')
+            
+            # Safe extraction of presence
+            if user.get('presence') and isinstance(user.get('presence'), dict):
+                presence_def = user.get('presence', {}).get('presenceDefinition')
+                if presence_def and isinstance(presence_def, dict):
+                    result['presence'] = presence_def.get('systemPresence')
+            
+            # Safe extraction of phone numbers
+            try:
+                result['phoneNumbers'] = self._extract_phone_numbers(user)
+                if result['phoneNumbers']:
+                    logger.info(f"Extracted phone numbers: {result['phoneNumbers']}")
+            except Exception as e:
+                logger.error(f"Error extracting phone numbers: {str(e)}")
+            
+            # Safe extraction of lists
+            for field in ['groups', 'skills', 'languages', 'locations', 'queues']:
+                if user.get(field) and isinstance(user.get(field), list):
+                    result[field] = []
+                    for item in user.get(field):
+                        if isinstance(item, dict):
+                            # Extract name from various possible fields
+                            name = None
+                            if 'name' in item:
+                                name = item['name']
+                            elif 'groupName' in item:
+                                name = item['groupName']
+                            elif field == 'groups' and item.get('id'):
+                                # For groups without names, look up in cache
+                                group_id = item.get('id')
+                                name = genesys_cache.get_group_name(group_id)
+                                if name == group_id:  # Cache miss
+                                    logger.debug(f"Group {group_id} not found in cache")
+                            elif field == 'locations':
+                                # Locations might have locationDefinition field
+                                if item.get('locationDefinition') and isinstance(item['locationDefinition'], dict):
+                                    location_id = item['locationDefinition'].get('id')
+                                    if location_id:
+                                        name = genesys_cache.get_location_name(location_id)
+                                        if name == location_id:  # Cache miss
+                                            logger.debug(f"Location {location_id} not found in cache")
+                                elif item.get('id'):
+                                    # For locations without names, look up in cache
+                                    location_id = item.get('id')
+                                    name = genesys_cache.get_location_name(location_id)
+                                    if name == location_id:  # Cache miss
+                                        logger.debug(f"Location {location_id} not found in cache")
+                            else:
+                                # Use ID as fallback
+                                name = item.get('id', 'Unknown')
+                            result[field].append(name)
+                        elif isinstance(item, str):
+                            # If the item is just a string (probably an ID)
+                            if field == 'groups':
+                                # Look up group name in cache
+                                name = genesys_cache.get_group_name(item)
+                                result[field].append(name)
+                            elif field == 'locations':
+                                # Look up location name in cache
+                                name = genesys_cache.get_location_name(item)
+                                result[field].append(name)
+                            else:
+                                result[field].append(item)
+                        else:
+                            result[field].append(str(item))
+                    
+                    # Sort groups and queues alphabetically
+                    if field in ['groups', 'queues']:
+                        result[field].sort()
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error processing user data: {str(e)}")
+            return None
     
     def _get_user_details(self, user_id: str, headers: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """Get detailed user information including groups and skills."""
@@ -211,7 +294,7 @@ class GenesysCloudService:
             url = f'{self.base_url}/api/v2/users/{user_id}?expand=groups,skills,languages,locations,manager,presence,profileSkills,certifications,employerInfo,routingStatus,conversationSummary,outOfOffice,geolocation,station,authorization,queues&expand=groups.name'
             logger.info(f"Fetching user details from: {url}")
             
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=self.timeout)
             
             if response.status_code == 200:
                 user_data = response.json()

@@ -5,57 +5,57 @@
 {% block content %}
 <div class="row">
     <div class="col-lg-8 mx-auto">
-        <h1 class="mb-4">Admin Panel</h1>
-        
-        <div class="alert alert-info" role="alert">
-            <h5 class="alert-heading">Admin Stub</h5>
-            <p>This is a placeholder for the admin panel. Future features will include:</p>
-            <ul class="mb-0">
-                <li>User management</li>
-                <li>Search analytics</li>
-                <li>System configuration</li>
-                <li>Database management</li>
-                <li>API key management</li>
-            </ul>
+        <h1 class="mb-4 text-center"><i class="bi bi-terminal-fill"></i> Admin Panel</h1>
+
+        <div class="alert alert-warning shadow-sm" role="alert">
+            <h5 class="alert-heading">Welcome, All-Powerful Admin</h5>
+            <p>You've reached the sacred land of unchecked responsibility and questionable judgment.</p>
+            <p class="mb-0"><strong>Note:</strong> Most of this is just for show... for now.</p>
         </div>
-        
+
         <div class="row">
             <div class="col-md-6 mb-3">
-                <div class="card">
+                <div class="card border-dark h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Users</h5>
-                        <p class="card-text text-muted">Manage user accounts and permissions</p>
-                        <button class="btn btn-secondary" disabled>Coming Soon</button>
+                        <h5 class="card-title"><i class="bi bi-person-gear"></i> User Management</h5>
+                        <p class="card-text text-muted">Assign roles, remove access, play God — responsibly.</p>
+                        <a href="{{ url_for('admin.manage_users') }}" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-people-fill"></i> Manage Users
+                        </a>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 mb-3">
-                <div class="card">
+                <div class="card border-dark h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Analytics</h5>
-                        <p class="card-text text-muted">View search statistics and trends</p>
-                        <button class="btn btn-secondary" disabled>Coming Soon</button>
+                        <h5 class="card-title"><i class="bi bi-graph-up-arrow"></i> Search Analytics</h5>
+                        <p class="card-text text-muted">Who’s looking up who, how often, and whether it’s creepy.</p>
+                        <button class="btn btn-outline-secondary w-100" disabled>Also Coming Soon</button>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 mb-3">
-                <div class="card">
+                <div class="card border-dark h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Configuration</h5>
-                        <p class="card-text text-muted">System settings and preferences</p>
-                        <button class="btn btn-secondary" disabled>Coming Soon</button>
+                        <h5 class="card-title"><i class="bi bi-sliders"></i> Configuration</h5>
+                        <p class="card-text text-muted">Toggle settings you’ll probably forget you changed.</p>
+                        <button class="btn btn-outline-secondary w-100" disabled>Future Feature</button>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 mb-3">
-                <div class="card">
+                <div class="card border-dark h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Database</h5>
-                        <p class="card-text text-muted">Database operations and maintenance</p>
-                        <button class="btn btn-secondary" disabled>Coming Soon</button>
+                        <h5 class="card-title"><i class="bi bi-database-fill-gear"></i> Database</h5>
+                        <p class="card-text text-muted">Break everything in three clicks or less. Please don't.</p>
+                        <button class="btn btn-outline-secondary w-100" disabled>Brace Yourself</button>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div class="text-center text-muted mt-4">
+            <small><i class="bi bi-emoji-wink"></i> All actions will eventually be logged... probably.</small>
         </div>
     </div>
 </div>

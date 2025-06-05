@@ -6,35 +6,45 @@
 <div class="row">
     <div class="col-lg-8 mx-auto">
         <div class="text-center mb-5">
-            <h1 class="display-4">Welcome to Who Dis?</h1>
-            <p class="lead">Your comprehensive identity lookup service</p>
+            <img src="{{ url_for('static', filename='img/product_image_whitebg.png') }}" alt="Who Dis? Logo"
+                class="img-fluid mb-4" style="max-width: 300px;">
+            <h1 class="display-4 fw-bold">Welcome to Who Dis?</h1>
+            <p class="lead text-muted">The internal identity lookup tool you didn’t know you needed — and probably still
+                don’t deserve.</p>
         </div>
-        
-        <div class="card">
+
+        <div class="card border-primary shadow-sm">
             <div class="card-body">
-                <h5 class="card-title">Get Started</h5>
-                <p class="card-text">Use our powerful search tools to find information quickly and efficiently.</p>
-                <a href="{{ url_for('search.index') }}" class="btn btn-primary">Start Searching</a>
+                <h5 class="card-title"><i class="bi bi-search"></i> Get Started</h5>
+                <p class="card-text">Stop asking around. Click the button. Find the person. Pretend you knew all along.
+                </p>
+                <a href="{{ url_for('search.index') }}" class="btn btn-primary btn-lg w-100">Start Searching <i
+                        class="bi bi-arrow-right-circle ms-1"></i></a>
             </div>
         </div>
-        
+
         <div class="row mt-4">
             <div class="col-md-6">
-                <div class="card">
+                <div class="card h-100 border-secondary">
                     <div class="card-body">
                         <h5 class="card-title">Quick Search</h5>
-                        <p class="card-text">Find what you're looking for with our intuitive search interface.</p>
+                        <p class="card-text">Type a name. Hit enter. Boom — identity acquired. Hacker skills not
+                            required.</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card">
+            <div class="col-md-6 mt-3 mt-md-0">
+                <div class="card h-100 border-secondary">
                     <div class="card-body">
                         <h5 class="card-title">Comprehensive Results</h5>
-                        <p class="card-text">Get detailed information from multiple reliable sources.</p>
+                        <p class="card-text">Get AD and Genesys details in one place. No more tab-switching panic.</p>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div class="text-center text-muted mt-5">
+            <small><i class="bi bi-shield-lock-fill"></i> All actions are logged. So behave.</small>
         </div>
     </div>
 </div>

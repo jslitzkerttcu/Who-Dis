@@ -6,389 +6,862 @@
 <div class="row">
     <div class="col-lg-10 mx-auto">
         <h1 class="mb-4">User Search</h1>
-        
+        <p class="text-muted fst-italic mb-4">Go ahead, type in a name. Let’s see who’s who in this digital zoo.</p>
+
         <form id="searchForm" class="mb-5">
             <div class="input-group">
-                <input type="text" class="form-control form-control-lg" id="searchInput" 
-                       placeholder="Enter username or email address..." 
-                       autofocus>
-                <button class="btn btn-primary btn-lg" type="submit">Search</button>
+                <input type="text" class="form-control form-control-lg" id="searchInput"
+                    placeholder="Enter username or email (we won’t judge typos… much)" minlength="3" required autofocus>
+                <button class="btn btn-lg text-dark" style="background-color: #f2c655; border-color: #f2c655;" type="submit"><i class="bi bi-search"></i> Search</button>
             </div>
         </form>
-        
+
         <div id="loadingSpinner" class="text-center d-none">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            <p class="mt-2">Searching...</p>
+            <p class="mt-2">Summoning data goblins...</p>
         </div>
-        
+
         <div id="searchResults" class="d-none">
             <h3 class="mb-3">Search Results</h3>
             <div class="row">
                 <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0">Active Directory</h5>
+                    <div class="card h-100 border-success">
+                        <div class="card-header text-white bg-success">
+                            <h5 class="mb-0">Azure AD (a.k.a. The Corporate Truth)</h5>
                         </div>
-                        <div class="card-body" id="ldapResults">
+                        <div class="card-body" id="azureADResults">
+                            <!-- Magic goes here -->
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0">Genesys Cloud</h5>
+                    <div class="card h-100 border-warning">
+                        <div class="card-header text-white" style="background-color: #FF4F1F;">
+                            <h5 class="mb-0">Genesys Cloud (where voices live)</h5>
                         </div>
                         <div class="card-body" id="genesysResults">
+                            <!-- And here too -->
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <div id="noResults" class="alert alert-info d-none">
-            No results found. Please try a different search term.
+            Nada. Zip. Nothing matched your search. Try again with fewer typos or better vibes.
         </div>
-        
+
         <div id="errorMessage" class="alert alert-danger d-none">
-            An error occurred while searching. Please try again.
+            Something broke. Probably not your fault... but we’re logging it anyway.
         </div>
     </div>
 </div>
 
 <script>
-document.getElementById('searchForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const searchTerm = document.getElementById('searchInput').value.trim();
-    if (!searchTerm) return;
-    
-    document.getElementById('searchResults').classList.add('d-none');
-    document.getElementById('noResults').classList.add('d-none');
-    document.getElementById('errorMessage').classList.add('d-none');
-    document.getElementById('loadingSpinner').classList.remove('d-none');
-    
-    try {
-        const response = await fetch('/search/user', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ search_term: searchTerm })
-        });
+    // Format phone numbers consistently
+    function formatPhoneNumber(phone) {
+        if (!phone) return phone;
+
+        // Remove all non-digits
+        const cleaned = phone.replace(/\D/g, '');
+
+        // If it's a 4-digit extension, leave it as is
+        if (cleaned.length === 4) {
+            return cleaned;
+        }
+
+        // Handle 10-digit numbers (add US country code)
+        if (cleaned.length === 10) {
+            return `+1 ${cleaned.substr(0, 3)}-${cleaned.substr(3, 3)}-${cleaned.substr(6, 4)}`;
+        }
+
+        // Handle 11-digit numbers starting with 1
+        if (cleaned.length === 11 && cleaned.startsWith('1')) {
+            return `+1 ${cleaned.substr(1, 3)}-${cleaned.substr(4, 3)}-${cleaned.substr(7, 4)}`;
+        }
+
+        // Handle numbers that already have country code
+        if (cleaned.length === 11) {
+            return `+${cleaned.substr(0, 1)} ${cleaned.substr(1, 3)}-${cleaned.substr(4, 3)}-${cleaned.substr(7, 4)}`;
+        }
+
+        // For any other format, try to parse what we can
+        if (cleaned.length > 10) {
+            const countryCode = cleaned.substr(0, cleaned.length - 10);
+            const areaCode = cleaned.substr(-10, 3);
+            const prefix = cleaned.substr(-7, 3);
+            const lineNumber = cleaned.substr(-4, 4);
+            return `+${countryCode} ${areaCode}-${prefix}-${lineNumber}`;
+        }
+
+        // Return original if we can't format it
+        return phone;
+    }
+
+    function formatDateInfo(dateValue, label, showDaysInfo = true) {
+        if (!dateValue) return null;
+
+        const date = new Date(dateValue);
+        const now = new Date();
+
+        // Format date as M/D/YYYY
+        const dateStr = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+
+        // Format time in 24-hour format without seconds
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const timeStr = `${hours}:${minutes}`;
+
+        // Calculate days difference
+        let daysInfo = '';
+        let daysClass = '';
+        if (showDaysInfo) {
+            const daysDiff = Math.floor((date - now) / (1000 * 60 * 60 * 24));
+            if (daysDiff < 0) {
+                daysInfo = `${Math.abs(daysDiff)} days ago`;
+            } else if (daysDiff === 0) {
+                daysInfo = 'Today';
+            } else {
+                daysInfo = `in ${daysDiff} days`;
+                // Add color classes for expiration warnings
+                if (label.includes('Expires')) {
+                    if (daysDiff < 7) daysClass = 'text-danger';
+                    else if (daysDiff < 30) daysClass = 'text-warning';
+                }
+            }
+        }
+
+        return { label, dateStr, timeStr, daysInfo, daysClass };
+    }
+
+    document.getElementById('searchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const searchTerm = document.getElementById('searchInput').value.trim();
+        if (!searchTerm || searchTerm.length < 3) {
+            alert('Please enter at least 3 characters to search.');
+            return;
+        }
+
+        document.getElementById('searchResults').classList.add('d-none');
+        document.getElementById('noResults').classList.add('d-none');
+        document.getElementById('errorMessage').classList.add('d-none');
+        document.getElementById('loadingSpinner').classList.remove('d-none');
+
+        try {
+            const response = await fetch('/search/user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ search_term: searchTerm })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Handle timeout specifically
+                if (response.status === 408 || data.error === 'search_timeout') {
+                    document.getElementById('errorMessage').innerHTML = data.message || 'Search timed out. Please try a more specific search term.';
+                    document.getElementById('errorMessage').classList.remove('d-none');
+                    return;
+                }
+                throw new Error(data.error || 'Search failed');
+            }
+
+            displayResults(data);
+
+        } catch (error) {
+            console.error('Search error:', error);
+            document.getElementById('errorMessage').classList.remove('d-none');
+        } finally {
+            document.getElementById('loadingSpinner').classList.add('d-none');
+        }
+    });
+
+    function displayResults(data) {
+        const hasAzureADResults = data.azureAD !== null && !data.azureAD_error;
+        const hasGenesysResults = data.genesys !== null && !data.genesys_error;
+
+        if (!hasAzureADResults && !hasGenesysResults && !data.genesys_error && !data.azureAD_error) {
+            document.getElementById('noResults').classList.remove('d-none');
+            return;
+        }
+
+        // Handle Azure AD (combined LDAP + Graph) results or errors
+        if (data.azureAD_error) {
+            document.getElementById('azureADResults').innerHTML = `<div class="alert alert-warning">${data.azureAD_error}</div>`;
+        } else if (data.azureAD_multiple && data.azureAD) {
+            document.getElementById('azureADResults').innerHTML = formatAzureADMultipleResults(data.azureAD);
+        } else {
+            document.getElementById('azureADResults').innerHTML = formatAzureADResults(data.azureAD);
+        }
+
+        // Handle Genesys results
+        if (data.genesys_error) {
+            document.getElementById('genesysResults').innerHTML = `<div class="alert alert-warning">${data.genesys_error}</div>`;
+        } else if (data.genesys_multiple && data.genesys) {
+            document.getElementById('genesysResults').innerHTML = formatGenesysMultipleResults(data.genesys);
+        } else {
+            document.getElementById('genesysResults').innerHTML = formatGenesysResults(data.genesys);
+        }
+
+        document.getElementById('searchResults').classList.remove('d-none');
+    }
+
+    function formatAzureADResults(user) {
+        if (!user) {
+            return '<p class="text-muted">No user found in Azure AD</p>';
+        }
+
+        // Debug logging
+        console.log('Azure AD user data:', user);
+
+        let html = '';
+
+        // Top section with profile image and status
+        html += '<div class="position-relative mb-3">';
         
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || 'Search failed');
+        // Profile image centered
+        if (user.thumbnailPhoto) {
+            html += '<div class="text-center">';
+            html += `<img src="${user.thumbnailPhoto}" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;" alt="Profile">`;
+            html += '</div>';
         }
         
-        displayResults(data);
+        // Status indicator positioned absolutely in top right
+        if (user.enabled !== undefined) {
+            html += '<div class="position-absolute top-0 end-0" style="min-width: 120px;">';
+            html += '<div class="mb-1 text-end">';
+            if (user.enabled) {
+                html += '<span class="badge bg-success" style="font-size: 0.875rem;">Enabled</span>';
+            } else {
+                html += '<span class="badge bg-danger" style="font-size: 0.875rem;">Disabled</span>';
+            }
+            html += '</div>';
+            html += '<div class="text-end">';
+            if (user.locked) {
+                html += '<span class="badge bg-warning text-dark" style="font-size: 0.875rem;">Locked</span>';
+            } else {
+                html += '<span class="badge bg-info" style="font-size: 0.875rem;">Not Locked</span>';
+            }
+            html += '</div>';
+            html += '</div>';
+        }
         
-    } catch (error) {
-        console.error('Search error:', error);
-        document.getElementById('errorMessage').classList.remove('d-none');
-    } finally {
-        document.getElementById('loadingSpinner').classList.add('d-none');
-    }
-});
-
-function displayResults(data) {
-    const hasLdapResults = data.ldap !== null;
-    const hasGenesysResults = data.genesys !== null;
-    
-    if (!hasLdapResults && !hasGenesysResults) {
-        document.getElementById('noResults').classList.remove('d-none');
-        return;
-    }
-    
-    document.getElementById('ldapResults').innerHTML = formatLdapResults(data.ldap);
-    document.getElementById('genesysResults').innerHTML = formatGenesysResults(data.genesys);
-    document.getElementById('searchResults').classList.remove('d-none');
-}
-
-function formatLdapResults(user) {
-    if (!user) {
-        return '<p class="text-muted">No user found in Active Directory</p>';
-    }
-    
-    let html = '';
-    
-    // Profile image
-    if (user.thumbnailPhoto) {
-        html += '<div class="text-center mb-3">';
-        html += `<img src="${user.thumbnailPhoto}" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;" alt="Profile">`;
         html += '</div>';
-    }
-    
-    html += '<dl class="row mb-0">';
-    
-    // Name
-    if (user.displayName) {
-        html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8">${user.displayName}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Email
-    if (user.mail) {
-        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8">${user.mail}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Username
-    if (user.sAMAccountName) {
-        html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8">${user.sAMAccountName}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Employee ID
-    if (user.employeeID) {
-        html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8">${user.employeeID}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Department
-    if (user.department) {
-        html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8">${user.department}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Title
-    if (user.title) {
-        html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8">${user.title}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Manager
-    if (user.manager) {
-        html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8">${user.manager}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Status - show enabled/disabled and locked status
-    html += `<dt class="col-sm-4">Status:</dt><dd class="col-sm-8">`;
-    if (user.enabled !== undefined) {
-        if (user.enabled) {
-            html += `<span class="badge bg-success">Enabled</span> `;
-        } else {
-            html += `<span class="badge bg-danger">Disabled</span> `;
-        }
-        
-        if (user.locked) {
-            html += `<span class="badge bg-warning text-dark">Locked</span>`;
-        } else {
-            html += `<span class="badge bg-info">Not Locked</span>`;
-        }
-    } else {
-        html += `<span class="text-muted">-</span>`;
-    }
-    html += `</dd>`;
-    
-    // Phone Numbers
-    html += `<dt class="col-sm-4">Phone Numbers:</dt><dd class="col-sm-8">`;
-    const hasPhones = (user.phoneNumbers && Object.keys(user.phoneNumbers).length > 0) || user.extension;
-    
-    if (hasPhones) {
-        if (user.phoneNumbers) {
-            // Display Genesys number if exists
-            if (user.phoneNumbers.genesys) {
-                html += `<strong>Office:</strong> ${user.phoneNumbers.genesys} <span class="badge bg-success">Genesys</span><br>`;
-            }
-            // Display Teams number if exists
-            if (user.phoneNumbers.teams) {
-                html += `<strong>Office:</strong> ${user.phoneNumbers.teams} <span class="badge bg-primary">Teams</span><br>`;
-            }
-        }
-        // Display extension
-        if (user.extension) {
-            html += `<strong>Extension:</strong> ${user.extension}`;
-        }
-    } else {
-        html += `<span class="text-muted">-</span>`;
-    }
-    html += `</dd>`;
-    
-    html += '</dl>';
-    
-    // Groups section at the bottom
-    if (user.groupMembership && user.groupMembership.length > 0) {
-        const groupId = 'ldap-groups-' + Math.random().toString(36).substr(2, 9);
-        html += '<hr class="my-3">';
-        html += '<div class="groups-section">';
-        html += `<h6>AD Groups (${user.groupMembership.length}) `;
-        html += `<a href="#" onclick="toggleGroups('${groupId}'); return false;" class="text-decoration-none">`;
-        html += `<small id="${groupId}-toggle">[Show]</small></a></h6>`;
-        html += `<div id="${groupId}" class="mt-2" style="display: none;">`;
-        html += '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px;">';
-        html += '<ul class="list-unstyled mb-0">';
-        user.groupMembership.forEach(group => {
-            html += `<li><small>${group}</small></li>`;
-        });
-        html += '</ul></div></div></div>';
-    }
-    return html;
-}
 
-function formatGenesysResults(user) {
-    if (!user) {
-        return '<p class="text-muted">No user found in Genesys Cloud</p>';
-    }
-    
-    // Debug log to check what we're getting
-    console.log('Genesys user data:', user);
-    if (user.skills) {
-        console.log('Skills:', user.skills);
-    }
-    if (user.queues) {
-        console.log('Queues:', user.queues);
-    }
-    
-    let html = '<dl class="row mb-0">';
-    
-    // Name
-    if (user.name) {
-        html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8">${user.name}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Email
-    if (user.email) {
-        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8">${user.email}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Username
-    if (user.username) {
-        html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8">${user.username}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Employee ID - placeholder for alignment
-    html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    
-    // Department
-    if (user.department) {
-        html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8">${user.department}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Title
-    if (user.title) {
-        html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8">${user.title}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Manager
-    if (user.manager) {
-        html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8">${user.manager}</dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Status
-    if (user.state) {
-        html += `<dt class="col-sm-4">Status:</dt><dd class="col-sm-8"><span class="badge ${user.state === 'active' ? 'bg-success' : 'bg-secondary'}">${user.state}</span></dd>`;
-    } else {
-        html += `<dt class="col-sm-4">Status:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
-    }
-    
-    // Phone Numbers
-    if (user.phoneNumbers && Object.keys(user.phoneNumbers).length > 0) {
+        html += '<dl class="row mb-0">';
+
+        // Name
+        if (user.displayName) {
+            html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8">${user.displayName}`;
+            // Add first/last name if available
+            if (user.givenName || user.surname) {
+                html += ' <small class="text-muted">(';
+                if (user.givenName) html += user.givenName;
+                if (user.givenName && user.surname) html += ' ';
+                if (user.surname) html += user.surname;
+                html += ')</small>';
+            }
+            html += `</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Email
+        if (user.mail) {
+            html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8">${user.mail}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Username / UPN
+        if (user.sAMAccountName || user.userPrincipalName) {
+            html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8">`;
+            if (user.sAMAccountName) {
+                html += user.sAMAccountName;
+            }
+            if (user.userPrincipalName && user.userPrincipalName !== user.mail) {
+                if (user.sAMAccountName) html += '<br>';
+                html += `<small class="text-muted">UPN: ${user.userPrincipalName}</small>`;
+            }
+            html += `</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Employee ID
+        if (user.employeeID) {
+            html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8">${user.employeeID}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Department
+        if (user.department) {
+            html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8">${user.department}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Title
+        if (user.title) {
+            html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8">${user.title}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Employee Type (from Graph)
+        if (user.employeeType) {
+            html += `<dt class="col-sm-4">Employee Type:</dt><dd class="col-sm-8">${user.employeeType}</dd>`;
+        }
+
+        // Manager
+        if (user.manager) {
+            html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8">${user.manager}`;
+            if (user.managerEmail) {
+                html += ` <small class="text-muted">(${user.managerEmail})</small>`;
+            }
+            html += `</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Office Location (from Graph)
+        if (user.officeLocation) {
+            html += `<dt class="col-sm-4">Office:</dt><dd class="col-sm-8">${user.officeLocation}</dd>`;
+        }
+
+        // Company (from Graph)
+        if (user.companyName) {
+            html += `<dt class="col-sm-4">Company:</dt><dd class="col-sm-8">${user.companyName}</dd>`;
+        }
+
+
+        // Phone Numbers
         html += `<dt class="col-sm-4">Phone Numbers:</dt><dd class="col-sm-8">`;
-        const phoneDisplay = {};
-        
-        // Deduplicate and format phone numbers
-        for (const [type, number] of Object.entries(user.phoneNumbers)) {
-            // Skip duplicates
-            if (!Object.values(phoneDisplay).includes(number)) {
-                let label = '';
-                if (type === 'primary') label = 'Primary';
-                else if (type === 'work') label = 'Work';
-                else if (type === 'work2_ext') label = 'Extension';
-                else if (type === 'work3') label = 'Work 3';
-                else label = type.charAt(0).toUpperCase() + type.slice(1);
-                
-                phoneDisplay[type] = number;
-                html += `<strong>${label}:</strong> ${number}<br>`;
+        const hasPhones = (user.phoneNumbers && Object.keys(user.phoneNumbers).length > 0) || user.extension;
+
+        if (hasPhones) {
+            if (user.phoneNumbers) {
+                // Display mobile number if exists
+                if (user.phoneNumbers.mobile) {
+                    html += `<strong>Mobile:</strong> ${formatPhoneNumber(user.phoneNumbers.mobile)}<br>`;
+                }
+                // Display business number if exists
+                if (user.phoneNumbers.business) {
+                    html += `<strong>Business:</strong> ${formatPhoneNumber(user.phoneNumbers.business)}<br>`;
+                }
+                // Display Genesys number if exists
+                if (user.phoneNumbers.genesys) {
+                    html += `<strong>Office:</strong> ${formatPhoneNumber(user.phoneNumbers.genesys)} <span class="badge" style="background-color: #FF4F1F;">Genesys</span><br>`;
+                }
+                // Display Teams number if exists
+                if (user.phoneNumbers.teams) {
+                    html += `<strong>Office:</strong> ${formatPhoneNumber(user.phoneNumbers.teams)} <span class="badge" style="background-color: #4f42b5;">Teams</span><br>`;
+                }
             }
+            // Display extension
+            if (user.extension) {
+                html += `<strong>Extension:</strong> ${formatPhoneNumber(user.extension)}`;
+            }
+        } else {
+            html += `<span class="text-muted">-</span>`;
         }
-        html += '</dd>';
-    } else {
-        html += `<dt class="col-sm-4">Phone Numbers:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        html += `</dd>`;
+
+        html += '</dl>';
+
+        // Address (from Graph)
+        if (user.address && Object.values(user.address).some(v => v)) {
+            html += '<hr class="my-3">';
+            html += '<div class="mb-3">';
+            html += '<h6>Address</h6>';
+            html += '<address class="mb-0">';
+            if (user.address.street) html += `${user.address.street}<br>`;
+            if (user.address.city || user.address.state || user.address.postalCode) {
+                html += `${user.address.city || ''}${user.address.city && user.address.state ? ', ' : ''}${user.address.state || ''} ${user.address.postalCode || ''}<br>`;
+            }
+            if (user.address.country) html += user.address.country;
+            html += '</address>';
+            html += '</div>';
+        }
+
+        // Account info (from Graph and LDAP) - moved up before Groups
+        if (user.enabled !== undefined || user.lastPasswordChangeDateTime || user.createdDateTime || user.employeeHireDate || user.refreshTokensValidFromDateTime || user.signInSessionsValidFromDateTime || user.dateOfBirth || user.pwdLastSet || user.pwdExpires) {
+            html += '<hr class="my-3">';
+            html += '<div class="mb-3">';
+            html += '<h6>Account Information</h6>';
+
+            // Create array of date fields to display
+            const dateFields = [];
+
+            if (user.createdDateTime) {
+                dateFields.push(formatDateInfo(user.createdDateTime, 'Account Created', true));
+            }
+            if (user.employeeHireDate) {
+                dateFields.push(formatDateInfo(user.employeeHireDate, 'Hire Date', false));
+            }
+            if (user.dateOfBirth) {
+                dateFields.push(formatDateInfo(user.dateOfBirth, 'Birth Date', false));
+            }
+
+            // Password last changed (prioritize LDAP pwdLastSet over Graph lastPasswordChangeDateTime)
+            if (user.pwdLastSet || user.lastPasswordChangeDateTime) {
+                dateFields.push(formatDateInfo(user.pwdLastSet || user.lastPasswordChangeDateTime, 'Password Changed'));
+            }
+
+            // Password expiration
+            if (user.pwdExpires) {
+                dateFields.push(formatDateInfo(user.pwdExpires, 'Password Expires'));
+            }
+
+            if (user.refreshTokensValidFromDateTime) {
+                dateFields.push(formatDateInfo(user.refreshTokensValidFromDateTime, 'Last Token Refresh'));
+            }
+            if (user.signInSessionsValidFromDateTime) {
+                dateFields.push(formatDateInfo(user.signInSessionsValidFromDateTime, 'Sign-in Sessions Valid From'));
+            }
+            if (user.onPremisesLastSyncDateTime) {
+                dateFields.push(formatDateInfo(user.onPremisesLastSyncDateTime, 'Last AD Sync'));
+            }
+
+            // Display as a table for proper alignment
+            if (dateFields.length > 0) {
+                html += '<table class="table table-sm table-borderless mb-0" style="font-size: 0.875rem;">';
+                html += '<tbody>';
+
+                dateFields.forEach(field => {
+                    if (field) {
+                        html += '<tr>';
+                        html += `<td style="width: 40%; padding: 2px 0;"><strong>${field.label}:</strong></td>`;
+                        html += `<td style="width: 20%; padding: 2px 0;">${field.dateStr}</td>`;
+                        html += `<td style="width: 15%; padding: 2px 0;">${field.timeStr}</td>`;
+                        html += `<td style="width: 25%; text-align: right; padding: 2px 0;" class="${field.daysClass}">${field.daysInfo}</td>`;
+                        html += '</tr>';
+                    }
+                });
+
+                html += '</tbody>';
+                html += '</table>';
+            }
+
+            if (user.passwordPolicies) {
+                html += `<small><strong>Password Policy:</strong> ${user.passwordPolicies}</small>`;
+            }
+            html += '</div>';
+        }
+
+        // Groups section - moved to the bottom
+        if (user.groupMembership && user.groupMembership.length > 0) {
+            const groupId = 'ldap-groups-' + Math.random().toString(36).substr(2, 9);
+            html += '<hr class="my-3">';
+            html += '<div class="groups-section">';
+            html += `<h6>AD Groups (${user.groupMembership.length}) `;
+            html += `<a href="#" onclick="toggleGroups('${groupId}'); return false;" class="text-decoration-none">`;
+            html += `<small id="${groupId}-toggle">[Show]</small></a></h6>`;
+            html += `<div id="${groupId}" class="mt-2" style="display: none;">`;
+            html += '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px;">';
+            html += '<ul class="list-unstyled mb-0">';
+            user.groupMembership.forEach(group => {
+                html += `<li><small>${group}</small></li>`;
+            });
+            html += '</ul></div></div></div>';
+        }
+
+        // Data source indicator
+        if (user.hasGraphData) {
+            html += '<div class="text-center mt-3">';
+            html += '<small class="text-muted">Data from Active Directory + Microsoft Graph</small>';
+            html += '</div>';
+        }
+
+        return html;
     }
-    
-    html += '</dl>';
-    
-    // Skills section (moved up, before groups)
-    if (user.skills && user.skills.length > 0) {
-        html += '<hr class="my-3">';
-        html += '<div class="mb-3">';
-        html += '<h6>Skills</h6>';
-        html += '<div>';
-        user.skills.forEach(skill => {
-            const skillName = typeof skill === 'string' ? skill : (skill.name || skill);
-            html += `<span class="badge bg-info me-1 mb-1">${skillName}</span>`;
+
+    function formatGenesysResults(user) {
+        if (!user) {
+            return '<p class="text-muted">No user found in Genesys Cloud</p>';
+        }
+
+        // Debug log to check what we're getting
+        console.log('Genesys user data:', user);
+        if (user.skills) {
+        }
+
+        let html = '';
+
+        // Profile image
+        if (user.profileImage) {
+            html += '<div class="text-center mb-3">';
+            html += `<img src="${user.profileImage}" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;" alt="Profile">`;
+            html += '</div>';
+        }
+
+        html += '<dl class="row mb-0">';
+
+        // Name
+        if (user.name) {
+            html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8">${user.name}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Name:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Email
+        if (user.email) {
+            html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8">${user.email}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Username
+        if (user.username) {
+            html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8">${user.username}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Username:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Department
+        if (user.department) {
+            html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8">${user.department}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Department:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Title
+        if (user.title) {
+            html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8">${user.title}</dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Title:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Status
+        if (user.state) {
+            html += `<dt class="col-sm-4">Status:</dt><dd class="col-sm-8"><span class="badge ${user.state === 'active' ? 'bg-success' : 'bg-secondary'}">${user.state}</span></dd>`;
+        } else {
+            html += `<dt class="col-sm-4">Status:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        // Last Login
+        if (user.dateLastLogin) {
+            const loginDate = new Date(user.dateLastLogin);
+            html += `<dt class="col-sm-4">Last Login:</dt><dd class="col-sm-8">${loginDate.toLocaleDateString()} ${loginDate.toLocaleTimeString()}</dd>`;
+        }
+
+        // Phone Numbers
+        if (user.phoneNumbers && Object.keys(user.phoneNumbers).length > 0) {
+            html += `<dt class="col-sm-4">Phone Numbers:</dt><dd class="col-sm-8">`;
+            const phoneDisplay = {};
+
+            // Deduplicate and format phone numbers
+            for (const [type, number] of Object.entries(user.phoneNumbers)) {
+                // Skip duplicates
+                if (!Object.values(phoneDisplay).includes(number)) {
+                    let label = '';
+                    if (type === 'primary') label = 'Primary';
+                    else if (type === 'work') label = 'Work';
+                    else if (type === 'work2_ext') label = 'Extension';
+                    else if (type === 'work3') label = 'Work 3';
+                    else label = type.charAt(0).toUpperCase() + type.slice(1);
+
+                    phoneDisplay[type] = number;
+                    html += `<strong>${label}:</strong> ${formatPhoneNumber(number)}<br>`;
+                }
+            }
+            html += '</dd>';
+        } else {
+            html += `<dt class="col-sm-4">Phone Numbers:</dt><dd class="col-sm-8"><span class="text-muted">-</span></dd>`;
+        }
+
+        html += '</dl>';
+
+        // Skills section (moved up, before groups)
+        if (user.skills && user.skills.length > 0) {
+            html += '<hr class="my-3">';
+            html += '<div class="mb-3">';
+            html += '<h6>Skills</h6>';
+            html += '<div>';
+            user.skills.forEach(skill => {
+                const skillName = typeof skill === 'string' ? skill : (skill.name || skill);
+                html += `<span class="badge bg-info me-1 mb-1">${skillName}</span>`;
+            });
+            html += '</div>';
+            html += '</div>';
+        }
+
+        // Queues section
+        if (user.queues && user.queues.length > 0) {
+            html += '<div class="mb-3">';
+            html += '<h6>Queues</h6>';
+            html += '<div>';
+            user.queues.forEach(queue => {
+                const queueName = typeof queue === 'string' ? queue : (queue.name || queue);
+                html += `<span class="badge bg-warning text-dark me-1 mb-1">${queueName}</span>`;
+            });
+            html += '</div>';
+            html += '</div>';
+        }
+
+        // Locations section
+        if (user.locations && user.locations.length > 0) {
+            html += '<div class="mb-3">';
+            html += '<h6>Locations</h6>';
+            html += '<div>';
+            user.locations.forEach(location => {
+                const locationName = typeof location === 'string' ? location : (location.name || location);
+                html += `<span class="badge bg-secondary me-1 mb-1">${locationName}</span>`;
+            });
+            html += '</div>';
+            html += '</div>';
+        }
+
+        // Groups section at the bottom
+        if (user.groups && user.groups.length > 0) {
+            const groupId = 'genesys-groups-' + Math.random().toString(36).substr(2, 9);
+            html += '<hr class="my-3">';
+            html += '<div class="groups-section">';
+            html += `<h6>Genesys Groups (${user.groups.length}) `;
+            html += `<a href="#" onclick="toggleGroups('${groupId}'); return false;" class="text-decoration-none">`;
+            html += `<small id="${groupId}-toggle">[Show]</small></a></h6>`;
+            html += `<div id="${groupId}" class="mt-2" style="display: none;">`;
+            html += '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px;">';
+            html += '<ul class="list-unstyled mb-0">';
+            user.groups.forEach(group => {
+                html += `<li><small>${group}</small></li>`;
+            });
+            html += '</ul>';
+            html += '</div></div></div>';
+        }
+
+        return html;
+    }
+    function formatAzureADMultipleResults(data) {
+        if (!data || !data.results) {
+            return '<p class="text-muted">No results found</p>';
+        }
+
+        let html = '<div class="alert alert-info mb-3">Multiple users found. Please select one:</div>';
+        html += '<div class="list-group">';
+
+        // Handle combined LDAP and Graph results
+        if (data.ldap_results && data.graph_results) {
+            html += '<h6 class="text-muted px-3 mt-2">From Active Directory:</h6>';
+            data.ldap_results.forEach((user, index) => {
+                html += `<a href="#" class="list-group-item list-group-item-action" onclick="selectLdapUser('${encodeURIComponent(user.dn)}'); return false;">`;
+                html += '<div class="d-flex justify-content-between align-items-center">';
+                html += '<div>';
+                html += `<h6 class="mb-1">${user.displayName || user.sAMAccountName || 'Unknown'}</h6>`;
+                html += `<small class="text-muted">${user.mail || ''}</small><br>`;
+                if (user.department) html += `<small class="text-muted">Dept: ${user.department}</small><br>`;
+                if (user.title) html += `<small class="text-muted">Title: ${user.title}</small>`;
+                html += '</div>';
+                html += '<i class="bi bi-chevron-right"></i>';
+                html += '</div>';
+                html += '</a>';
+            });
+
+            html += '<h6 class="text-muted px-3 mt-3">From Microsoft Graph:</h6>';
+            data.graph_results.forEach((user, index) => {
+                html += `<a href="#" class="list-group-item list-group-item-action" onclick="selectGraphUser('${user.id}'); return false;">`;
+                html += '<div class="d-flex justify-content-between align-items-center">';
+                html += '<div>';
+                html += `<h6 class="mb-1">${user.displayName || 'Unknown'}</h6>`;
+                html += `<small class="text-muted">${user.mail || user.userPrincipalName || ''}</small><br>`;
+                if (user.department) html += `<small class="text-muted">Dept: ${user.department}</small><br>`;
+                if (user.jobTitle) html += `<small class="text-muted">Title: ${user.jobTitle}</small>`;
+                html += '</div>';
+                html += '<i class="bi bi-chevron-right"></i>';
+                html += '</div>';
+                html += '</a>';
+            });
+        } else if (data.results) {
+            // Single source results (either LDAP or Graph)
+            data.results.forEach((user, index) => {
+                // Determine if this is LDAP or Graph data
+                if (user.dn) {
+                    // LDAP result
+                    html += `<a href="#" class="list-group-item list-group-item-action" onclick="selectLdapUser('${encodeURIComponent(user.dn)}'); return false;">`;
+                } else if (user.id) {
+                    // Graph result
+                    html += `<a href="#" class="list-group-item list-group-item-action" onclick="selectGraphUser('${user.id}'); return false;">`;
+                }
+                html += '<div class="d-flex justify-content-between align-items-center">';
+                html += '<div>';
+                html += `<h6 class="mb-1">${user.displayName || user.sAMAccountName || 'Unknown'}</h6>`;
+                html += `<small class="text-muted">${user.mail || user.userPrincipalName || ''}</small><br>`;
+                if (user.department) html += `<small class="text-muted">Dept: ${user.department}</small><br>`;
+                if (user.title || user.jobTitle) html += `<small class="text-muted">Title: ${user.title || user.jobTitle}</small>`;
+                html += '</div>';
+                html += '<i class="bi bi-chevron-right"></i>';
+                html += '</div>';
+                html += '</a>';
+            });
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function formatGenesysMultipleResults(data) {
+        if (!data || !data.results) {
+            return '<p class="text-muted">No results found</p>';
+        }
+
+        let html = '<div class="alert alert-info mb-3">Multiple users found. Please select one:</div>';
+        html += '<div class="list-group">';
+
+        data.results.forEach((user, index) => {
+            html += `<a href="#" class="list-group-item list-group-item-action" onclick="selectGenesysUser('${user.id}'); return false;">`;
+            html += '<div class="d-flex justify-content-between align-items-center">';
+            html += '<div>';
+            html += `<h6 class="mb-1">${user.name || 'Unknown'}</h6>`;
+            html += `<small class="text-muted">${user.email || ''}</small><br>`;
+            if (user.department) html += `<small class="text-muted">Dept: ${user.department}</small><br>`;
+            if (user.title) html += `<small class="text-muted">Title: ${user.title}</small>`;
+            html += '</div>';
+            html += '<i class="bi bi-chevron-right"></i>';
+            html += '</div>';
+            html += '</a>';
         });
+
         html += '</div>';
-        html += '</div>';
+        return html;
     }
-    
-    // Queues section
-    if (user.queues && user.queues.length > 0) {
-        html += '<div class="mb-3">';
-        html += '<h6>Queues</h6>';
-        html += '<div>';
-        user.queues.forEach(queue => {
-            const queueName = typeof queue === 'string' ? queue : (queue.name || queue);
-            html += `<span class="badge bg-warning text-dark me-1 mb-1">${queueName}</span>`;
-        });
-        html += '</div>';
-        html += '</div>';
+
+    async function selectLdapUser(userDn) {
+        // Re-run search with the specific user DN to get full details
+        const searchTerm = document.getElementById('searchInput').value.trim();
+
+        document.getElementById('loadingSpinner').classList.remove('d-none');
+
+        try {
+            const response = await fetch('/search/user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    search_term: searchTerm,
+                    ldap_user_dn: decodeURIComponent(userDn)
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Handle timeout specifically
+                if (response.status === 408 || data.error === 'search_timeout') {
+                    document.getElementById('errorMessage').innerHTML = data.message || 'Search timed out. Please try a more specific search term.';
+                    document.getElementById('errorMessage').classList.remove('d-none');
+                    return;
+                }
+                throw new Error(data.error || 'Search failed');
+            }
+
+            displayResults(data);
+
+        } catch (error) {
+            console.error('Search error:', error);
+            document.getElementById('errorMessage').classList.remove('d-none');
+        } finally {
+            document.getElementById('loadingSpinner').classList.add('d-none');
+        }
     }
-    
-    // Groups section at the bottom
-    if (user.groups && user.groups.length > 0) {
-        const groupId = 'genesys-groups-' + Math.random().toString(36).substr(2, 9);
-        html += '<hr class="my-3">';
-        html += '<div class="groups-section">';
-        html += `<h6>Genesys Groups (${user.groups.length}) `;
-        html += `<a href="#" onclick="toggleGroups('${groupId}'); return false;" class="text-decoration-none">`;
-        html += `<small id="${groupId}-toggle">[Show]</small></a></h6>`;
-        html += `<div id="${groupId}" class="mt-2" style="display: none;">`;
-        html += '<div style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px;">';
-        html += '<ul class="list-unstyled mb-0">';
-        user.groups.forEach(group => {
-            html += `<li><small>${group}</small></li>`;
-        });
-        html += '</ul>';
-        html += '</div></div></div>';
+
+    async function selectGenesysUser(userId) {
+        // Re-run search with the specific user ID to get full details
+        const searchTerm = document.getElementById('searchInput').value.trim();
+
+        document.getElementById('loadingSpinner').classList.remove('d-none');
+
+        try {
+            const response = await fetch('/search/user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    search_term: searchTerm,
+                    genesys_user_id: userId
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Handle timeout specifically
+                if (response.status === 408 || data.error === 'search_timeout') {
+                    document.getElementById('errorMessage').innerHTML = data.message || 'Search timed out. Please try a more specific search term.';
+                    document.getElementById('errorMessage').classList.remove('d-none');
+                    return;
+                }
+                throw new Error(data.error || 'Search failed');
+            }
+
+            displayResults(data);
+
+        } catch (error) {
+            console.error('Search error:', error);
+            document.getElementById('errorMessage').classList.remove('d-none');
+        } finally {
+            document.getElementById('loadingSpinner').classList.add('d-none');
+        }
     }
-    return html;
-}
-function toggleGroups(groupId) {
-    const groupDiv = document.getElementById(groupId);
-    const toggleLink = document.getElementById(groupId + '-toggle');
-    
-    if (groupDiv.style.display === 'none') {
-        groupDiv.style.display = 'block';
-        toggleLink.textContent = '[Hide]';
-    } else {
-        groupDiv.style.display = 'none';
-        toggleLink.textContent = '[Show]';
+
+    async function selectGraphUser(userId) {
+        // Re-run search with the specific user ID to get full details
+        const searchTerm = document.getElementById('searchInput').value.trim();
+
+        document.getElementById('loadingSpinner').classList.remove('d-none');
+
+        try {
+            const response = await fetch('/search/user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    search_term: searchTerm,
+                    graph_user_id: userId
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Handle timeout specifically
+                if (response.status === 408 || data.error === 'search_timeout') {
+                    document.getElementById('errorMessage').innerHTML = data.message || 'Search timed out. Please try a more specific search term.';
+                    document.getElementById('errorMessage').classList.remove('d-none');
+                    return;
+                }
+                throw new Error(data.error || 'Search failed');
+            }
+
+            displayResults(data);
+
+        } catch (error) {
+            console.error('Search error:', error);
+            document.getElementById('errorMessage').classList.remove('d-none');
+        } finally {
+            document.getElementById('loadingSpinner').classList.add('d-none');
+        }
     }
-}
+
+    function toggleGroups(groupId) {
+        const groupDiv = document.getElementById(groupId);
+        const toggleLink = document.getElementById(groupId + '-toggle');
+
+        if (groupDiv.style.display === 'none') {
+            groupDiv.style.display = 'block';
+            toggleLink.textContent = '[Hide]';
+        } else {
+            groupDiv.style.display = 'none';
+            toggleLink.textContent = '[Show]';
+        }
+    }
 </script>
 {% endblock %}

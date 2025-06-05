@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}User Management - Who Dis?{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-person-gear"></i> User Management</h1>
+            <a href="{{ url_for('admin.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Admin
+            </a>
+        </div>
+
+        <div class="alert alert-info shadow-sm" role="alert">
+            <h5 class="alert-heading">With Great Power...</h5>
+            <p>Welcome to the digital kingdom where you bestow and revoke access like a benevolent (or tyrannical) ruler.</p>
+            <p class="mb-0"><strong>Remember:</strong> Every action here directly modifies the .env file. No take-backsies without SSH access.</p>
+        </div>
+
+        <!-- Add User Form -->
+        <div class="card border-primary mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-person-plus"></i> Grant Access to a Mortal</h5>
+            </div>
+            <div class="card-body">
+                <form id="addUserForm" class="row g-3">
+                    <div class="col-md-6">
+                        <input type="email" class="form-control" id="newUserEmail" placeholder="email@example.com" required>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="newUserRole">
+                            <option value="viewer">Viewer (Can look, can't touch)</option>
+                            <option value="editor">Editor (Power without responsibility)</option>
+                            <option value="admin">Admin (Basically a deity)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-plus-circle"></i> Add User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- User List -->
+        <div class="card border-dark">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-people"></i> Current Roster of the Chosen Ones</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Current Role</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                            {% for user in users %}
+                            <tr data-email="{{ user.email }}">
+                                <td>
+                                    <i class="bi bi-person-fill"></i> {{ user.email }}
+                                    {% if user.email == g.user %}
+                                        <span class="badge bg-success ms-2">That's you!</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm role-select" style="width: 200px;">
+                                        <option value="viewer" {% if user.role == 'viewer' %}selected{% endif %}>Viewer</option>
+                                        <option value="editor" {% if user.role == 'editor' %}selected{% endif %}>Editor</option>
+                                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-success update-btn" style="display: none;">
+                                        <i class="bi bi-check-circle"></i> Update
+                                    </button>
+                                    <button class="btn btn-sm btn-danger delete-btn">
+                                        <i class="bi bi-trash"></i> Yeet
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if not users %}
+                    <div class="text-center p-4 text-muted">
+                        <i class="bi bi-emoji-dizzy" style="font-size: 2rem;"></i>
+                        <p>No users found. Did everyone quit?</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center text-muted mt-4">
+            <small><i class="bi bi-shield-exclamation"></i> All changes are immediate and permanent. Choose wisely.</small>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-info-circle-fill me-2"></i>
+            <strong class="me-auto">System Message</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+    
+    function showToast(message, isError = false) {
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = toastEl.querySelector('.toast-body');
+        toastBody.textContent = message;
+        
+        if (isError) {
+            toastEl.classList.add('bg-danger', 'text-white');
+        } else {
+            toastEl.classList.remove('bg-danger', 'text-white');
+        }
+        
+        toast.show();
+    }
+    
+    // Add user form
+    document.getElementById('addUserForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('newUserEmail').value;
+        const role = document.getElementById('newUserRole').value;
+        
+        try {
+            const response = await fetch('/admin/users/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `email=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}`
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(data.message);
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(data.message, true);
+            }
+        } catch (error) {
+            showToast('Failed to add user. The server must be having a moment.', true);
+        }
+    });
+    
+    // Role change detection
+    document.querySelectorAll('.role-select').forEach(select => {
+        const originalValue = select.value;
+        const row = select.closest('tr');
+        const updateBtn = row.querySelector('.update-btn');
+        
+        select.addEventListener('change', function() {
+            if (this.value !== originalValue) {
+                updateBtn.style.display = 'inline-block';
+            } else {
+                updateBtn.style.display = 'none';
+            }
+        });
+    });
+    
+    // Update role
+    document.querySelectorAll('.update-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const row = this.closest('tr');
+            const email = row.dataset.email;
+            const newRole = row.querySelector('.role-select').value;
+            
+            try {
+                const response = await fetch('/admin/users/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `email=${encodeURIComponent(email)}&role=${encodeURIComponent(newRole)}`
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message);
+                    this.style.display = 'none';
+                } else {
+                    showToast(data.message, true);
+                }
+            } catch (error) {
+                showToast('Failed to update user. Mercury must be in retrograde.', true);
+            }
+        });
+    });
+    
+    // Delete user
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const row = this.closest('tr');
+            const email = row.dataset.email;
+            
+            if (!confirm(`Are you sure you want to yeet ${email}? This is permanent!`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/users/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `email=${encodeURIComponent(email)}`
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(data.message);
+                    row.style.transition = 'opacity 0.5s';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 500);
+                } else {
+                    showToast(data.message, true);
+                }
+            } catch (error) {
+                showToast('Failed to delete user. They have plot armor.', true);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
