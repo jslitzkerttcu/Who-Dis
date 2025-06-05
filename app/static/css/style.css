@@ -21,3 +21,73 @@ main {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
+
+/* Custom button styling with #f2c655 background */
+.btn-primary {
+    background-color: #f2c655;
+    border-color: #f2c655;
+    color: #212529;
+}
+
+.btn-primary:hover {
+    background-color: #e6b645;
+    border-color: #e6b645;
+    color: #212529;
+}
+
+.btn-primary:focus,
+.btn-primary:active,
+.btn-primary.active {
+    background-color: #d9a835;
+    border-color: #d9a835;
+    color: #212529;
+    box-shadow: 0 0 0 0.25rem rgba(242, 198, 85, 0.5);
+}
+
+.btn-primary:disabled {
+    background-color: #f2c655;
+    border-color: #f2c655;
+    opacity: 0.65;
+}
+
+/* Custom button class for accent color */
+.btn-accent {
+    background-color: #f2c655;
+    border-color: #f2c655;
+    color: #212529;
+}
+
+.btn-accent:hover {
+    background-color: #e6b645;
+    border-color: #e6b645;
+    color: #212529;
+}
+
+.btn-accent:focus,
+.btn-accent:active {
+    background-color: #d9a835;
+    border-color: #d9a835;
+    color: #212529;
+    box-shadow: 0 0 0 0.25rem rgba(242, 198, 85, 0.5);
+}
+
+/* Update success buttons to use accent color */
+.btn-success {
+    background-color: #f2c655;
+    border-color: #f2c655;
+    color: #212529;
+}
+
+.btn-success:hover {
+    background-color: #e6b645;
+    border-color: #e6b645;
+    color: #212529;
+}
+
+.btn-success:focus,
+.btn-success:active {
+    background-color: #d9a835;
+    border-color: #d9a835;
+    color: #212529;
+    box-shadow: 0 0 0 0.25rem rgba(242, 198, 85, 0.5);
+}
