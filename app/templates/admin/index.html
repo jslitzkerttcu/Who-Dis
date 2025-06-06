@@ -28,9 +28,11 @@
             <div class="col-md-6 mb-3">
                 <div class="card border-dark h-100">
                     <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-graph-up-arrow"></i> Search Analytics</h5>
-                        <p class="card-text text-muted">Who’s looking up who, how often, and whether it’s creepy.</p>
-                        <button class="btn btn-outline-secondary w-100" disabled>Also Coming Soon</button>
+                        <h5 class="card-title"><i class="bi bi-file-text"></i> Audit Logs</h5>
+                        <p class="card-text text-muted">Track searches, access denials, errors, and every questionable decision.</p>
+                        <a href="{{ url_for('admin.audit_logs') }}" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-search"></i> View Audit Logs
+                        </a>
                     </div>
                 </div>
             </div>
@@ -38,7 +40,7 @@
                 <div class="card border-dark h-100">
                     <div class="card-body">
                         <h5 class="card-title"><i class="bi bi-sliders"></i> Configuration</h5>
-                        <p class="card-text text-muted">Toggle settings you’ll probably forget you changed.</p>
+                        <p class="card-text text-muted">Toggle settings you'll probably forget you changed.</p>
                         <button class="btn btn-outline-secondary w-100" disabled>Future Feature</button>
                     </div>
                 </div>
@@ -55,7 +57,7 @@
         </div>
 
         <div class="text-center text-muted mt-4">
-            <small><i class="bi bi-emoji-wink"></i> All actions will eventually be logged... probably.</small>
+            <small><i class="bi bi-emoji-wink"></i> All actions are now being logged. Big Brother is watching.</small>
         </div>
     </div>
 </div>

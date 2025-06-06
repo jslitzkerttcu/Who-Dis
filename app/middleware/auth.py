@@ -98,6 +98,7 @@ def log_access_denied(user_email=None, user_role=None):
     # Log to audit database
     try:
         from app.services.audit_service import audit_service
+
         audit_service.log_access(
             user_email=email_display,
             action="access_denied",

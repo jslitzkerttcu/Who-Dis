@@ -101,10 +101,19 @@ WhoDis is a Flask-based identity lookup service with integrated search across mu
   - `search`: All identity searches with query, results count, services used
   - `access`: Access denials with user, IP, and requested resource
   - `admin`: User management actions (add, update, delete users)
-  - `config`: Configuration changes (planned)
-  - `error`: Application errors and exceptions (planned)
-- **Query Script**: Use `python scripts/query_audit_logs.py` to analyze audit data
-- **Indexed Fields**: timestamp, user_email, event_type for fast queries
+  - `config`: Configuration changes (.env file updates)
+  - `error`: Application errors and exceptions
+- **Admin Panel**: View and search audit logs at `/admin/audit-logs`
+- **Features**:
+  - Dynamic filtering by date, user, search query, IP address
+  - Real-time data loading with pagination
+  - Detail view for each log entry
+  - Color-coded event types
+- **Database Configuration**:
+  - Uses Flask-aware SQLite integration with per-request connections
+  - WAL mode enabled for better concurrent access
+  - Automatic retry on database lock errors
+  - Indexed fields for fast queries: timestamp, user_email, event_type, search_query
 
 ### Security Considerations
 - Change `SECRET_KEY` in `.env` before production deployment

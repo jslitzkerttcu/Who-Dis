@@ -17,6 +17,11 @@ def create_app():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
+    # Initialize audit service with Flask app
+    from app.services.audit_service import audit_service
+
+    audit_service.init_app(app)
+
     @app.before_request
     def before_request():
         g.user = None
@@ -40,7 +45,7 @@ def create_app():
         # Log the error to audit log
         try:
             from app.services.audit_service import audit_service
-            
+
             user_email = request.headers.get(
                 "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user
             )

@@ -3,7 +3,6 @@ from app.middleware.auth import require_role
 from app.services.ldap_service import ldap_service
 from app.services.genesys_service import genesys_service
 from app.services.graph_service import graph_service
-from app.services.audit_service import audit_service
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -594,6 +593,8 @@ def search_user():
 
     # Log the search
     try:
+        from app.services.audit_service import audit_service
+
         audit_service.log_search(
             user_email=user_email,
             search_query=search_term,
