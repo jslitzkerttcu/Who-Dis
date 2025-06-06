@@ -189,7 +189,7 @@ class GenesysCloudService:
     def _process_user_data(self, user: Dict[str, Any]) -> Dict[str, Any]:
         """Process user data into standard format."""
         try:
-            result = {
+            result: Dict[str, Any] = {
                 "id": user.get("id"),
                 "name": user.get("name"),
                 "email": user.get("email"),
@@ -242,7 +242,7 @@ class GenesysCloudService:
             for field in ["groups", "skills", "languages", "locations", "queues"]:
                 if user.get(field) and isinstance(user.get(field), list):
                     result[field] = []
-                    for item in user.get(field):
+                    for item in user.get(field, []):
                         if isinstance(item, dict):
                             # Extract name from various possible fields
                             name = None
@@ -253,7 +253,7 @@ class GenesysCloudService:
                             elif field == "groups" and item.get("id"):
                                 # For groups without names, look up in cache
                                 group_id = item.get("id")
-                                name = genesys_cache.get_group_name(group_id)
+                                name = genesys_cache.get_group_name(str(group_id))
                                 if name == group_id:  # Cache miss
                                     logger.debug(f"Group {group_id} not found in cache")
                             elif field == "locations":
@@ -264,7 +264,7 @@ class GenesysCloudService:
                                     location_id = item["locationDefinition"].get("id")
                                     if location_id:
                                         name = genesys_cache.get_location_name(
-                                            location_id
+                                            str(location_id)
                                         )
                                         if name == location_id:  # Cache miss
                                             logger.debug(
@@ -273,7 +273,9 @@ class GenesysCloudService:
                                 elif item.get("id"):
                                     # For locations without names, look up in cache
                                     location_id = item.get("id")
-                                    name = genesys_cache.get_location_name(location_id)
+                                    name = genesys_cache.get_location_name(
+                                        str(location_id)
+                                    )
                                     if name == location_id:  # Cache miss
                                         logger.debug(
                                             f"Location {location_id} not found in cache"
@@ -305,7 +307,7 @@ class GenesysCloudService:
 
         except Exception as e:
             logger.error(f"Error processing user data: {str(e)}")
-            return None
+            return {}
 
     def _get_user_details(
         self, user_id: str, headers: Dict[str, str]
@@ -413,7 +415,7 @@ class GenesysCloudService:
         except Exception as e:
             logger.error(f"Error in _extract_phone_numbers: {str(e)}")
 
-        return phones
+        return {k: str(v) for k, v in phones.items()}
 
 
 genesys_service = GenesysCloudService()

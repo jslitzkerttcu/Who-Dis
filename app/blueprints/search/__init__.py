@@ -3,6 +3,7 @@ from app.middleware.auth import require_role
 from app.services.ldap_service import ldap_service
 from app.services.genesys_service import genesys_service
 from app.services.graph_service import graph_service
+from app.services.audit_service import audit_service
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -171,6 +172,14 @@ def search_user():
         f"Searching for user: {search_term}, specific genesys_id: {genesys_user_id}"
     )
     logger.info(f"Overall search timeout set to {SEARCH_OVERALL_TIMEOUT} seconds")
+
+    # Get user info for audit logging
+    user_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+    user_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    user_agent = request.headers.get("User-Agent")
 
     ldap_result = None
     ldap_error = None
@@ -544,6 +553,67 @@ def search_user():
                         )
                 except Exception as e:
                     logger.error(f"Error retrieving matched Genesys user: {str(e)}")
+
+    # Audit logging
+    services_used = []
+    total_results = 0
+    search_success = True
+    error_messages = []
+
+    # Track which services were used and results
+    if ldap_result or ldap_error:
+        services_used.append("LDAP")
+        if ldap_result and not ldap_multiple:
+            total_results += 1
+        elif ldap_multiple and ldap_result.get("results"):
+            total_results += len(ldap_result.get("results", []))
+        if ldap_error:
+            error_messages.append(f"LDAP: {ldap_error}")
+
+    if graph_result or graph_error:
+        services_used.append("Graph")
+        if graph_result and not graph_multiple:
+            total_results += 1
+        elif graph_multiple and graph_result.get("results"):
+            total_results += len(graph_result.get("results", []))
+        if graph_error:
+            error_messages.append(f"Graph: {graph_error}")
+
+    if genesys_result or genesys_error:
+        services_used.append("Genesys")
+        if genesys_result and not genesys_multiple:
+            total_results += 1
+        elif genesys_multiple and genesys_result.get("results"):
+            total_results += len(genesys_result.get("results", []))
+        if genesys_error:
+            error_messages.append(f"Genesys: {genesys_error}")
+
+    # If all services failed, mark as unsuccessful
+    if error_messages and len(error_messages) == len(services_used):
+        search_success = False
+
+    # Log the search
+    try:
+        audit_service.log_search(
+            user_email=user_email,
+            search_query=search_term,
+            results_count=total_results,
+            services=services_used,
+            user_role=user_role,
+            ip_address=user_ip,
+            user_agent=user_agent,
+            success=search_success,
+            error_message="; ".join(error_messages) if error_messages else None,
+            additional_data={
+                "specific_user_requested": bool(
+                    genesys_user_id or ldap_user_dn or graph_user_id
+                ),
+                "multiple_results": azure_ad_multiple or genesys_multiple,
+                "timeout_occurred": any("timed out" in msg for msg in error_messages),
+            },
+        )
+    except Exception as e:
+        logger.error(f"Failed to log search audit: {str(e)}")
 
     return jsonify(
         {

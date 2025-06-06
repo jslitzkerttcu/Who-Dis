@@ -2,20 +2,7 @@ from flask import g, request, render_template, Response
 from functools import wraps
 import os
 import base64
-from datetime import datetime
-import logging
 import random
-
-
-# Ensure logs directory exists
-os.makedirs("logs", exist_ok=True)
-
-# Configure logging for access denied
-access_logger = logging.getLogger("access_denied")
-access_logger.setLevel(logging.INFO)
-handler = logging.FileHandler("logs/access_denied.log")
-handler.setFormatter(logging.Formatter("%(message)s"))
-access_logger.addHandler(handler)
 
 # Snarky denial reasons
 DENIAL_REASONS = [
@@ -85,7 +72,7 @@ def authenticate():
                 credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
                 username = credentials.split(":")[0]
                 user_email = username
-            except:
+            except Exception:
                 pass
 
     if user_email:
@@ -101,16 +88,29 @@ def authenticate():
 
 
 def log_access_denied(user_email=None, user_role=None):
-    """Log denied access attempts in the specified format"""
-    client_ip = request.remote_addr
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    """Log denied access attempts to audit database"""
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
     request_path = request.path
 
     email_display = user_email if user_email else "unauthenticated"
     role_display = user_role if user_role else "unknown"
 
-    log_message = f"[{timestamp}] DENIED: {email_display} (role: {role_display}) from {client_ip} -> {request_path}"
-    access_logger.info(log_message)
+    # Log to audit database
+    try:
+        from app.services.audit_service import audit_service
+        audit_service.log_access(
+            user_email=email_display,
+            action="access_denied",
+            target_resource=request_path,
+            user_role=role_display,
+            ip_address=client_ip,
+            user_agent=request.headers.get("User-Agent"),
+            success=False,
+            error_message="Insufficient permissions",
+        )
+    except Exception:
+        # Don't let audit logging failures break authentication
+        pass
 
 
 def auth_required(f):
@@ -130,6 +130,8 @@ def auth_required(f):
                 return render_template(
                     "nope.html", denial_reason=random.choice(DENIAL_REASONS)
                 ), 401
+        # Set user_role on request for use in view functions
+        request.user_role = g.role
         return f(*args, **kwargs)
 
     return decorated_function
@@ -167,6 +169,8 @@ def require_role(minimum_role):
                     "nope.html", denial_reason=random.choice(DENIAL_REASONS)
                 ), 401
 
+            # Set user_role on request for use in view functions
+            request.user_role = g.role
             return f(*args, **kwargs)
 
         return decorated_function

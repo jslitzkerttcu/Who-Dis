@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template, jsonify, request, redirect, url_for, flash
+from flask import Blueprint, render_template, jsonify, request
 from app.middleware.auth import require_role, load_role_lists
 from app.services.genesys_cache import genesys_cache
+from app.services.audit_service import audit_service
 import os
 from dotenv import load_dotenv, set_key
 import re
@@ -84,6 +85,38 @@ def add_user():
     set_key(env_path, "EDITORS", ",".join(editors))
     set_key(env_path, "ADMINS", ",".join(admins))
 
+    # Audit log
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    audit_service.log_admin_action(
+        user_email=admin_email,
+        action="add_user",
+        target_resource=f"user:{email}",
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+        additional_data={"new_user": email, "assigned_role": role},
+    )
+
+    # Also log as config change since it modifies .env
+    audit_service.log_config_change(
+        user_email=admin_email,
+        action="env_file_update",
+        config_key=f"{role.upper()}S",
+        old_value=None,
+        new_value=email,
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+        additional_data={"operation": "add_user", "user": email, "role": role},
+    )
+
     return jsonify(
         {
             "success": True,
@@ -131,6 +164,24 @@ def update_user():
     set_key(env_path, "EDITORS", ",".join(editors))
     set_key(env_path, "ADMINS", ",".join(admins))
 
+    # Audit log
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    audit_service.log_admin_action(
+        user_email=admin_email,
+        action="update_user_role",
+        target_resource=f"user:{email}",
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+        additional_data={"user": email, "new_role": new_role},
+    )
+
     return jsonify(
         {
             "success": True,
@@ -162,6 +213,24 @@ def delete_user():
     set_key(env_path, "VIEWERS", ",".join(viewers))
     set_key(env_path, "EDITORS", ",".join(editors))
     set_key(env_path, "ADMINS", ",".join(admins))
+
+    # Audit log
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    audit_service.log_admin_action(
+        user_email=admin_email,
+        action="delete_user",
+        target_resource=f"user:{email}",
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+        additional_data={"deleted_user": email},
+    )
 
     return jsonify(
         {

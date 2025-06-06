@@ -1,7 +1,7 @@
 import os
 import logging
-from typing import Optional, Dict, Any
-from msal import ConfidentialClientApplication
+from typing import Optional, Dict, Any, Union
+from msal import ConfidentialClientApplication  # type: ignore[import-untyped]
 import requests
 from requests.exceptions import Timeout, ConnectionError
 from datetime import datetime, timedelta
@@ -120,7 +120,7 @@ class GraphService:
                 "manager",
             ]
 
-            params = {
+            params: Dict[str, Union[str, int]] = {
                 "$search": search_query,
                 "$select": ",".join(select_fields),
                 "$count": "true",  # Include count of results
@@ -231,7 +231,7 @@ class GraphService:
             return None
 
     def _process_user_data(
-        self, user: Dict[str, Any], headers: Dict[str, str] = None
+        self, user: Dict[str, Any], headers: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """Process and enrich user data from Graph API."""
         try:
@@ -239,7 +239,7 @@ class GraphService:
             photo_url = None
             if headers:
                 photo_url = self._get_user_photo(
-                    user["id"], headers, user.get("userPrincipalName")
+                    user["id"], headers, user.get("userPrincipalName", "")
                 )
 
             # Format phone numbers
@@ -334,7 +334,7 @@ class GraphService:
             return user
 
     def get_user_photo(
-        self, user_id: str, user_principal_name: str = None
+        self, user_id: str, user_principal_name: Optional[str] = None
     ) -> Optional[str]:
         """Public method to get user's profile photo from Graph API."""
         token = self._get_access_token()
@@ -350,7 +350,10 @@ class GraphService:
         return self._get_user_photo(user_id, headers, user_principal_name)
 
     def _get_user_photo(
-        self, user_id: str, headers: Dict[str, str], user_principal_name: str = None
+        self,
+        user_id: str,
+        headers: Dict[str, str],
+        user_principal_name: Optional[str] = None,
     ) -> Optional[str]:
         """Get user's profile photo from Graph API."""
         try:

@@ -461,7 +461,7 @@ class LDAPService:
                 cn_part = dn.split(",")[0]
                 if cn_part.startswith("CN="):
                     groups.append(cn_part[3:])
-            except:
+            except Exception:
                 continue
         return groups
 
