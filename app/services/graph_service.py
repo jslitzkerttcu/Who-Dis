@@ -4,17 +4,24 @@ from typing import Optional, Dict, Any, Union
 from msal import ConfidentialClientApplication  # type: ignore[import-untyped]
 import requests
 from requests.exceptions import Timeout, ConnectionError
-from datetime import datetime, timedelta
+from app.services.configuration_service import config_get
+from app.models import ApiToken
 
 logger = logging.getLogger(__name__)
 
 
 class GraphService:
     def __init__(self):
-        self.client_id = os.getenv("GRAPH_CLIENT_ID")
-        self.client_secret = os.getenv("GRAPH_CLIENT_SECRET")
-        self.tenant_id = os.getenv("GRAPH_TENANT_ID")
-        self.timeout = int(os.getenv("GRAPH_API_TIMEOUT", "15"))
+        # Get credentials from config service (encrypted in database)
+        self.client_id = config_get("graph", "client_id", os.getenv("GRAPH_CLIENT_ID"))
+        self.client_secret = config_get(
+            "graph", "client_secret", os.getenv("GRAPH_CLIENT_SECRET")
+        )
+        self.tenant_id = config_get("graph", "tenant_id", os.getenv("GRAPH_TENANT_ID"))
+        # Timeout from config service
+        self.timeout = int(
+            config_get("graph", "api_timeout", os.getenv("GRAPH_API_TIMEOUT", "15"))
+        )
 
         # Graph API endpoints
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"
@@ -38,14 +45,25 @@ class GraphService:
             logger.warning("Microsoft Graph API credentials not configured")
 
     def _get_access_token(self) -> Optional[str]:
-        """Get access token using client credentials flow."""
+        """Get access token using client credentials flow with database storage."""
         if not self.app:
             return None
 
-        # Check if we have a valid cached token
-        if self._token and self._token_expiry and datetime.now() < self._token_expiry:
-            return self._token
+        # First, try to get token from database
+        try:
+            token_record = ApiToken.get_token("microsoft_graph")
+            if token_record:
+                logger.info(
+                    f"Using cached Graph API token, expires at {token_record.expires_at}"
+                )
+                return str(token_record.access_token)
+        except Exception as e:
+            logger.warning(
+                f"Failed to get token from database: {e}. Will fetch new token."
+            )
 
+        # Token not in database or expired, get a new one
+        logger.info("Graph API token not found or expired, fetching new token")
         try:
             # Get new token
             result = self.app.acquire_token_silent(self.scope, account=None)
@@ -53,11 +71,31 @@ class GraphService:
                 result = self.app.acquire_token_for_client(scopes=self.scope)
 
             if "access_token" in result:
-                self._token = result["access_token"]
-                # Token expires in 1 hour, refresh 5 minutes early
-                self._token_expiry = datetime.now() + timedelta(seconds=3300)
-                logger.info("Successfully acquired Graph API access token")
-                return self._token
+                access_token = result["access_token"]
+                # Default to 1 hour if not specified
+                expires_in = result.get("expires_in", 3600)
+
+                # Try to store token in database
+                try:
+                    token_record = ApiToken.upsert_token(
+                        service_name="microsoft_graph",
+                        access_token=access_token,
+                        expires_in_seconds=expires_in,
+                        token_type=result.get("token_type", "Bearer"),
+                        additional_data={
+                            "tenant_id": self.tenant_id,
+                            "client_id": self.client_id,
+                            "scope": self.scope,
+                        },
+                    )
+                    logger.info(
+                        f"New Graph API token stored, expires at {token_record.expires_at}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to store token in database: {e}. Token will work for this session."
+                    )
+                return str(access_token)
             else:
                 logger.error(
                     f"Failed to acquire token: {result.get('error_description', 'Unknown error')}"
@@ -67,6 +105,15 @@ class GraphService:
         except Exception as e:
             logger.error(f"Error getting Graph API access token: {str(e)}")
             return None
+
+    def refresh_token_if_needed(self) -> bool:
+        """Check and refresh token if needed. Returns True if token is valid."""
+        try:
+            token = self._get_access_token()
+            return token is not None
+        except Exception as e:
+            logger.error(f"Error refreshing Graph API token: {str(e)}")
+            return False
 
     def search_user(self, search_term: str) -> Optional[Dict[str, Any]]:
         """

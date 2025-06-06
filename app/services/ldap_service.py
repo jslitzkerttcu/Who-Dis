@@ -7,25 +7,40 @@ from ldap3.core.exceptions import (
     LDAPSocketReceiveError,
 )
 import logging
+from app.services.configuration_service import config_get
 
 logger = logging.getLogger(__name__)
 
 
 class LDAPService:
     def __init__(self):
-        self.host = os.getenv("LDAP_HOST", "ldap://localhost")
-        self.port = int(os.getenv("LDAP_PORT", "389"))
-        self.use_ssl = os.getenv("LDAP_USE_SSL", "False").lower() == "true"
-        self.bind_dn = os.getenv("LDAP_BIND_DN")
-        self.bind_password = os.getenv("LDAP_BIND_PASSWORD")
-        self.base_dn = os.getenv("LDAP_BASE_DN")
-        self.user_search_base = os.getenv("LDAP_USER_SEARCH_BASE", self.base_dn)
+        # Try to get from configuration service first, fall back to env vars
+        self.host = config_get(
+            "ldap", "host", os.getenv("LDAP_HOST", "ldap://localhost")
+        )
+        self.port = int(config_get("ldap", "port", os.getenv("LDAP_PORT", "389")))
+        self.use_ssl = config_get(
+            "ldap", "use_ssl", os.getenv("LDAP_USE_SSL", "False").lower() == "true"
+        )
+        # Get credentials from config service (encrypted in database)
+        self.bind_dn = config_get("ldap", "bind_dn", os.getenv("LDAP_BIND_DN"))
+        self.bind_password = config_get(
+            "ldap", "bind_password", os.getenv("LDAP_BIND_PASSWORD")
+        )
+        self.base_dn = config_get("ldap", "base_dn", os.getenv("LDAP_BASE_DN"))
+        self.user_search_base = config_get(
+            "ldap", "user_search_base", os.getenv("LDAP_USER_SEARCH_BASE", self.base_dn)
+        )
         # Timeout configuration
         self.connect_timeout = int(
-            os.getenv("LDAP_CONNECT_TIMEOUT", "5")
+            config_get(
+                "ldap", "connect_timeout", os.getenv("LDAP_CONNECT_TIMEOUT", "5")
+            )
         )  # Connection timeout in seconds
         self.operation_timeout = int(
-            os.getenv("LDAP_OPERATION_TIMEOUT", "10")
+            config_get(
+                "ldap", "operation_timeout", os.getenv("LDAP_OPERATION_TIMEOUT", "10")
+            )
         )  # Operation timeout in seconds
 
     def search_user(self, search_term: str) -> Optional[Dict[str, Any]]:

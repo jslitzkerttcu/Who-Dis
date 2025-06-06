@@ -3,31 +3,52 @@ import requests
 from requests.exceptions import Timeout, ConnectionError
 from typing import Optional, Dict, Any
 import logging
-from datetime import datetime, timedelta
 from app.services.genesys_cache import genesys_cache
+from app.services.configuration_service import config_get
+from app.models import ApiToken
 
 logger = logging.getLogger(__name__)
 
 
 class GenesysCloudService:
     def __init__(self):
-        self.client_id = os.getenv("GENESYS_CLIENT_ID")
-        self.client_secret = os.getenv("GENESYS_CLIENT_SECRET")
-        self.region = os.getenv("GENESYS_REGION", "mypurecloud.com")
+        # Get credentials from config service (encrypted in database)
+        self.client_id = config_get(
+            "genesys", "client_id", os.getenv("GENESYS_CLIENT_ID")
+        )
+        self.client_secret = config_get(
+            "genesys", "client_secret", os.getenv("GENESYS_CLIENT_SECRET")
+        )
+        # Region and timeout from config service
+        self.region = config_get(
+            "genesys", "region", os.getenv("GENESYS_REGION", "mypurecloud.com")
+        )
         self.base_url = f"https://api.{self.region}"
         self.token_url = f"https://login.{self.region}/oauth/token"
         self._token = None
         self._token_expiry = None
         # Timeout configuration
         self.timeout = int(
-            os.getenv("GENESYS_API_TIMEOUT", "15")
+            config_get("genesys", "api_timeout", os.getenv("GENESYS_API_TIMEOUT", "15"))
         )  # API timeout in seconds
 
     def _get_access_token(self) -> Optional[str]:
-        """Get access token using client credentials grant."""
-        if self._token and self._token_expiry and datetime.now() < self._token_expiry:
-            return self._token
+        """Get access token using client credentials grant with database storage."""
+        # First, try to get token from database
+        try:
+            token_record = ApiToken.get_token("genesys")
+            if token_record:
+                logger.info(
+                    f"Using cached Genesys token, expires at {token_record.expires_at}"
+                )
+                return str(token_record.access_token)
+        except Exception as e:
+            logger.warning(
+                f"Failed to get token from database: {e}. Will fetch new token."
+            )
 
+        # Token not in database or expired, get a new one
+        logger.info("Genesys token not found or expired, fetching new token")
         try:
             response = requests.post(
                 self.token_url,
@@ -41,10 +62,29 @@ class GenesysCloudService:
 
             if response.status_code == 200:
                 data = response.json()
-                self._token = data["access_token"]
+                access_token = data["access_token"]
                 expires_in = data.get("expires_in", 3600)
-                self._token_expiry = datetime.now() + timedelta(seconds=expires_in - 60)
-                return self._token
+
+                # Try to store token in database
+                try:
+                    token_record = ApiToken.upsert_token(
+                        service_name="genesys",
+                        access_token=access_token,
+                        expires_in_seconds=expires_in,
+                        token_type=data.get("token_type", "Bearer"),
+                        additional_data={
+                            "region": self.region,
+                            "client_id": self.client_id,
+                        },
+                    )
+                    logger.info(
+                        f"New Genesys token stored, expires at {token_record.expires_at}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to store token in database: {e}. Token will work for this session."
+                    )
+                return str(access_token)
             else:
                 logger.error(
                     f"Failed to get access token: {response.status_code} - {response.text}"
@@ -57,6 +97,15 @@ class GenesysCloudService:
             logger.error(f"Error getting access token: {str(e)}")
 
         return None
+
+    def refresh_token_if_needed(self) -> bool:
+        """Check and refresh token if needed. Returns True if token is valid."""
+        try:
+            token = self._get_access_token()
+            return token is not None
+        except Exception as e:
+            logger.error(f"Error refreshing Genesys token: {str(e)}")
+            return False
 
     def search_user(self, search_term: str) -> Optional[Dict[str, Any]]:
         """
@@ -336,7 +385,7 @@ class GenesysCloudService:
                         logger.info(
                             f"Primary contact info is not a dict, it's: {type(user_data.get('primaryContactInfo'))}"
                         )
-                return user_data
+                return dict(user_data)
 
         except Exception as e:
             logger.error(f"Error getting user details: {str(e)}")

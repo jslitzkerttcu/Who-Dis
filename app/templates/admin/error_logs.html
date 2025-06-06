@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Error Logs - Who Dis?{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <h1 class="mb-4 text-center"><i class="bi bi-exclamation-triangle"></i> Error Logs</h1>
+
+        <div class="alert alert-warning shadow-sm" role="alert">
+            <p class="mb-0">View application errors, exceptions, and stack traces. Remember: every error is a learning opportunity!</p>
+        </div>
+
+        <!-- Filters -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="severity-filter" class="form-label">Severity</label>
+                        <select id="severity-filter" class="form-select">
+                            <option value="">All Severities</option>
+                            <option value="error">Error</option>
+                            <option value="warning">Warning</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="date-filter" class="form-label">Time Range</label>
+                        <select id="date-filter" class="form-select">
+                            <option value="1">Last Hour</option>
+                            <option value="24" selected>Last 24 Hours</option>
+                            <option value="168">Last Week</option>
+                            <option value="720">Last Month</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">&nbsp;</label>
+                        <button class="btn btn-primary w-100" onclick="loadErrors()">
+                            <i class="bi bi-search"></i> Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error List -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Errors</h5>
+            </div>
+            <div class="card-body">
+                <div id="errors-loading" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div id="errors-content" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th width="150">Timestamp</th>
+                                    <th>Error Type</th>
+                                    <th>Message</th>
+                                    <th>User</th>
+                                    <th width="100">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="errors-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="no-errors" class="text-center text-muted py-4" style="display: none;">
+                        <i class="bi bi-emoji-smile display-4"></i>
+                        <p class="mt-2">No errors found. Everything's running smoothly!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Detail Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Error Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Timestamp:</strong> <span id="modal-timestamp"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Error Type:</strong> <span id="modal-type" class="font-monospace"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>User:</strong> <span id="modal-user"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Request:</strong> <span id="modal-request" class="font-monospace"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Message:</strong>
+                    <div id="modal-message" class="alert alert-danger"></div>
+                </div>
+                <div class="mb-3">
+                    <strong>Stack Trace:</strong>
+                    <pre id="modal-stack" class="bg-dark text-light p-3 rounded" style="max-height: 400px; overflow-y: auto;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load errors on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadErrors();
+});
+
+function loadErrors() {
+    const severity = document.getElementById('severity-filter').value;
+    const hours = document.getElementById('date-filter').value;
+    
+    let url = '/admin/api/error-logs?limit=100';
+    if (severity) url += `&severity=${severity}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('errors-loading').style.display = 'none';
+            document.getElementById('errors-content').style.display = 'block';
+            
+            const tbody = document.getElementById('errors-tbody');
+            tbody.innerHTML = '';
+            
+            if (data.errors.length === 0) {
+                document.getElementById('no-errors').style.display = 'block';
+                tbody.parentElement.parentElement.style.display = 'none';
+            } else {
+                document.getElementById('no-errors').style.display = 'none';
+                tbody.parentElement.parentElement.style.display = 'block';
+                
+                // Filter by time
+                const cutoffTime = new Date();
+                cutoffTime.setHours(cutoffTime.getHours() - parseInt(hours));
+                
+                const filteredErrors = data.errors.filter(error => {
+                    return new Date(error.timestamp) > cutoffTime;
+                });
+                
+                filteredErrors.forEach(error => {
+                    const row = tbody.insertRow();
+                    const timestamp = new Date(error.timestamp);
+                    
+                    // Determine severity badge
+                    let severityBadge = 'bg-danger';
+                    if (error.severity === 'warning') severityBadge = 'bg-warning';
+                    else if (error.severity === 'critical') severityBadge = 'bg-dark';
+                    
+                    row.innerHTML = `
+                        <td>${timestamp.toLocaleString()}</td>
+                        <td><span class="badge ${severityBadge}">${error.error_type || 'Unknown'}</span></td>
+                        <td class="text-truncate" style="max-width: 300px;">${escapeHtml(error.error_message)}</td>
+                        <td>${error.user_email || 'System'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick='showErrorDetail(${JSON.stringify(error)})'>
+                                <i class="bi bi-eye"></i> View
+                            </button>
+                        </td>
+                    `;
+                });
+                
+                if (filteredErrors.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No errors in selected time range</td></tr>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading error logs:', error);
+            document.getElementById('errors-loading').style.display = 'none';
+            document.getElementById('errors-content').innerHTML = 
+                '<div class="alert alert-danger">Failed to load error logs</div>';
+        });
+}
+
+function showErrorDetail(error) {
+    document.getElementById('modal-timestamp').textContent = new Date(error.timestamp).toLocaleString();
+    document.getElementById('modal-type').textContent = error.error_type || 'Unknown';
+    document.getElementById('modal-user').textContent = error.user_email || 'System';
+    document.getElementById('modal-request').textContent = 
+        error.request_method && error.request_path 
+            ? `${error.request_method} ${error.request_path}` 
+            : 'N/A';
+    document.getElementById('modal-message').textContent = error.error_message;
+    document.getElementById('modal-stack').textContent = error.stack_trace || 'No stack trace available';
+    
+    new bootstrap.Modal(document.getElementById('errorModal')).show();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

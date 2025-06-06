@@ -2,19 +2,28 @@ import os
 import requests
 from requests.exceptions import Timeout
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from datetime import datetime, timedelta
 from threading import Lock, Thread
 import time
+from app.services.configuration_service import config_get
 
 logger = logging.getLogger(__name__)
 
 
 class GenesysCache:
     def __init__(self):
-        self.client_id = os.getenv("GENESYS_CLIENT_ID")
-        self.client_secret = os.getenv("GENESYS_CLIENT_SECRET")
-        self.region = os.getenv("GENESYS_REGION", "mypurecloud.com")
+        # Get credentials from config service (encrypted in database)
+        self.client_id = config_get(
+            "genesys", "client_id", os.getenv("GENESYS_CLIENT_ID")
+        )
+        self.client_secret = config_get(
+            "genesys", "client_secret", os.getenv("GENESYS_CLIENT_SECRET")
+        )
+        # Region from config service
+        self.region = config_get(
+            "genesys", "region", os.getenv("GENESYS_REGION", "mypurecloud.com")
+        )
         self.base_url = f"https://api.{self.region}"
         self.token_url = f"https://login.{self.region}/oauth/token"
 
@@ -27,7 +36,9 @@ class GenesysCache:
         self._cache_ttl = timedelta(hours=6)  # Refresh cache every 6 hours
         # Timeout configuration for cache operations
         self.cache_timeout = int(
-            os.getenv("GENESYS_CACHE_TIMEOUT", "30")
+            config_get(
+                "genesys", "cache_timeout", os.getenv("GENESYS_CACHE_TIMEOUT", "30")
+            )
         )  # Longer timeout for cache operations
 
         # Start background thread to populate cache
@@ -36,7 +47,7 @@ class GenesysCache:
     def _get_access_token(self) -> Optional[str]:
         """Get access token using client credentials grant."""
         if self._token and self._token_expiry and datetime.now() < self._token_expiry:
-            return self._token
+            return str(self._token)
 
         try:
             response = requests.post(
@@ -54,7 +65,7 @@ class GenesysCache:
                 self._token = data["access_token"]
                 expires_in = data.get("expires_in", 3600)
                 self._token_expiry = datetime.now() + timedelta(seconds=expires_in - 60)
-                return self._token
+                return str(self._token)
 
         except Timeout:
             logger.error(
@@ -207,12 +218,12 @@ class GenesysCache:
     def get_group_name(self, group_id: str) -> str:
         """Get group name from cache."""
         with self._cache_lock:
-            return self._groups_cache.get(group_id, group_id)
+            return str(self._groups_cache.get(group_id, group_id))
 
     def get_location_name(self, location_id: str) -> str:
         """Get location name from cache."""
         with self._cache_lock:
-            return self._locations_cache.get(location_id, location_id)
+            return str(self._locations_cache.get(location_id, location_id))
 
     def get_cache_status(self) -> Dict:
         """Get cache status information."""
@@ -229,5 +240,29 @@ class GenesysCache:
             }
 
 
-# Global cache instance
-genesys_cache = GenesysCache()
+# Global cache instance - now using database-backed cache
+# Import the database-backed version
+try:
+    from app.services.genesys_cache_db import genesys_cache_db
+
+    # Create a compatibility wrapper
+    class GenesysCacheWrapper:
+        """Wrapper to maintain compatibility with existing code."""
+
+        def get_group_name(self, group_id: str) -> str:
+            return genesys_cache_db.get_group_name(group_id)
+
+        def get_location_name(self, location_id: str) -> str:
+            return genesys_cache_db.get_location_name(location_id)
+
+        def get_cache_status(self) -> Dict:
+            return genesys_cache_db.get_cache_status()
+
+        def clear(self):
+            return genesys_cache_db.clear()
+
+    genesys_cache: Union[GenesysCacheWrapper, GenesysCache] = GenesysCacheWrapper()
+    logger.info("Using database-backed Genesys cache")
+except Exception as e:
+    logger.warning(f"Failed to initialize database cache, using in-memory cache: {e}")
+    genesys_cache = GenesysCache()

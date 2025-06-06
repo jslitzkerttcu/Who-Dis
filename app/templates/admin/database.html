@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+
+{% block title %}Database Management - Who Dis?{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <h1 class="mb-4 text-center"><i class="bi bi-database-fill-gear"></i> Database Management</h1>
+
+        <div class="alert alert-info shadow-sm" role="alert">
+            <h5 class="alert-heading">Database Overview</h5>
+            <p>Monitor health, manage caches, and keep the data flowing smoothly.</p>
+        </div>
+
+        <!-- Database Health Card -->
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-heart-pulse"></i> Database Health</h5>
+            </div>
+            <div class="card-body">
+                <div id="db-health-loading" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div id="db-health-content" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <div class="text-center">
+                                <h2 id="db-status-icon" class="mb-2"></h2>
+                                <h6>Status</h6>
+                                <p id="db-status" class="mb-0"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="text-center">
+                                <h2 class="text-primary mb-2" id="db-size">--</h2>
+                                <h6>Database Size</h6>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="text-center">
+                                <h2 class="text-info mb-2" id="active-connections">--</h2>
+                                <h6>Active Connections</h6>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="text-center">
+                                <h2 class="text-warning mb-2" id="pool-usage">--</h2>
+                                <h6>Pool Usage</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Statistics -->
+        <div class="card mb-4 border-dark">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-table"></i> Table Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div id="table-stats-loading" class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div id="table-stats-content" style="display: none;">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Table</th>
+                                <th>Row Count</th>
+                                <th>Size</th>
+                                <th>Last Activity</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-stats-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row">
+            <!-- Error Logs -->
+            <div class="col-md-6 mb-3">
+                <div class="card border-danger h-100">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Error Logs</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">View recent application errors and exceptions.</p>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span>Recent Errors: <span id="error-count" class="badge bg-danger">0</span></span>
+                            <span>Last 24h: <span id="error-24h" class="badge bg-warning">0</span></span>
+                        </div>
+                        <a href="{{ url_for('admin.error_logs') }}" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-journal-x"></i> View Error Logs
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cache Management -->
+            <div class="col-md-6 mb-3">
+                <div class="card border-info h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-lightning"></i> Cache Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">Manage search and API caches for optimal performance.</p>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Search Cache:</span>
+                                <span id="search-cache-size" class="badge bg-secondary">0 entries</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Genesys Token:</span>
+                                <span id="genesys-cache-status" class="badge bg-secondary">Unknown</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Graph API Token:</span>
+                                <span id="graph-cache-status" class="badge bg-secondary">Unknown</span>
+                            </div>
+                            <hr class="my-2">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Genesys Groups:</span>
+                                <span id="genesys-groups-count" class="badge bg-info">0</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Genesys Locations:</span>
+                                <span id="genesys-locations-count" class="badge bg-info">0</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Cache Age:</span>
+                                <span id="genesys-cache-age" class="text-muted small">Unknown</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-outline-info w-100" onclick="clearCaches()">
+                            <i class="bi bi-trash"></i> Clear All Caches
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session Management -->
+            <div class="col-md-6 mb-3">
+                <div class="card border-success h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-people"></i> Active Sessions</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">Monitor and manage user sessions.</p>
+                        <div class="text-center mb-3">
+                            <h3 id="active-sessions" class="text-success">0</h3>
+                            <small class="text-muted">Active Users</small>
+                        </div>
+                        <a href="{{ url_for('admin.sessions') }}" class="btn btn-outline-success w-100">
+                            <i class="bi bi-person-lines-fill"></i> Manage Sessions
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maintenance -->
+            <div class="col-md-6 mb-3">
+                <div class="card border-warning h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="bi bi-tools"></i> Maintenance</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">Database maintenance and optimization tools.</p>
+                        <button class="btn btn-outline-warning w-100 mb-2" onclick="exportAuditLogs()">
+                            <i class="bi bi-download"></i> Export Audit Logs
+                        </button>
+                        <button class="btn btn-outline-warning w-100" onclick="optimizeDatabase()">
+                            <i class="bi bi-speedometer2"></i> Optimize Tables
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load database health on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadDatabaseHealth();
+    loadTableStats();
+    loadCacheStatus();
+    loadErrorStats();
+    loadSessionStats();
+    
+    // Refresh every 30 seconds
+    setInterval(function() {
+        loadDatabaseHealth();
+        loadCacheStatus();
+        loadSessionStats();
+    }, 30000);
+});
+
+function loadDatabaseHealth() {
+    fetch('/admin/api/database/health')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('db-health-loading').style.display = 'none';
+            document.getElementById('db-health-content').style.display = 'block';
+            
+            // Update status
+            const statusIcon = document.getElementById('db-status-icon');
+            const statusText = document.getElementById('db-status');
+            if (data.status === 'healthy') {
+                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+                statusText.innerHTML = `Healthy<br><small class="text-muted">${data.database_type || 'Unknown'}</small>`;
+                statusText.className = 'mb-0 text-success';
+            } else {
+                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+                statusText.textContent = 'Issues Detected';
+                statusText.className = 'mb-0 text-danger';
+            }
+            
+            // Update metrics
+            document.getElementById('db-size').textContent = data.database_size || '--';
+            document.getElementById('active-connections').textContent = data.active_connections || '0';
+            document.getElementById('pool-usage').textContent = data.pool_usage || '--';
+        })
+        .catch(error => {
+            console.error('Error loading database health:', error);
+            document.getElementById('db-health-loading').style.display = 'none';
+            document.getElementById('db-health-content').innerHTML = 
+                '<div class="alert alert-danger">Failed to load database health</div>';
+        });
+}
+
+function loadTableStats() {
+    fetch('/admin/api/database/tables')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('table-stats-loading').style.display = 'none';
+            document.getElementById('table-stats-content').style.display = 'block';
+            
+            const tbody = document.getElementById('table-stats-body');
+            tbody.innerHTML = '';
+            
+            // Show warning if present
+            if (data.warning) {
+                const warningDiv = document.createElement('div');
+                warningDiv.className = 'alert alert-warning mb-3';
+                warningDiv.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${data.warning}`;
+                document.getElementById('table-stats-content').insertBefore(
+                    warningDiv, 
+                    document.getElementById('table-stats-content').firstChild
+                );
+            }
+            
+            // Show error if present
+            if (data.error) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-danger">
+                            <i class="bi bi-exclamation-circle"></i> Failed to load table statistics
+                        </td>
+                    </tr>
+                `;
+                console.error('Database error:', data.error);
+                return;
+            }
+            
+            // Display tables
+            if (data.tables && data.tables.length > 0) {
+                data.tables.forEach(table => {
+                    const row = tbody.insertRow();
+                    const rowCount = typeof table.row_count === 'number' 
+                        ? table.row_count.toLocaleString() 
+                        : table.row_count;
+                    
+                    row.innerHTML = `
+                        <td><i class="bi bi-table"></i> ${table.name}</td>
+                        <td>${rowCount}</td>
+                        <td>${table.size}</td>
+                        <td>${table.last_activity || 'N/A'}</td>
+                    `;
+                });
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">
+                            No tables found
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading table stats:', error);
+            document.getElementById('table-stats-loading').style.display = 'none';
+            document.getElementById('table-stats-content').style.display = 'block';
+            document.getElementById('table-stats-body').innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-danger">
+                        <i class="bi bi-exclamation-circle"></i> Failed to connect to database
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+function loadCacheStatus() {
+    // Load search cache status
+    fetch('/admin/api/cache/search/status')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('search-cache-size').textContent = 
+                `${data.entry_count || 0} entries`;
+        });
+    
+    // Load Genesys cache status
+    fetch('/admin/cache-status')
+        .then(response => response.json())
+        .then(data => {
+            const badge = document.getElementById('genesys-cache-status');
+            if (data.token_expires_at) {
+                const expiresIn = new Date(data.token_expires_at) - new Date();
+                if (expiresIn > 0) {
+                    badge.textContent = 'Valid';
+                    badge.className = 'badge bg-success';
+                } else {
+                    badge.textContent = 'Expired';
+                    badge.className = 'badge bg-danger';
+                }
+            } else {
+                badge.textContent = 'No Token';
+                badge.className = 'badge bg-secondary';
+            }
+        });
+    
+    // Load all API tokens status
+    fetch('/admin/api/tokens/status')
+        .then(response => response.json())
+        .then(data => {
+            // Update Graph API token status
+            const graphToken = data.tokens.find(t => t.service === 'microsoft_graph');
+            if (graphToken) {
+                const badge = document.getElementById('graph-cache-status');
+                if (graphToken.is_expired) {
+                    badge.textContent = 'Expired';
+                    badge.className = 'badge bg-danger';
+                } else {
+                    badge.textContent = 'Valid';
+                    badge.className = 'badge bg-success';
+                }
+            }
+            
+            // Update Genesys token from database
+            const genesysToken = data.tokens.find(t => t.service === 'genesys');
+            if (genesysToken) {
+                const badge = document.getElementById('genesys-cache-status');
+                if (genesysToken.is_expired) {
+                    badge.textContent = 'Expired';
+                    badge.className = 'badge bg-danger';
+                } else {
+                    badge.textContent = 'Valid';
+                    badge.className = 'badge bg-success';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading token status:', error);
+        });
+    
+    // Load Genesys cache details
+    fetch('/admin/api/genesys/cache/status')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('genesys-groups-count').textContent = data.groups_cached || 0;
+            document.getElementById('genesys-locations-count').textContent = data.locations_cached || 0;
+            
+            // Format cache age
+            if (data.group_cache_age) {
+                const ageText = formatCacheAge(data.group_cache_age);
+                document.getElementById('genesys-cache-age').textContent = ageText;
+            }
+            
+            // Check if needs refresh
+            if (data.needs_refresh) {
+                document.getElementById('genesys-cache-age').innerHTML += 
+                    ' <span class="badge bg-warning ms-1">Refresh Needed</span>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading Genesys cache status:', error);
+        });
+}
+
+function formatCacheAge(ageString) {
+    // Parse age string (e.g., "2:30:45.123456")
+    const match = ageString.match(/(\d+):(\d+):(\d+)/);
+    if (match) {
+        const hours = parseInt(match[1]);
+        const minutes = parseInt(match[2]);
+        
+        if (hours > 0) {
+            return `${hours}h ${minutes}m ago`;
+        } else if (minutes > 0) {
+            return `${minutes}m ago`;
+        } else {
+            return 'Just refreshed';
+        }
+    }
+    return ageString;
+}
+
+function loadErrorStats() {
+    fetch('/admin/api/database/errors/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('error-count').textContent = data.recent_errors || 0;
+            document.getElementById('error-24h').textContent = data.errors_24h || 0;
+        });
+}
+
+function loadSessionStats() {
+    fetch('/admin/api/sessions/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('active-sessions').textContent = data.active_sessions || 0;
+        });
+}
+
+function clearCaches() {
+    if (!confirm('Are you sure you want to clear all caches? This may temporarily impact performance.')) {
+        return;
+    }
+    
+    fetch('/admin/api/cache/clear', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Caches cleared successfully!', 'success');
+                loadCacheStatus();
+            } else {
+                showToast('Failed to clear caches: ' + data.message, 'error');
+            }
+        });
+}
+
+function exportAuditLogs() {
+    window.location.href = '/admin/api/database/export/audit-logs';
+}
+
+function optimizeDatabase() {
+    if (!confirm('This will optimize database tables. The operation may take a few moments. Continue?')) {
+        return;
+    }
+    
+    fetch('/admin/api/database/optimize', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Database optimization completed!', 'success');
+                loadTableStats();
+            } else {
+                showToast('Optimization failed: ' + data.message, 'error');
+            }
+        });
+}
+
+function showToast(message, type) {
+    // Simple toast notification
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} position-fixed top-0 start-50 translate-middle-x mt-3`;
+    toast.style.zIndex = '9999';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

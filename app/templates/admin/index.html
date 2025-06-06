@@ -49,8 +49,10 @@
                 <div class="card border-dark h-100">
                     <div class="card-body">
                         <h5 class="card-title"><i class="bi bi-database-fill-gear"></i> Database</h5>
-                        <p class="card-text text-muted">Break everything in three clicks or less. Please don't.</p>
-                        <button class="btn btn-outline-secondary w-100" disabled>Brace Yourself</button>
+                        <p class="card-text text-muted">Monitor health, manage caches, and keep the data flowing.</p>
+                        <a href="{{ url_for('admin.database') }}" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-speedometer2"></i> Database Management
+                        </a>
                     </div>
                 </div>
             </div>

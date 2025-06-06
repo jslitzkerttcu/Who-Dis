@@ -15,7 +15,7 @@
         <div class="alert alert-info shadow-sm" role="alert">
             <h5 class="alert-heading">With Great Power...</h5>
             <p>Welcome to the digital kingdom where you bestow and revoke access like a benevolent (or tyrannical) ruler.</p>
-            <p class="mb-0"><strong>Remember:</strong> Every action here directly modifies the .env file. No take-backsies without SSH access.</p>
+            <p class="mb-0"><strong>Remember:</strong> All user management is now database-backed. Deactivated users can be reactivated.</p>
         </div>
 
         <!-- Add User Form -->
@@ -25,15 +25,18 @@
             </div>
             <div class="card-body">
                 <form id="addUserForm" class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-md-5">
                         <input type="email" class="form-control" id="newUserEmail" placeholder="email@example.com" required>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <select class="form-select" id="newUserRole">
                             <option value="viewer">Viewer (Can look, can't touch)</option>
                             <option value="editor">Editor (Power without responsibility)</option>
                             <option value="admin">Admin (Basically a deity)</option>
                         </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" class="form-control" id="newUserNotes" placeholder="Notes (optional)">
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-accent w-100">
@@ -56,12 +59,15 @@
                             <tr>
                                 <th>Email</th>
                                 <th>Current Role</th>
+                                <th>Last Login</th>
+                                <th>Created</th>
+                                <th>Notes</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="userTableBody">
                             {% for user in users %}
-                            <tr data-email="{{ user.email }}">
+                            <tr data-email="{{ user.email }}" data-notes="{{ user.notes or '' }}">
                                 <td>
                                     <i class="bi bi-person-fill"></i> {{ user.email }}
                                     {% if user.email == g.user %}
@@ -69,11 +75,28 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <select class="form-select form-select-sm role-select" style="width: 200px;">
+                                    <select class="form-select form-select-sm role-select" style="width: 150px;">
                                         <option value="viewer" {% if user.role == 'viewer' %}selected{% endif %}>Viewer</option>
                                         <option value="editor" {% if user.role == 'editor' %}selected{% endif %}>Editor</option>
                                         <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
                                     </select>
+                                </td>
+                                <td>
+                                    {% if user.last_login %}
+                                        <small>{{ user.last_login.strftime('%m/%d/%Y %H:%M') }}</small>
+                                    {% else %}
+                                        <small class="text-muted">Never</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.created_at %}
+                                        <small>{{ user.created_at.strftime('%m/%d/%Y') }}</small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm notes-input" value="{{ user.notes or '' }}" placeholder="Add notes..." style="width: 150px;">
                                 </td>
                                 <td>
                                     <button class="btn btn-sm btn-success update-btn" style="display: none;">
@@ -139,6 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const email = document.getElementById('newUserEmail').value;
         const role = document.getElementById('newUserRole').value;
+        const notes = document.getElementById('newUserNotes').value;
         
         try {
             const response = await fetch('/admin/users/add', {
@@ -146,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `email=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}`
+                body: `email=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}&notes=${encodeURIComponent(notes)}`
             });
             
             const data = await response.json();
@@ -169,11 +193,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const updateBtn = row.querySelector('.update-btn');
         
         select.addEventListener('change', function() {
-            if (this.value !== originalValue) {
-                updateBtn.style.display = 'inline-block';
-            } else {
-                updateBtn.style.display = 'none';
-            }
+            updateBtn.style.display = 'inline-block';
+        });
+    });
+    
+    // Notes change detection
+    document.querySelectorAll('.notes-input').forEach(input => {
+        const originalValue = input.value;
+        const row = input.closest('tr');
+        const updateBtn = row.querySelector('.update-btn');
+        
+        input.addEventListener('input', function() {
+            updateBtn.style.display = 'inline-block';
         });
     });
     
@@ -183,6 +214,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const row = this.closest('tr');
             const email = row.dataset.email;
             const newRole = row.querySelector('.role-select').value;
+            const newNotes = row.querySelector('.notes-input').value;
             
             try {
                 const response = await fetch('/admin/users/update', {
@@ -190,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `email=${encodeURIComponent(email)}&role=${encodeURIComponent(newRole)}`
+                    body: `email=${encodeURIComponent(email)}&role=${encodeURIComponent(newRole)}&notes=${encodeURIComponent(newNotes)}`
                 });
                 
                 const data = await response.json();

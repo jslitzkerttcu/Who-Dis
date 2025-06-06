@@ -3,6 +3,7 @@ from app.middleware.auth import require_role
 from app.services.ldap_service import ldap_service
 from app.services.genesys_service import genesys_service
 from app.services.graph_service import graph_service
+from app.services.configuration_service import config_get
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -13,7 +14,7 @@ search_bp = Blueprint("search", __name__)
 
 # Overall search timeout configuration
 SEARCH_OVERALL_TIMEOUT = int(
-    os.getenv("SEARCH_OVERALL_TIMEOUT", "20")
+    config_get("search", "overall_timeout", os.getenv("SEARCH_OVERALL_TIMEOUT", "20"))
 )  # Overall timeout in seconds
 
 
@@ -593,7 +594,7 @@ def search_user():
 
     # Log the search
     try:
-        from app.services.audit_service import audit_service
+        from app.services.audit_service_postgres import audit_service
 
         audit_service.log_search(
             user_email=user_email,

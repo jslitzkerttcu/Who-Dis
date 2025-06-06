@@ -1,42 +1,52 @@
 # 🕵️‍♂️ WhoDis - Enterprise Identity Search Platform
 
-A comprehensive Flask-based identity lookup service that searches across Active Directory, Microsoft Graph, and Genesys Cloud. Features concurrent searches, smart matching, and a modern UI with role-based access control.
+A comprehensive Flask-based identity lookup service that searches across Active Directory, Microsoft Graph, and Genesys Cloud. Features PostgreSQL database backend, encrypted configuration management, comprehensive audit logging, and a modern UI with role-based access control.
 
 ---
 
-## 🚀 What's New
+## 🚀 What's New in v2.0
 
-**WhoDis** has evolved from a simple LDAP lookup tool to a full-featured identity search platform that integrates with multiple enterprise systems:
+**WhoDis** has undergone a major upgrade with enterprise-grade features:
 
-- **🔍 Multi-Source Search**: Simultaneously searches LDAP, Microsoft Graph (Azure AD), and Genesys Cloud
-- **🧠 Smart Matching**: Automatically matches users across systems by email when dealing with multiple results
-- **📸 Profile Photos**: Fetches user photos from Microsoft Graph API
-- **🔐 Password Insights**: Shows password expiration and last changed dates from Active Directory
-- **📱 Modern UI**: Clean two-column layout with rounded search bar and custom branding
-- **⚡ Lightning Fast**: Concurrent API calls with configurable timeouts prevent hanging searches
+- **🐘 PostgreSQL Backend**: Migrated from SQLite to PostgreSQL for better performance and scalability
+- **🔐 Encrypted Configuration**: Sensitive credentials are now encrypted in the database using Fernet encryption
+- **📊 Comprehensive Audit Logging**: All searches, access attempts, and admin actions are logged to PostgreSQL
+- **👥 Database User Management**: Admin panel for managing users with persistent storage
+- **🔄 Automatic Token Management**: API tokens are persisted and automatically refreshed in the background
+- **📦 Genesys Data Caching**: Groups, skills, and locations are cached in PostgreSQL for faster searches
+- **🚨 Enhanced Security**: Failed access attempts tracked, configuration changes audited, and error logging
 
 ---
 
 ## 🎯 Key Features
 
 ### Search Capabilities
+* **Multi-Source Search**: Simultaneously searches LDAP, Microsoft Graph (Azure AD), and Genesys Cloud
 * **Fuzzy Search**: LDAP supports wildcard searches for partial name/email matches
 * **Concurrent Processing**: All three services searched simultaneously with timeout protection
-* **Smart Result Matching**: When one service returns a single result and another returns multiple, automatically matches by email
+* **Smart Result Matching**: Automatically matches users across systems by email
 * **Multiple Result Handling**: Clean selection interface when multiple matches are found
 
 ### Data Integration
 * **Azure AD Card**: Combines LDAP and Microsoft Graph data with Graph taking priority
 * **Enhanced Fields**: Hire dates, birth dates, password policies, token refresh times
+* **Profile Photos**: Fetches user photos from Microsoft Graph API
 * **Phone Number Tags**: Visual indicators showing source (Genesys/Teams)
-* **Date Formatting**: Smart relative dates (e.g., "6Yr 8Mo ago") with military time
+* **Date Formatting**: Smart relative dates (e.g., "6Yr 8Mo ago") with consistent formatting
+
+### Security & Compliance
+* **Encrypted Storage**: All sensitive configuration values encrypted at rest
+* **Audit Trail**: Complete audit log of all searches, access attempts, and configuration changes
+* **Role-Based Access**: Three-tier access control (Viewer, Editor, Admin)
+* **Session Management**: Persistent sessions with automatic cleanup
+* **Error Tracking**: Comprehensive error logging with stack traces
 
 ### UI/UX Features
 * **Status Badges**: Visual indicators for Enabled/Disabled and Locked/Not Locked accounts
-* **Collapsible Groups**: AD and Genesys groups in expandable sections to reduce clutter
-* **Profile Photos**: Centered display with status badges positioned absolutely
-* **Custom Branding**: TTCU green (#007c59) for Azure AD, Genesys orange (#FF4F1F), and golden buttons (#f2c655)
+* **Collapsible Groups**: AD and Genesys groups in expandable sections
+* **Profile Photos**: Centered display with status badges
 * **Modern Search Bar**: Pill-shaped design with subtle shadow effects
+* **Admin Dashboard**: User management and audit log viewer
 
 ---
 
@@ -45,17 +55,26 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | Backend | Flask 3.0.0 | Web framework |
+| Database | PostgreSQL 12+ | Data persistence |
+| Encryption | cryptography (Fernet) | Configuration encryption |
 | Authentication | Azure AD / Basic Auth | User authentication |
 | LDAP | ldap3 | Active Directory integration |
 | Graph API | MSAL + requests | Microsoft Graph integration |
 | Genesys | OAuth2 + requests | Contact center data |
+| ORM | SQLAlchemy | Database abstraction |
 | Frontend | Bootstrap 5.3.0 | UI components |
-| Templating | Jinja2 | Dynamic HTML generation |
-| Environment | python-dotenv | Configuration management |
+| Task Management | Background threads | Token refresh service |
 
 ---
 
 ## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.8+
+- PostgreSQL 12+
+- Virtual environment tool (venv/virtualenv)
+
+### Installation
 
 1. **Clone the repository**:
    ```bash
@@ -74,13 +93,48 @@ A comprehensive Flask-based identity lookup service that searches across Active 
    pip install -r requirements.txt
    ```
 
-4. **Configure environment** (see detailed .env example below):
+4. **Set up PostgreSQL database**:
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   # Create database and user
+   sudo -u postgres psql
+   CREATE DATABASE whodis_db;
+   CREATE USER whodis_user WITH PASSWORD 'your-secure-password';
+   GRANT ALL PRIVILEGES ON DATABASE whodis_db TO whodis_user;
+   \q
+   
+   # Run database schema
+   psql -U whodis_user -d whodis_db -h localhost -f database/create_tables.sql
    ```
 
-5. **Run the application**:
+5. **Configure minimal environment**:
+   ```bash
+   # Create .env file with only database connection and encryption key
+   cat > .env << EOF
+   # PostgreSQL Configuration
+   POSTGRES_HOST=localhost
+   POSTGRES_PORT=5432
+   POSTGRES_DB=whodis_db
+   POSTGRES_USER=whodis_user
+   POSTGRES_PASSWORD=your-secure-password
+   
+   # Encryption key for configuration
+   CONFIG_ENCRYPTION_KEY=$(python -c "from app.services.encryption_service import EncryptionService; print(EncryptionService.generate_key())")
+   EOF
+   ```
+
+6. **Migrate configuration to database**:
+   ```bash
+   # First, add all your API credentials to .env temporarily
+   # Then run the migration script
+   python scripts/migrate_config_to_db.py
+   
+   # Verify encryption is working
+   python scripts/verify_encrypted_config.py
+   
+   # Remove sensitive values from .env after verification
+   ```
+
+7. **Run the application**:
    ```bash
    python run.py
    ```
@@ -89,54 +143,29 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 
 ---
 
-## 📋 Environment Configuration
+## 📋 Configuration Management
 
-Create a `.env` file with the following configuration:
+### Encrypted Configuration System
 
-```env
-# Flask Configuration
-FLASK_HOST=0.0.0.0
-FLASK_PORT=5000
-FLASK_DEBUG=True
-SECRET_KEY=your-very-secret-key-change-this
+WhoDis uses a sophisticated configuration management system where:
+- **Database Storage**: All configuration stored in PostgreSQL
+- **Encryption**: Sensitive values encrypted using Fernet symmetric encryption
+- **Minimal .env**: Only database connection and encryption key in .env file
+- **Runtime Updates**: Configuration can be changed without restarting
+- **Audit Trail**: All configuration changes are logged
 
-# User Access Control (comma-separated emails)
-VIEWERS=viewer1@example.com,viewer2@example.com
-EDITORS=editor@example.com
-ADMINS=admin@example.com
+### Configuration Categories
 
-# LDAP Configuration
-LDAP_HOST=ldap://your-dc.example.com
-LDAP_PORT=389
-LDAP_USE_SSL=False
-LDAP_BIND_DN=CN=service_account,OU=Service Accounts,DC=example,DC=com
-LDAP_BIND_PASSWORD=your-service-account-password
-LDAP_BASE_DN=DC=example,DC=com
-LDAP_USER_SEARCH_BASE=OU=Employees,DC=example,DC=com
-LDAP_CONNECT_TIMEOUT=5
-LDAP_OPERATION_TIMEOUT=10
+| Category | Purpose | Encrypted |
+|----------|---------|-----------|
+| auth | User access lists (viewers, editors, admins) | ✅ |
+| flask | Application settings (host, port, debug, secret_key) | Partial |
+| ldap | Active Directory settings and credentials | Partial |
+| genesys | Genesys Cloud OAuth credentials | Partial |
+| graph | Microsoft Graph API credentials | ✅ |
+| search | Search timeout settings | ❌ |
 
-# Genesys Cloud Configuration
-GENESYS_CLIENT_ID=your-oauth-client-id
-GENESYS_CLIENT_SECRET=your-oauth-client-secret
-GENESYS_REGION=mypurecloud.com  # or mypurecloud.ie, etc.
-GENESYS_API_TIMEOUT=15
-
-# Microsoft Graph Configuration
-GRAPH_CLIENT_ID=your-app-registration-client-id
-GRAPH_CLIENT_SECRET="your-client-secret-with-special-chars"
-GRAPH_TENANT_ID=your-tenant-id
-GRAPH_API_TIMEOUT=15
-
-# Search Configuration
-SEARCH_OVERALL_TIMEOUT=20  # Maximum time for all searches combined
-```
-
-### Important Notes:
-- **Graph Client Secret**: If your secret contains special characters (especially `=`), wrap it in quotes
-- **LDAP Bind DN**: Use a service account with read permissions on user objects
-- **Genesys Region**: Check your Genesys Cloud URL to determine the correct region
-- **Timeouts**: Adjust based on your network latency and API response times
+For detailed database setup and configuration management, see [Database Documentation](docs/database.md).
 
 ---
 
@@ -144,30 +173,52 @@ SEARCH_OVERALL_TIMEOUT=20  # Maximum time for all searches combined
 
 ```
 WhoDis/
-├── app/                      # Application code
-│   ├── __init__.py          # Flask app factory
-│   ├── blueprints/          # Route handlers
-│   │   ├── admin/           # Admin panel (user management)
-│   │   ├── home/            # Landing page
-│   │   └── search/          # Search interface and logic
-│   ├── middleware/          # Authentication and authorization
-│   │   └── auth.py          # RBAC implementation
-│   ├── services/            # External service integrations
-│   │   ├── ldap_service.py  # Active Directory queries
-│   │   ├── genesys_service.py    # Genesys Cloud API
-│   │   ├── genesys_cache.py      # OAuth token caching
-│   │   └── graph_service.py      # Microsoft Graph API
-│   ├── static/              # CSS, JS, images
-│   │   ├── css/             # Custom styles
-│   │   ├── js/              # Client-side logic
-│   │   └── img/             # Logos and icons
-│   └── templates/           # Jinja2 HTML templates
-├── logs/                    # Application logs
-│   └── access_denied.log    # Failed auth attempts
-├── requirements.txt         # Python dependencies
-├── run.py                  # Application entry point
-├── .env                    # Environment configuration
-└── CLAUDE.md               # AI assistant guidelines
+├── app/                           # Application code
+│   ├── __init__.py               # Flask app factory with config service
+│   ├── blueprints/               # Route handlers
+│   │   ├── admin/                # Admin panel with user & audit management
+│   │   ├── home/                 # Landing page
+│   │   └── search/               # Search interface and logic
+│   ├── database.py               # Database configuration
+│   ├── middleware/               # Authentication and authorization
+│   │   └── auth.py               # RBAC with database/config fallback
+│   ├── models/                   # SQLAlchemy models
+│   │   ├── access.py             # Access attempt tracking
+│   │   ├── audit.py              # Audit log model
+│   │   ├── cache.py              # Search cache model
+│   │   ├── configuration.py      # Configuration model
+│   │   ├── error.py              # Error log model
+│   │   ├── genesys.py            # Genesys cache models
+│   │   ├── session.py            # User session model
+│   │   └── user.py               # User management model
+│   ├── services/                 # External service integrations
+│   │   ├── audit_service_postgres.py    # PostgreSQL audit logging
+│   │   ├── configuration_service.py     # Encrypted config management
+│   │   ├── encryption_service.py        # Fernet encryption utilities
+│   │   ├── genesys_cache_db.py         # Genesys data caching
+│   │   ├── genesys_service.py          # Genesys Cloud API
+│   │   ├── graph_service.py            # Microsoft Graph API
+│   │   ├── ldap_service.py             # Active Directory queries
+│   │   └── token_refresh_service.py    # Background token management
+│   ├── static/                   # CSS, JS, images
+│   └── templates/                # Jinja2 HTML templates
+├── database/                     # Database SQL scripts
+│   ├── create_database.sql       # Database creation
+│   ├── create_tables.sql         # Complete schema with encryption
+│   └── add_*.sql                 # Migration scripts
+├── docs/                         # Documentation
+│   └── database.md               # Database documentation
+├── logs/                         # Application logs (deprecated)
+├── scripts/                      # Utility scripts
+│   ├── migrate_config_to_db.py  # Migrate .env to encrypted database
+│   ├── verify_encrypted_config.py # Verify encryption setup
+│   ├── check_config_status.py   # Quick configuration check
+│   └── reencrypt_config.py      # Re-encrypt all sensitive values
+├── requirements.txt              # Python dependencies
+├── run.py                        # Application entry point
+├── .env                          # Minimal environment (DB + encryption key only)
+├── CLAUDE.md                     # AI assistant guidelines
+└── README.md                     # This file
 ```
 
 ---
@@ -180,49 +231,56 @@ WhoDis/
 
 ### Role Hierarchy
 - **👀 Viewers**: Can search and view user information
-- **🛠 Editors**: Can search, view, and modify user data (future feature)
-- **👑 Admins**: Full access including user management panel
+- **✏️ Editors**: Can search, view, and modify user data
+- **👑 Admins**: Full access including user management and audit logs
 
 ### Access Control
-- Users must be whitelisted in the `.env` file
-- Failed access attempts are logged with humorous messages
-- Unauthorized users see a full-screen "NOPE" page
+- Users managed in database with fallback to encrypted configuration
+- Failed access attempts logged with IP, user agent, and timestamp
+- Unauthorized users see creative denial messages
+- Session management with automatic expiration
 
 ---
 
-## 🔍 Search Features Explained
+## 🔍 Advanced Features
 
-### Concurrent Search
-All three services (LDAP, Genesys, Graph) are queried simultaneously using Python's ThreadPoolExecutor. If any service times out, others continue returning results.
+### Audit Logging
+- **Search Auditing**: Every search logged with query, results count, and services used
+- **Access Tracking**: Failed login attempts with denial reasons
+- **Admin Actions**: User management changes tracked
+- **Error Logging**: Application errors with stack traces
+- **Configuration Changes**: All config modifications logged
 
-### Smart Matching
-When searching returns:
-- **Single LDAP + Multiple Genesys**: Automatically matches by email
-- **Multiple LDAP + Single Graph**: Finds the matching LDAP entry
-- **Manual Selection**: Clean UI for choosing from multiple matches
+### Background Services
+- **Token Refresh**: Automatic renewal of API tokens before expiration
+- **Cache Management**: Genesys data refreshed every 6 hours
+- **Session Cleanup**: Expired sessions removed automatically
+- **Database Maintenance**: Old audit logs cleaned up periodically
 
-### Data Merging
-Azure AD card intelligently combines:
-- **LDAP**: Base user data, password expiration, group membership
-- **Graph**: Enhanced fields, profile photo, hire dates
-- **Priority**: Graph data overwrites LDAP when both exist
+### Performance Optimizations
+- **Connection Pooling**: SQLAlchemy connection pool for PostgreSQL
+- **Result Caching**: Search results cached with expiration
+- **Concurrent Searches**: ThreadPoolExecutor for parallel API calls
+- **Lazy Loading**: Profile photos loaded on-demand
+- **Indexed Queries**: Database indexes on frequently searched fields
 
 ---
 
-## 🎨 UI Customization
+## 🎨 UI Features
 
-### Brand Colors
-- **Azure AD Header**: TTCU Green (#007c59)
-- **Genesys Header**: Genesys Orange (#FF4F1F)  
-- **Buttons**: Golden Yellow (#f2c655)
-- **Phone Tags**: Service-specific colors
+### Modern Design
+- **Responsive Layout**: Works on desktop and tablet devices
+- **Dark Mode Ready**: CSS variables for easy theming
+- **Status Indicators**: Visual badges for account status
+- **Loading States**: Skeleton screens during searches
+- **Error Handling**: User-friendly error messages
 
-### Modern Design Elements
-- Rounded search bar with shadow
-- Status badges positioned as presence indicators
-- Responsive two-column layout
-- Collapsible sections for long lists
-- Smart date formatting (6Yr 8Mo ago vs 2430 days)
+### Admin Dashboard
+- **User Management**: Add, edit, deactivate users
+- **Audit Log Viewer**: Search and filter audit logs
+- **Real-time Updates**: Live data refresh without page reload
+- **Bulk Operations**: Manage multiple users at once
+- **Export Options**: Download audit logs as CSV
 
 ---
 
@@ -230,90 +288,150 @@ Azure AD card intelligently combines:
 
 ### LDAP/Active Directory
 - Searches by username, email, display name
-- Retrieves password expiration from computed attributes
-- Supports fuzzy matching with wildcards
-- Handles large result sets with pagination
+- Password expiration from computed attributes
+- Group membership enumeration
+- Account lockout status
+- Fuzzy matching with wildcards
 
 ### Microsoft Graph (Beta API)
-- Enhanced user profiles with hire dates
-- Binary photo retrieval and base64 encoding
+- Enhanced user profiles with extended properties
+- Binary photo retrieval and caching
 - Manager relationships with expansion
-- Token refresh and session validity times
+- License assignments and usage location
+- Token refresh and session validity
 
 ### Genesys Cloud
 - OAuth2 client credentials flow
 - User skills, queues, and locations
 - Multiple phone number types
-- Automatic token refresh with caching
+- Group membership with caching
+- Automatic token refresh
 
 ---
 
-## 🚨 Security Considerations
+## 🚨 Security Best Practices
 
-1. **Change the SECRET_KEY** in production
-2. **Use HTTPS** for all deployments
-3. **Rotate API credentials** regularly
-4. **Monitor access logs** for suspicious activity
-5. **Validate Graph secrets** - wrap in quotes if they contain special characters
-6. **Use service accounts** with minimal required permissions
+1. **Environment Security**
+   - Use strong PostgreSQL password
+   - Generate unique CONFIG_ENCRYPTION_KEY
+   - Never commit .env file
+
+2. **Database Security**
+   - Regular backups of PostgreSQL
+   - Use SSL for database connections in production
+   - Implement database user permissions properly
+
+3. **Application Security**
+   - Run behind HTTPS reverse proxy
+   - Implement rate limiting
+   - Regular security updates
+   - Monitor audit logs for suspicious activity
+
+4. **API Security**
+   - Rotate API credentials regularly
+   - Use service accounts with minimal permissions
+   - Monitor API usage and quotas
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+### Database Issues
+```bash
+# Check configuration status
+python scripts/check_config_status.py
 
-**"No results found"**
-- Check LDAP bind credentials
-- Verify user exists in search base OU
-- Try searching with full email address
+# Verify encrypted values
+python scripts/verify_encrypted_config.py
 
-**"Search timed out"**
-- Increase timeout values in .env
-- Check network connectivity to services
-- Use more specific search terms
+# Re-encrypt all values if needed
+python scripts/reencrypt_config.py
+```
 
-**Missing Graph data/photos**
-- Verify Graph API permissions (User.Read.All)
-- Check if beta API endpoints are needed
-- Ensure app registration has proper consent
+### Common Problems
 
-**Genesys authentication failures**
-- Verify OAuth client credentials
-- Check Genesys region setting
-- Ensure IP is whitelisted in Genesys
+**"Error decrypting configuration"**
+- Check CONFIG_ENCRYPTION_KEY in .env
+- Run verification script
+- Re-encrypt values if key changed
 
----
+**"Database connection failed"**
+- Verify PostgreSQL is running
+- Check credentials in .env
+- Ensure database exists
 
-## 📈 Performance Tips
+**"No search results"**
+- Check service credentials in configuration
+- Verify API permissions
+- Review audit logs for errors
 
-1. **Adjust Timeouts**: Balance between responsiveness and completeness
-2. **Cache Strategy**: Genesys tokens are cached; consider caching Graph tokens
-3. **Limit Results**: Configure maximum results per service
-4. **Index Optimization**: Ensure LDAP has proper indexes on search fields
-
----
-
-## 🧑‍💻 Contributing
-
-We welcome contributions! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Submit a pull request with clear description
+For detailed troubleshooting, see [Database Documentation](docs/database.md).
 
 ---
 
-## 📝 Future Enhancements
+## 📈 Monitoring & Maintenance
 
-- [ ] Redis caching for improved performance
+### Health Checks
+- Token expiration monitoring
+- Database connection pooling stats
+- API rate limit tracking
+- Cache hit/miss ratios
+
+### Regular Maintenance
+```sql
+-- Clean up old data (90 days audit, 30 days errors)
+SELECT cleanup_old_data();
+
+-- Check table sizes
+SELECT tablename, pg_size_pretty(pg_total_relation_size(tablename::regclass))
+FROM pg_tables WHERE schemaname = 'public';
+
+-- Active sessions
+SELECT * FROM user_sessions WHERE expires_at > NOW();
+```
+
+---
+
+## 🧑‍💻 Development
+
+### Code Quality
+```bash
+# Run linting
+ruff check --fix
+
+# Type checking
+mypy app/ scripts/
+
+# Format code
+black .
+```
+
+### Testing
+```bash
+# Run tests (when implemented)
+pytest
+
+# Coverage report
+pytest --cov=app
+```
+
+---
+
+## 📝 Roadmap
+
+- [x] PostgreSQL migration
+- [x] Encrypted configuration
+- [x] Comprehensive audit logging
+- [x] Background token refresh
+- [x] Genesys data caching
+- [ ] Redis caching layer
+- [ ] REST API endpoints
 - [ ] Bulk user operations
-- [ ] Export search results to CSV/Excel
 - [ ] Advanced search filters
-- [ ] Real-time presence indicators
-- [ ] Mobile-responsive design improvements
-- [ ] GraphQL API endpoint
-- [ ] Audit trail for all searches
+- [ ] Mobile responsive design
+- [ ] Dark mode theme
+- [ ] SAML authentication
+- [ ] Export functionality
 
 ---
 
@@ -327,8 +445,9 @@ We welcome contributions! Please:
 
 Built with ❤️ by the TTCU Development Team
 
-Special thanks to all contributors who helped evolve WhoDis from a simple LDAP tool to a comprehensive identity platform.
+Special thanks to all contributors who helped evolve WhoDis from a simple LDAP tool to a comprehensive enterprise identity platform.
 
 ---
 
-*For detailed technical documentation and AI assistant guidelines, see [CLAUDE.md](CLAUDE.md)*
+*For detailed technical documentation, see the [docs](docs/) folder.*
+*For AI assistant guidelines, see [CLAUDE.md](CLAUDE.md)*

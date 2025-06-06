@@ -32,7 +32,42 @@ DENIAL_REASONS = [
 
 
 def load_role_lists():
-    """Load role lists from environment variables"""
+    """Load role lists from database (fallback to env for migration)"""
+    try:
+        from app.models import User
+
+        # Try database first
+        viewers = [u.email for u in User.get_by_role(User.ROLE_VIEWER)]
+        editors = [u.email for u in User.get_by_role(User.ROLE_EDITOR)]
+        admins = [u.email for u in User.get_by_role(User.ROLE_ADMIN)]
+
+        if viewers or editors or admins:
+            return viewers, editors, admins
+    except Exception:
+        # Database not available or table doesn't exist yet
+        pass
+
+    # Try configuration service (encrypted values)
+    try:
+        from app.services.configuration_service import config_get
+
+        viewers_str = config_get("auth", "viewers", "")
+        editors_str = config_get("auth", "editors", "")
+        admins_str = config_get("auth", "admins", "")
+
+        if viewers_str or editors_str or admins_str:
+            viewers = [
+                email.strip() for email in viewers_str.split(",") if email.strip()
+            ]
+            editors = [
+                email.strip() for email in editors_str.split(",") if email.strip()
+            ]
+            admins = [email.strip() for email in admins_str.split(",") if email.strip()]
+            return viewers, editors, admins
+    except Exception:
+        pass
+
+    # Fallback to environment variables
     viewers = os.getenv("VIEWERS", "").split(",")
     editors = os.getenv("EDITORS", "").split(",")
     admins = os.getenv("ADMINS", "").split(",")
@@ -46,6 +81,20 @@ def load_role_lists():
 
 def get_user_role(email):
     """Determine user role based on email"""
+    try:
+        from app.models import User
+
+        # Try database first
+        user = User.get_by_email(email)
+        if user:
+            # Update last login
+            user.update_last_login()
+            return user.role
+    except Exception:
+        # Database not available, fall back to env
+        pass
+
+    # Fallback to environment variables
     viewers, editors, admins = load_role_lists()
 
     if email in admins:
@@ -97,8 +146,25 @@ def log_access_denied(user_email=None, user_role=None):
 
     # Log to audit database
     try:
-        from app.services.audit_service import audit_service
+        from app.services.audit_service_postgres import audit_service
+        from app.models import AccessAttempt
 
+        # Log to access attempts table
+        AccessAttempt.log_attempt(
+            ip_address=client_ip,
+            access_granted=False,
+            user_email=email_display if email_display != "unauthenticated" else None,
+            user_agent=request.headers.get("User-Agent"),
+            requested_path=request_path,
+            denial_reason="Insufficient permissions"
+            if user_email
+            else "Not authenticated",
+            auth_method="azure_ad"
+            if request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME")
+            else "basic_auth",
+        )
+
+        # Also log to audit log
         audit_service.log_access(
             user_email=email_display,
             action="access_denied",
