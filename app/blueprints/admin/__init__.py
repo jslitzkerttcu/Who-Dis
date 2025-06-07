@@ -444,8 +444,12 @@ def database_tables():
                     or actual_count <= 0
                 ):
                     try:
+                        # Use parameterized query with proper identifier quoting
                         count_result = db.session.execute(
-                            text(f"SELECT COUNT(*) as count FROM {row.tablename}")
+                            text("SELECT COUNT(*) as count FROM " + db.session.connection().execute(
+                                text("SELECT quote_ident(:table_name)"),
+                                {"table_name": row.tablename}
+                            ).scalar())
                         ).first()
                         actual_count = count_result.count if count_result else 0
                     except Exception:
@@ -466,9 +470,11 @@ def database_tables():
             table_names = inspector.get_table_names()
 
             for table_name in table_names:
-                # Get row count
+                # Get row count using safe table name escaping
+                from sqlalchemy.sql import quoted_name
+                safe_table = quoted_name(table_name, quote=True)
                 count_result = db.session.execute(
-                    text(f"SELECT COUNT(*) as count FROM {table_name}")
+                    text(f"SELECT COUNT(*) as count FROM {safe_table}")
                 ).first()
                 row_count = count_result.count if count_result else 0
 
@@ -635,9 +641,14 @@ def optimize_database():
             text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
         )
 
-        # Run ANALYZE on each table
+        # Run ANALYZE on each table with proper identifier quoting
         for row in tables_result:
-            db.session.execute(text(f"ANALYZE {row.tablename}"))
+            # Use parameterized query with proper identifier quoting
+            safe_table = db.session.connection().execute(
+                text("SELECT quote_ident(:table_name)"),
+                {"table_name": row.tablename}
+            ).scalar()
+            db.session.execute(text(f"ANALYZE {safe_table}"))
 
         db.session.commit()
 

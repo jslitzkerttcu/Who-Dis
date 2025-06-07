@@ -6,6 +6,7 @@ from ldap3.core.exceptions import (
     LDAPSocketOpenError,
     LDAPSocketReceiveError,
 )
+from ldap3.utils.conv import escape_filter_chars
 import logging
 from app.services.configuration_service import config_get
 
@@ -89,24 +90,27 @@ class LDAPService:
                 # Build search filter with all variations including fuzzy matching
                 filter_parts = []
                 for term in search_terms:
+                    # Escape LDAP special characters to prevent injection
+                    escaped_term = escape_filter_chars(term)
+                    
                     # Exact matches
                     filter_parts.extend(
                         [
-                            f"(sAMAccountName={term})",
-                            f"(mail={term})",
-                            f"(userPrincipalName={term})",
+                            f"(sAMAccountName={escaped_term})",
+                            f"(mail={escaped_term})",
+                            f"(userPrincipalName={escaped_term})",
                         ]
                     )
                     # Fuzzy/wildcard matches for partial strings
                     if len(term) >= 3:  # Only do fuzzy search for terms 3+ characters
                         filter_parts.extend(
                             [
-                                f"(sAMAccountName=*{term}*)",
-                                f"(mail=*{term}*)",
-                                f"(userPrincipalName=*{term}*)",
-                                f"(displayName=*{term}*)",
-                                f"(givenName=*{term}*)",
-                                f"(sn=*{term}*)",  # surname
+                                f"(sAMAccountName=*{escaped_term}*)",
+                                f"(mail=*{escaped_term}*)",
+                                f"(userPrincipalName=*{escaped_term}*)",
+                                f"(displayName=*{escaped_term}*)",
+                                f"(givenName=*{escaped_term}*)",
+                                f"(sn=*{escaped_term}*)",  # surname
                             ]
                         )
 
