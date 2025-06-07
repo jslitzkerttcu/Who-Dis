@@ -15,6 +15,8 @@ class UserSession(db.Model):  # type: ignore
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     last_activity = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    warning_shown = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
 
     def __repr__(self):
         return f"<UserSession {self.id}: {self.user_email}>"
@@ -28,11 +30,28 @@ class UserSession(db.Model):  # type: ignore
         self.last_activity = datetime.utcnow()
         db.session.commit()
 
+    def extend_session(self, timeout_minutes=15):
+        """Extend session expiration"""
+        self.expires_at = datetime.utcnow() + timedelta(minutes=timeout_minutes)
+        self.last_activity = datetime.utcnow()
+        self.warning_shown = False
+        db.session.commit()
+
+    def mark_warning_shown(self):
+        """Mark that warning has been shown"""
+        self.warning_shown = True
+        db.session.commit()
+
+    def deactivate(self):
+        """Deactivate session"""
+        self.is_active = False
+        db.session.commit()
+
     @classmethod
-    def create_session(cls, user_email, **kwargs):
+    def create_session(cls, user_email, timeout_minutes=15, **kwargs):
         """Create a new session"""
         session_id = secrets.token_urlsafe(32)
-        expires_at = datetime.utcnow() + timedelta(hours=8)  # 8 hour sessions
+        expires_at = datetime.utcnow() + timedelta(minutes=timeout_minutes)
 
         session = cls(
             id=session_id,

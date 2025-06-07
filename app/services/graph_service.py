@@ -5,7 +5,9 @@ from msal import ConfidentialClientApplication  # type: ignore[import-untyped]
 import requests
 from requests.exceptions import Timeout, ConnectionError
 from app.services.configuration_service import config_get
-from app.models import ApiToken
+from app.models import ApiToken, GraphPhoto
+from app.database import get_db
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -51,16 +53,22 @@ class GraphService:
 
         # First, try to get token from database
         try:
-            token_record = ApiToken.get_token("microsoft_graph")
-            if token_record:
-                logger.info(
-                    f"Using cached Graph API token, expires at {token_record.expires_at}"
-                )
-                return str(token_record.access_token)
+            # Check if we're in an application context
+            from flask import current_app
+
+            if current_app:
+                token_record = ApiToken.get_token("microsoft_graph")
+                if token_record:
+                    logger.info(
+                        f"Using cached Graph API token, expires at {token_record.expires_at}"
+                    )
+                    return str(token_record.access_token)
         except Exception as e:
-            logger.warning(
-                f"Failed to get token from database: {e}. Will fetch new token."
-            )
+            # This is expected when running outside app context during initialization
+            if "application context" not in str(e):
+                logger.warning(
+                    f"Failed to get token from database: {e}. Will fetch new token."
+                )
 
         # Token not in database or expired, get a new one
         logger.info("Graph API token not found or expired, fetching new token")
@@ -77,24 +85,30 @@ class GraphService:
 
                 # Try to store token in database
                 try:
-                    token_record = ApiToken.upsert_token(
-                        service_name="microsoft_graph",
-                        access_token=access_token,
-                        expires_in_seconds=expires_in,
-                        token_type=result.get("token_type", "Bearer"),
-                        additional_data={
-                            "tenant_id": self.tenant_id,
-                            "client_id": self.client_id,
-                            "scope": self.scope,
-                        },
-                    )
-                    logger.info(
-                        f"New Graph API token stored, expires at {token_record.expires_at}"
-                    )
+                    # Check if we're in an application context
+                    from flask import current_app
+
+                    if current_app:
+                        token_record = ApiToken.upsert_token(
+                            service_name="microsoft_graph",
+                            access_token=access_token,
+                            expires_in_seconds=expires_in,
+                            token_type=result.get("token_type", "Bearer"),
+                            additional_data={
+                                "tenant_id": self.tenant_id,
+                                "client_id": self.client_id,
+                                "scope": self.scope,
+                            },
+                        )
+                        logger.info(
+                            f"New Graph API token stored, expires at {token_record.expires_at}"
+                        )
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to store token in database: {e}. Token will work for this session."
-                    )
+                    # This is expected when running outside app context
+                    if "application context" not in str(e):
+                        logger.warning(
+                            f"Failed to store token in database: {e}. Token will work for this session."
+                        )
                 return str(access_token)
             else:
                 logger.error(
@@ -115,7 +129,28 @@ class GraphService:
             logger.error(f"Error refreshing Graph API token: {str(e)}")
             return False
 
-    def search_user(self, search_term: str) -> Optional[Dict[str, Any]]:
+    def has_cached_photo(
+        self, user_id: str, user_principal_name: Optional[str] = None
+    ) -> bool:
+        """Check if we have a cached photo for the user."""
+        try:
+            from flask import current_app
+
+            if current_app:
+                with get_db() as db:
+                    cached_photo = GraphPhoto.get_photo(
+                        db, user_id, user_principal_name
+                    )
+                    return cached_photo is not None and not GraphPhoto.is_stale(
+                        cached_photo, hours=24
+                    )
+        except Exception:
+            pass
+        return False
+
+    def search_user(
+        self, search_term: str, include_photo: bool = True
+    ) -> Optional[Dict[str, Any]]:
         """
         Search for a user in Microsoft Graph by email, UPN, or display name.
         Returns user profile information from Azure AD.
@@ -194,7 +229,7 @@ class GraphService:
                     return None
                 elif len(users) == 1:
                     # Single result - get additional details
-                    return self._process_user_data(users[0], headers)
+                    return self._process_user_data(users[0], headers, include_photo)
                 else:
                     # Multiple results
                     return {
@@ -220,7 +255,9 @@ class GraphService:
             logger.error(f"Error searching Graph API: {str(e)}")
             return None
 
-    def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+    def get_user_by_id(
+        self, user_id: str, include_photo: bool = True
+    ) -> Optional[Dict[str, Any]]:
         """Get a specific user by their Graph ID."""
         if not self.app:
             return None
@@ -257,7 +294,9 @@ class GraphService:
                     logger.info(
                         f"Raw password change date: {user_data['lastPasswordChangeDateTime']}"
                     )
-                processed_data = self._process_user_data(user_data, headers)
+                processed_data = self._process_user_data(
+                    user_data, headers, include_photo
+                )
                 logger.info(
                     f"Processed Graph user data fields: {list(processed_data.keys())}"
                 )
@@ -278,16 +317,31 @@ class GraphService:
             return None
 
     def _process_user_data(
-        self, user: Dict[str, Any], headers: Optional[Dict[str, str]] = None
+        self,
+        user: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None,
+        include_photo: bool = True,
     ) -> Dict[str, Any]:
         """Process and enrich user data from Graph API."""
         try:
-            # Get user photo if we have headers (for additional API calls)
+            # Handle photo based on include_photo flag
             photo_url = None
+            has_photo = False
+
             if headers:
-                photo_url = self._get_user_photo(
-                    user["id"], headers, user.get("userPrincipalName", "")
-                )
+                if include_photo:
+                    # Fetch the actual photo data
+                    photo_url = self._get_user_photo(
+                        user["id"], headers, user.get("userPrincipalName", "")
+                    )
+                    has_photo = photo_url is not None
+                else:
+                    # Just check if photo exists (for lazy loading)
+                    has_photo = self.has_cached_photo(
+                        user["id"], user.get("userPrincipalName")
+                    ) or self._check_photo_exists(
+                        user["id"], headers, user.get("userPrincipalName")
+                    )
 
             # Format phone numbers
             phone_numbers = {}
@@ -335,6 +389,7 @@ class GraphService:
                 "createdDateTime": user.get("createdDateTime"),
                 "lastPasswordChangeDateTime": user.get("lastPasswordChangeDateTime"),
                 "photoUrl": photo_url,
+                "hasPhoto": has_photo,  # Flag for lazy loading
                 # Additional fields from beta API
                 "employeeHireDate": user.get("employeeHireDate"),
                 "refreshTokensValidFromDateTime": user.get(
@@ -402,10 +457,45 @@ class GraphService:
         headers: Dict[str, str],
         user_principal_name: Optional[str] = None,
     ) -> Optional[str]:
-        """Get user's profile photo from Graph API."""
+        """Get user's profile photo from Graph API with database caching."""
+        try:
+            # Check if we're in an application context
+            from flask import current_app
+
+            if current_app:
+                # Check database cache first
+                with get_db() as db:
+                    cached_photo = GraphPhoto.get_photo(
+                        db, user_id, user_principal_name
+                    )
+
+                    if cached_photo and not GraphPhoto.is_stale(cached_photo, hours=24):
+                        # Return cached photo
+                        logger.info(
+                            f"Using cached photo for user {user_id}, last updated: {cached_photo.updated_at}"
+                        )
+                        photo_data = base64.b64encode(cached_photo.photo_data).decode(
+                            "utf-8"
+                        )
+                        return f"data:{cached_photo.content_type};base64,{photo_data}"
+                    elif cached_photo:
+                        logger.info(
+                            f"Cached photo for user {user_id} is stale, will refresh"
+                        )
+        except Exception as e:
+            # This is expected when running outside app context
+            if "application context" not in str(e):
+                logger.warning(f"Failed to check photo cache: {e}")
+
+        # Fetch from Graph API
+        photo_bytes = None
+        content_type = "image/jpeg"
+
         try:
             # Try to get the photo using ID first
-            logger.info(f"Attempting to fetch photo for user ID: {user_id}")
+            logger.info(
+                f"Attempting to fetch photo from Graph API for user ID: {user_id}"
+            )
             response = requests.get(
                 f"{self.graph_base_url}/users/{user_id}/photo/$value",
                 headers=headers,
@@ -413,14 +503,11 @@ class GraphService:
             )
 
             if response.status_code == 200:
-                # Convert to base64 data URL
-                import base64
-
-                photo_data = base64.b64encode(response.content).decode("utf-8")
+                photo_bytes = response.content
+                content_type = response.headers.get("Content-Type", "image/jpeg")
                 logger.info(
                     f"Successfully fetched photo for user ID {user_id}, size: {len(response.content)} bytes"
                 )
-                return f"data:image/jpeg;base64,{photo_data}"
             elif response.status_code == 404:
                 logger.info(f"No photo found for user ID {user_id} (404)")
                 if user_principal_name:
@@ -434,13 +521,13 @@ class GraphService:
                         timeout=5,
                     )
                     if response.status_code == 200:
-                        import base64
-
-                        photo_data = base64.b64encode(response.content).decode("utf-8")
+                        photo_bytes = response.content
+                        content_type = response.headers.get(
+                            "Content-Type", "image/jpeg"
+                        )
                         logger.info(
                             f"Successfully fetched photo using UPN, size: {len(response.content)} bytes"
                         )
-                        return f"data:image/jpeg;base64,{photo_data}"
                     else:
                         logger.info(
                             f"No photo found for UPN {user_principal_name} (status: {response.status_code})"
@@ -451,9 +538,66 @@ class GraphService:
                 )
 
         except Exception as e:
-            logger.error(f"Error getting user photo: {str(e)}")
+            logger.error(f"Error getting user photo from Graph API: {str(e)}")
+            return None
+
+        # Cache the photo if we got one
+        if photo_bytes:
+            try:
+                from flask import current_app
+
+                if current_app:
+                    with get_db() as db:
+                        GraphPhoto.upsert_photo(
+                            db,
+                            user_id=user_id,
+                            photo_data=photo_bytes,
+                            user_principal_name=user_principal_name,
+                            content_type=content_type,
+                        )
+                        logger.info(f"Cached photo for user {user_id} in database")
+            except Exception as e:
+                # Don't fail if caching fails
+                if "application context" not in str(e):
+                    logger.warning(f"Failed to cache photo: {e}")
+
+            # Return the photo data URL
+            photo_data = base64.b64encode(photo_bytes).decode("utf-8")
+            return f"data:{content_type};base64,{photo_data}"
 
         return None
+
+    def _check_photo_exists(
+        self,
+        user_id: str,
+        headers: Dict[str, str],
+        user_principal_name: Optional[str] = None,
+    ) -> bool:
+        """Check if user has a photo without downloading it."""
+        try:
+            # Try HEAD request first (most efficient)
+            response = requests.head(
+                f"{self.graph_base_url}/users/{user_id}/photo",
+                headers=headers,
+                timeout=2,  # Very short timeout for existence check
+            )
+
+            if response.status_code == 200:
+                return True
+            elif response.status_code == 404 and user_principal_name:
+                # Try with UPN if ID didn't work
+                response = requests.head(
+                    f"{self.graph_base_url}/users/{user_principal_name}/photo",
+                    headers=headers,
+                    timeout=2,
+                )
+                return response.status_code == 200
+
+            return False
+
+        except Exception as e:
+            logger.debug(f"Error checking photo existence: {str(e)}")
+            return False
 
 
 # Global instance

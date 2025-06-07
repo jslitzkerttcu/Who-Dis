@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Who Dis?{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-body text-center">
+                <img src="{{ url_for('static', filename='img/product_image_transparent.png') }}" 
+                     alt="Who Dis?" 
+                     height="150" 
+                     class="mb-4">
+                <h2 class="card-title mb-4">Session Refresh Required</h2>
+                
+                {% if reason == 'session_expired' %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-clock-history"></i> Your session has expired.
+                </div>
+                {% elif reason == 'session_timeout' %}
+                <div class="alert alert-info">
+                    <i class="bi bi-hourglass-split"></i> You were logged out due to inactivity.
+                </div>
+                {% endif %}
+                
+                <p class="text-muted mb-4">
+                    Click below to refresh your Azure AD authentication.
+                </p>
+                
+                <a href="{{ url_for('home.index') }}" class="btn btn-primary">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh Session
+                </a>
+                
+                <div class="mt-4">
+                    <small class="text-muted">
+                        <i class="bi bi-shield-lock"></i> Protected by Azure AD SSO
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-redirect after 2 seconds for better UX
+setTimeout(function() {
+    window.location.href = "{{ url_for('home.index') }}";
+}, 2000);
+</script>
+{% endblock %}

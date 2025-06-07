@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine, pool
 from sqlalchemy.orm import scoped_session, sessionmaker
+from contextlib import contextmanager
 import os
 import logging
 
@@ -85,3 +86,17 @@ class DatabaseConnection:
             self._session.remove()
         if self.engine:
             self.engine.dispose()
+
+
+@contextmanager
+def get_db():
+    """Get database session context manager for use with 'with' statement"""
+    session = db.session
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

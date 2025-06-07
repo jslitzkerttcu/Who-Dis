@@ -4,6 +4,7 @@
 - [Initial Setup](#initial-setup)
 - [Table Descriptions](#table-descriptions)
 - [Configuration Management](#configuration-management)
+- [Session Management](#session-management)
 - [Troubleshooting](#troubleshooting)
 - [Maintenance](#maintenance)
 - [Performance Tuning](#performance-tuning)
@@ -84,10 +85,20 @@ Check that all tables were created:
 \dt
 
 -- Should show:
--- api_tokens, users, configuration, audit_log, error_log, 
--- access_attempts, genesys_groups, genesys_locations, 
--- genesys_skills, search_cache, user_sessions
+-- api_tokens, users, configuration, configuration_history, audit_log, 
+-- error_log, access_attempts, genesys_groups, genesys_locations, 
+-- genesys_skills, search_cache, graph_photos, user_sessions
 ```
+
+### 5. Initial Table Analysis
+
+For new installations, run ANALYZE to update PostgreSQL statistics:
+
+```bash
+psql -U postgres -d whodis_db -h localhost -f database/analyze_tables.sql
+```
+
+This prevents the `-1` row count issue in the admin interface.
 
 ## Table Descriptions
 
@@ -105,7 +116,8 @@ Check that all tables were created:
 ### Cache Tables
 - **genesys_groups/locations/skills**: Cached Genesys Cloud data with automatic refresh
 - **search_cache**: Cached search results for performance
-- **user_sessions**: Active user session management
+- **user_sessions**: Active user session management with timeout tracking
+- **graph_photos**: Cached Microsoft Graph user photos (30-day retention)
 
 ## Configuration Management
 
@@ -152,6 +164,7 @@ Sensitive values are encrypted using Fernet symmetric encryption (from the `cryp
 - **genesys**: Genesys Cloud settings (includes 6-hour cache refresh default)
 - **graph**: Microsoft Graph API settings
 - **search**: Search functionality settings
+- **session**: Session timeout settings (15min timeout, 2min warning, 30s check interval)
 
 ### Managing Configuration
 ```sql
@@ -176,6 +189,81 @@ WHERE category = 'flask' AND setting_key = 'debug';
 -- to ensure proper encryption
 ```
 
+## Session Management
+
+### Overview
+WhoDis implements session timeout with inactivity warnings to enhance security, especially for shared workstations or kiosk deployments. Sessions automatically expire after a configurable period of inactivity with a warning modal before timeout.
+
+### Features
+- **Configurable Timeout**: Default 15 minutes, adjustable via database configuration
+- **Warning Modal**: Shows 2 minutes before timeout with countdown timer
+- **Activity Tracking**: Mouse, keyboard, scroll, and touch events reset the timer
+- **Session Extension**: Users can extend their session from the warning modal
+- **Automatic Cleanup**: Expired sessions are cleaned up on application startup
+- **SSO Integration**: Seamless re-authentication through Azure AD
+
+### Session Configuration
+```sql
+-- View current session settings
+SELECT setting_key, setting_value, description 
+FROM configuration 
+WHERE category = 'session';
+
+-- Update session timeout (in minutes)
+UPDATE configuration 
+SET setting_value = '30', updated_by = 'admin@example.com'
+WHERE category = 'session' AND setting_key = 'timeout_minutes';
+
+-- Update warning time (in minutes before timeout)
+UPDATE configuration 
+SET setting_value = '5', updated_by = 'admin@example.com'
+WHERE category = 'session' AND setting_key = 'warning_minutes';
+```
+
+### Session Table Structure
+The `user_sessions` table tracks active sessions:
+- **id**: Unique session identifier (secure random token)
+- **user_email**: Associated user
+- **ip_address**: Client IP for security tracking
+- **user_agent**: Browser information
+- **created_at**: Session start time
+- **last_activity**: Last recorded activity
+- **expires_at**: When session will expire
+- **warning_shown**: Whether timeout warning has been displayed
+- **is_active**: Session active status
+
+### Monitoring Sessions
+```sql
+-- View active sessions
+SELECT user_email, ip_address, last_activity, expires_at,
+       EXTRACT(EPOCH FROM (expires_at - NOW()))/60 as minutes_remaining
+FROM user_sessions
+WHERE is_active = TRUE AND expires_at > NOW()
+ORDER BY last_activity DESC;
+
+-- View sessions about to expire
+SELECT user_email, expires_at, warning_shown
+FROM user_sessions
+WHERE is_active = TRUE 
+  AND expires_at > NOW() 
+  AND expires_at < NOW() + INTERVAL '5 minutes'
+ORDER BY expires_at;
+
+-- Clean up expired sessions manually
+DELETE FROM user_sessions WHERE expires_at < NOW();
+```
+
+### Session API Endpoints
+- **GET /api/session/config**: Get timeout configuration
+- **POST /api/session/check**: Check session validity and update activity
+- **POST /api/session/extend**: Extend current session
+- **POST /logout**: End session and logout
+
+### Troubleshooting Sessions
+1. **Session not timing out**: Check if JavaScript is loaded and activity events are being tracked
+2. **Warning not showing**: Verify `warning_minutes` is less than `timeout_minutes`
+3. **Immediate logout**: Check if session table has required columns (run migration if needed)
+
 ## Troubleshooting
 
 ### Common Issues
@@ -188,6 +276,23 @@ psql -U whodis_user -d whodis_db -h localhost -f database/create_tables.sql
 
 #### Column name error in pg_stat_user_tables
 The error about `tablename` not existing is because PostgreSQL system views vary by version. The code has been updated to use `pg_class` which is more reliable.
+
+#### Table showing -1 row count in Admin UI
+This happens when PostgreSQL hasn't analyzed new tables yet. Fix by running:
+```bash
+psql -U postgres -d whodis_db -h localhost -f database/analyze_tables.sql
+```
+PostgreSQL's autovacuum will handle this automatically going forward.
+
+#### Missing columns error for user_sessions
+If you get errors about `warning_shown` or `is_active` columns:
+```bash
+# Run the migration
+psql -U postgres -d whodis_db -h localhost -f database/alter_session_timeout.sql
+
+# Or run the Python migration script
+python scripts/add_session_timeout_columns.py
+```
 
 #### Transaction poisoning (InFailedSqlTransaction)
 If you get "InFailedSqlTransaction" errors:
@@ -226,6 +331,13 @@ ORDER BY count DESC;
 SELECT service_name, expires_at, 
        CASE WHEN expires_at > NOW() THEN 'Valid' ELSE 'Expired' END as status
 FROM api_tokens;
+
+-- Active sessions summary
+SELECT COUNT(*) as active_sessions,
+       MIN(created_at) as oldest_session,
+       MAX(last_activity) as most_recent_activity
+FROM user_sessions
+WHERE is_active = TRUE AND expires_at > NOW();
 ```
 
 ### Clean Up Old Data

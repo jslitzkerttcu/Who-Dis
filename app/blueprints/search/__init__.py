@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, make_response
 from app.middleware.auth import require_role
 from app.services.ldap_service import ldap_service
 from app.services.genesys_service import genesys_service
@@ -7,6 +7,7 @@ from app.services.configuration_service import config_get
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,16 @@ SEARCH_OVERALL_TIMEOUT = int(
     config_get("search", "overall_timeout", os.getenv("SEARCH_OVERALL_TIMEOUT", "20"))
 )  # Overall timeout in seconds
 
+# Lazy loading configuration for photos
+lazy_load_config = config_get("search", "lazy_load_photos", "true")
+# Handle both string and boolean values
+if isinstance(lazy_load_config, bool):
+    LAZY_LOAD_PHOTOS = lazy_load_config
+else:
+    LAZY_LOAD_PHOTOS = str(lazy_load_config).lower() == "true"
 
-def merge_ldap_graph_data(ldap_data, graph_data):
+
+def merge_ldap_graph_data(ldap_data, graph_data, include_photo=True):
     """
     Merge LDAP and Graph data into a single Azure AD result.
     Graph data takes priority in case of conflicts.
@@ -86,10 +95,14 @@ def merge_ldap_graph_data(ldap_data, graph_data):
         if "accountEnabled" in graph_data:
             merged["enabled"] = graph_data["accountEnabled"]
 
-        # Profile photo - ONLY use Graph photo
-        if graph_data.get("photoUrl"):
+        # Profile photo - ONLY use Graph photo if requested
+        if include_photo and graph_data.get("photoUrl"):
             logger.info("Setting thumbnailPhoto from Graph photoUrl")
             merged["thumbnailPhoto"] = graph_data["photoUrl"]
+        elif not include_photo and graph_data.get("hasPhoto"):
+            # Photo exists but wasn't fetched (lazy loading)
+            logger.info("Photo exists but not loaded (lazy loading enabled)")
+            merged["hasPhotoCached"] = True
         else:
             logger.info("No photoUrl in Graph data")
 
@@ -150,6 +163,52 @@ def index():
     return render_template("search/index.html")
 
 
+@search_bp.route("/photo/<user_id>")
+@require_role("viewer")
+def get_user_photo(user_id):
+    """Get user photo by Graph ID."""
+    user_principal_name = request.args.get("upn")
+
+    logger.info(f"Fetching photo for user ID: {user_id}, UPN: {user_principal_name}")
+
+    try:
+        # Get photo from Graph service (will use cache if available)
+        photo_url = graph_service.get_user_photo(user_id, user_principal_name)
+
+        if photo_url:
+            # Extract the base64 data from the data URL
+            if photo_url.startswith("data:"):
+                # Format: data:image/jpeg;base64,<data>
+                parts = photo_url.split(",", 1)
+                if len(parts) == 2:
+                    mime_type = parts[0].split(";")[0].replace("data:", "")
+                    photo_data = base64.b64decode(parts[1])
+
+                    response = make_response(photo_data)
+                    response.headers["Content-Type"] = mime_type
+                    response.headers["Cache-Control"] = "private, max-age=3600"
+                    return response
+
+        # Return a 1x1 transparent pixel if no photo found
+        transparent_pixel = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        )
+        response = make_response(transparent_pixel)
+        response.headers["Content-Type"] = "image/png"
+        response.headers["Cache-Control"] = "private, max-age=3600"
+        return response
+
+    except Exception as e:
+        logger.error(f"Error fetching photo for user {user_id}: {str(e)}")
+        # Return error image
+        transparent_pixel = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        )
+        response = make_response(transparent_pixel)
+        response.headers["Content-Type"] = "image/png"
+        return response
+
+
 @search_bp.route("/user", methods=["POST"])
 @require_role("viewer")
 def search_user():
@@ -191,28 +250,48 @@ def search_user():
     graph_error = None
     graph_multiple = False
 
+    # Import Flask's copy_current_request_context to preserve context in threads
+    from flask import copy_current_request_context
+
     # Use ThreadPoolExecutor for concurrent searches with timeout
     with ThreadPoolExecutor(max_workers=3) as executor:
         # Submit both searches concurrently
         # For LDAP, either get specific user by DN or search
         if ldap_user_dn:
-            ldap_future = executor.submit(ldap_service.get_user_by_dn, ldap_user_dn)
+            ldap_future = executor.submit(
+                copy_current_request_context(ldap_service.get_user_by_dn), ldap_user_dn
+            )
         else:
-            ldap_future = executor.submit(ldap_service.search_user, search_term)
+            ldap_future = executor.submit(
+                copy_current_request_context(ldap_service.search_user), search_term
+            )
 
         # For Genesys, either search by ID or by term
         if genesys_user_id:
             genesys_future = executor.submit(
-                genesys_service.get_user_by_id, genesys_user_id
+                copy_current_request_context(genesys_service.get_user_by_id),
+                genesys_user_id,
             )
         else:
-            genesys_future = executor.submit(genesys_service.search_user, search_term)
+            genesys_future = executor.submit(
+                copy_current_request_context(genesys_service.search_user), search_term
+            )
 
         # For Graph API, either get by ID or search
+        # Skip photo loading if lazy loading is enabled
+        include_photo = not LAZY_LOAD_PHOTOS
         if graph_user_id:
-            graph_future = executor.submit(graph_service.get_user_by_id, graph_user_id)
+            graph_future = executor.submit(
+                copy_current_request_context(graph_service.get_user_by_id),
+                graph_user_id,
+                include_photo,
+            )
         else:
-            graph_future = executor.submit(graph_service.search_user, search_term)
+            graph_future = executor.submit(
+                copy_current_request_context(graph_service.search_user),
+                search_term,
+                include_photo,
+            )
 
         # Get LDAP results with timeout
         try:
@@ -359,7 +438,9 @@ def search_user():
     # Handle single results - merge them (only when BOTH are single results)
     if (ldap_result and not ldap_multiple) and (graph_result and not graph_multiple):
         # Both are single results - direct merge
-        azure_ad_result = merge_ldap_graph_data(ldap_result, graph_result)
+        azure_ad_result = merge_ldap_graph_data(
+            ldap_result, graph_result, include_photo
+        )
 
     # Handle multiple results - need to match and merge
     elif ldap_multiple or graph_multiple:
@@ -392,7 +473,9 @@ def search_user():
                             f"Fetching full Graph details for user ID: {graph_user_id}"
                         )
                         # Fetch full details for the matched user
-                        full_graph_user = graph_service.get_user_by_id(graph_user_id)
+                        full_graph_user = copy_current_request_context(
+                            graph_service.get_user_by_id
+                        )(graph_user_id, include_photo)
                         if full_graph_user:
                             logger.info(
                                 f"Full Graph user data fields: {list(full_graph_user.keys())}"
@@ -410,7 +493,7 @@ def search_user():
                                     f"Created date: {full_graph_user['createdDateTime']}"
                                 )
                             azure_ad_result = merge_ldap_graph_data(
-                                ldap_result, full_graph_user
+                                ldap_result, full_graph_user, include_photo
                             )
                             logger.info(
                                 f"Smart match: Found Graph user {matched_graph.get('displayName')} matching LDAP email {ldap_email}"
@@ -427,13 +510,13 @@ def search_user():
                             )
                             # Fallback to merging with basic data
                             azure_ad_result = merge_ldap_graph_data(
-                                ldap_result, matched_graph
+                                ldap_result, matched_graph, include_photo
                             )
                     else:
                         logger.warning("No Graph user ID found in matched result")
                         # Fallback to merging with basic data
                         azure_ad_result = merge_ldap_graph_data(
-                            ldap_result, matched_graph
+                            ldap_result, matched_graph, include_photo
                         )
                 else:
                     # No match found, show multiple results
@@ -463,7 +546,9 @@ def search_user():
 
                 if matched_ldap:
                     # Found a match - merge the matched LDAP with single Graph
-                    azure_ad_result = merge_ldap_graph_data(matched_ldap, graph_result)
+                    azure_ad_result = merge_ldap_graph_data(
+                        matched_ldap, graph_result, include_photo
+                    )
                     logger.info(
                         f"Smart match: Found LDAP user {matched_ldap.get('displayName')} matching Graph email {graph_email}"
                     )
@@ -498,9 +583,9 @@ def search_user():
     # Handle case where we have only one source (no results from the other)
     else:
         if ldap_result and not graph_result:
-            azure_ad_result = merge_ldap_graph_data(ldap_result, None)
+            azure_ad_result = merge_ldap_graph_data(ldap_result, None, include_photo)
         elif graph_result and not ldap_result:
-            azure_ad_result = merge_ldap_graph_data(None, graph_result)
+            azure_ad_result = merge_ldap_graph_data(None, graph_result, include_photo)
         # else both are None, azure_ad_result remains None
 
     # Combine errors
@@ -542,9 +627,10 @@ def search_user():
             # If we found a match, get the full user details
             if matched_user and matched_user.get("id"):
                 try:
-                    full_genesys_user = genesys_service.get_user_by_id(
-                        matched_user["id"]
-                    )
+                    # Wrap the Genesys call with request context
+                    full_genesys_user = copy_current_request_context(
+                        genesys_service.get_user_by_id
+                    )(matched_user["id"])
                     if full_genesys_user:
                         genesys_result = full_genesys_user
                         genesys_multiple = False

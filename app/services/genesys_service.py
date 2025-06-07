@@ -3,7 +3,7 @@ import requests
 from requests.exceptions import Timeout, ConnectionError
 from typing import Optional, Dict, Any
 import logging
-from app.services.genesys_cache import genesys_cache
+from app.services.genesys_cache_db import genesys_cache_db as genesys_cache
 from app.services.configuration_service import config_get
 from app.models import ApiToken
 
@@ -36,16 +36,22 @@ class GenesysCloudService:
         """Get access token using client credentials grant with database storage."""
         # First, try to get token from database
         try:
-            token_record = ApiToken.get_token("genesys")
-            if token_record:
-                logger.info(
-                    f"Using cached Genesys token, expires at {token_record.expires_at}"
-                )
-                return str(token_record.access_token)
+            # Check if we're in an application context
+            from flask import current_app
+
+            if current_app:
+                token_record = ApiToken.get_token("genesys")
+                if token_record:
+                    logger.info(
+                        f"Using cached Genesys token, expires at {token_record.expires_at}"
+                    )
+                    return str(token_record.access_token)
         except Exception as e:
-            logger.warning(
-                f"Failed to get token from database: {e}. Will fetch new token."
-            )
+            # This is expected when running outside app context during initialization
+            if "application context" not in str(e):
+                logger.warning(
+                    f"Failed to get token from database: {e}. Will fetch new token."
+                )
 
         # Token not in database or expired, get a new one
         logger.info("Genesys token not found or expired, fetching new token")
@@ -67,23 +73,29 @@ class GenesysCloudService:
 
                 # Try to store token in database
                 try:
-                    token_record = ApiToken.upsert_token(
-                        service_name="genesys",
-                        access_token=access_token,
-                        expires_in_seconds=expires_in,
-                        token_type=data.get("token_type", "Bearer"),
-                        additional_data={
-                            "region": self.region,
-                            "client_id": self.client_id,
-                        },
-                    )
-                    logger.info(
-                        f"New Genesys token stored, expires at {token_record.expires_at}"
-                    )
+                    # Check if we're in an application context
+                    from flask import current_app
+
+                    if current_app:
+                        token_record = ApiToken.upsert_token(
+                            service_name="genesys",
+                            access_token=access_token,
+                            expires_in_seconds=expires_in,
+                            token_type=data.get("token_type", "Bearer"),
+                            additional_data={
+                                "region": self.region,
+                                "client_id": self.client_id,
+                            },
+                        )
+                        logger.info(
+                            f"New Genesys token stored, expires at {token_record.expires_at}"
+                        )
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to store token in database: {e}. Token will work for this session."
-                    )
+                    # This is expected when running outside app context
+                    if "application context" not in str(e):
+                        logger.warning(
+                            f"Failed to store token in database: {e}. Token will work for this session."
+                        )
                 return str(access_token)
             else:
                 logger.error(

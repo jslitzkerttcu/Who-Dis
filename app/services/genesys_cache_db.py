@@ -59,18 +59,25 @@ class GenesysCacheDB:
     def needs_refresh(self) -> bool:
         """Check if cache needs refreshing based on configured period."""
         try:
-            # Check when groups were last cached
-            latest_group = GenesysGroup.query.order_by(
-                GenesysGroup.cached_at.desc()
-            ).first()
-            if not latest_group:
-                return True
+            from flask import has_app_context
 
-            time_since_refresh = datetime.utcnow() - latest_group.cached_at
-            return bool(time_since_refresh.total_seconds() > self.cache_refresh_period)
+            # Check if we're in an application context
+            if has_app_context():
+                # Check when groups were last cached
+                latest_group = GenesysGroup.query.order_by(
+                    GenesysGroup.cached_at.desc()
+                ).first()
+                if not latest_group:
+                    return True
+
+                time_since_refresh = datetime.utcnow() - latest_group.cached_at
+                return bool(
+                    time_since_refresh.total_seconds() > self.cache_refresh_period
+                )
         except Exception as e:
-            logger.error(f"Error checking cache refresh status: {e}")
-            return False  # Don't refresh if we can't check
+            if "application context" not in str(e):
+                logger.error(f"Error checking cache refresh status: {e}")
+        return False  # Don't refresh if we can't check
 
     def refresh_groups(self) -> bool:
         """Fetch all groups from Genesys Cloud and store in database."""
@@ -274,58 +281,104 @@ class GenesysCacheDB:
 
     def get_group_name(self, group_id: str) -> str:
         """Get group name from database cache."""
-        group = GenesysGroup.query.get(group_id)
-        return group.name if group else group_id
+        try:
+            from flask import has_app_context
+
+            # Check if we're in an application context
+            if has_app_context():
+                group = GenesysGroup.query.get(group_id)
+                return group.name if group else group_id
+        except Exception as e:
+            # If we're outside the app context or any other error, return the ID
+            if "application context" not in str(e):
+                logger.warning(f"Error getting group name for {group_id}: {e}")
+        return group_id
 
     def get_location_name(self, location_id: str) -> str:
         """Get location name from database cache."""
-        location = GenesysLocation.query.get(location_id)
-        return location.name if location else location_id
+        try:
+            from flask import has_app_context
+
+            # Check if we're in an application context
+            if has_app_context():
+                location = GenesysLocation.query.get(location_id)
+                return location.name if location else location_id
+        except Exception as e:
+            # If we're outside the app context or any other error, return the ID
+            if "application context" not in str(e):
+                logger.warning(f"Error getting location name for {location_id}: {e}")
+        return location_id
 
     def get_skill_name(self, skill_id: str) -> str:
         """Get skill name from database cache."""
-        skill = GenesysSkill.query.get(skill_id)
-        return skill.name if skill else skill_id
+        try:
+            from flask import has_app_context
+
+            # Check if we're in an application context
+            if has_app_context():
+                skill = GenesysSkill.query.get(skill_id)
+                return skill.name if skill else skill_id
+        except Exception as e:
+            # If we're outside the app context or any other error, return the ID
+            if "application context" not in str(e):
+                logger.warning(f"Error getting skill name for {skill_id}: {e}")
+        return skill_id
 
     def get_cache_status(self) -> Dict:
         """Get cache status information."""
-        # Get latest cache times
-        latest_group = GenesysGroup.query.order_by(
-            GenesysGroup.cached_at.desc()
-        ).first()
-        latest_location = GenesysLocation.query.order_by(
-            GenesysLocation.cached_at.desc()
-        ).first()
-        latest_skill = GenesysSkill.query.order_by(
-            GenesysSkill.cached_at.desc()
-        ).first()
+        try:
+            from flask import has_app_context
 
-        now = datetime.utcnow()
+            # Check if we're in an application context
+            if has_app_context():
+                # Get latest cache times
+                latest_group = GenesysGroup.query.order_by(
+                    GenesysGroup.cached_at.desc()
+                ).first()
+                latest_location = GenesysLocation.query.order_by(
+                    GenesysLocation.cached_at.desc()
+                ).first()
+                latest_skill = GenesysSkill.query.order_by(
+                    GenesysSkill.cached_at.desc()
+                ).first()
 
+                now = datetime.utcnow()
+
+                return {
+                    "groups_cached": GenesysGroup.query.count(),
+                    "locations_cached": GenesysLocation.query.count(),
+                    "skills_cached": GenesysSkill.query.count(),
+                    "last_group_update": latest_group.cached_at.isoformat()
+                    if latest_group
+                    else None,
+                    "last_location_update": latest_location.cached_at.isoformat()
+                    if latest_location
+                    else None,
+                    "last_skill_update": latest_skill.cached_at.isoformat()
+                    if latest_skill
+                    else None,
+                    "group_cache_age": str(now - latest_group.cached_at)
+                    if latest_group
+                    else None,
+                    "location_cache_age": str(now - latest_location.cached_at)
+                    if latest_location
+                    else None,
+                    "skill_cache_age": str(now - latest_skill.cached_at)
+                    if latest_skill
+                    else None,
+                    "refresh_period_hours": self.cache_refresh_period / 3600,
+                    "needs_refresh": self.needs_refresh(),
+                }
+        except Exception as e:
+            # If we're outside the app context or any other error, return minimal info
+            if "application context" not in str(e):
+                logger.warning(f"Error getting cache status: {e}")
         return {
-            "groups_cached": GenesysGroup.query.count(),
-            "locations_cached": GenesysLocation.query.count(),
-            "skills_cached": GenesysSkill.query.count(),
-            "last_group_update": latest_group.cached_at.isoformat()
-            if latest_group
-            else None,
-            "last_location_update": latest_location.cached_at.isoformat()
-            if latest_location
-            else None,
-            "last_skill_update": latest_skill.cached_at.isoformat()
-            if latest_skill
-            else None,
-            "group_cache_age": str(now - latest_group.cached_at)
-            if latest_group
-            else None,
-            "location_cache_age": str(now - latest_location.cached_at)
-            if latest_location
-            else None,
-            "skill_cache_age": str(now - latest_skill.cached_at)
-            if latest_skill
-            else None,
+            "groups_cached": 0,
+            "locations_cached": 0,
+            "skills_cached": 0,
+            "error": "Cache status unavailable outside application context",
             "refresh_period_hours": self.cache_refresh_period / 3600,
-            "needs_refresh": self.needs_refresh(),
         }
 
     def clear(self):

@@ -16,6 +16,9 @@ pip install -r requirements.txt
 # Set up PostgreSQL database
 psql -U whodis_user -d whodis_db -h localhost -f database/create_tables.sql
 
+# Analyze tables for proper statistics (prevents -1 row counts)
+psql -U postgres -d whodis_db -h localhost -f database/analyze_tables.sql
+
 # Configure encryption and migrate settings
 python scripts/migrate_config_to_db.py
 python scripts/verify_encrypted_config.py
@@ -57,6 +60,9 @@ python scripts/fix_encrypted_values.py
 
 # Diagnose configuration problems
 python scripts/diagnose_config.py
+
+# Apply session timeout migration (if upgrading)
+psql -U postgres -d whodis_db -h localhost -f database/alter_session_timeout.sql
 ```
 
 ## Architecture
@@ -78,7 +84,8 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
   - `access.py`: Access attempt tracking
   - `error.py`: Error logging
   - `genesys.py`: Genesys cache models
-  - `session.py`: User session management
+  - `graph_photo.py`: Microsoft Graph photo caching
+  - `session.py`: User session management with timeout tracking
   - `cache.py`: Search result caching
 - **`app/services/`**: Contains service integrations:
   - `ldap_service.py`: Active Directory/LDAP integration with fuzzy search and timeout handling
@@ -111,7 +118,7 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 - **Database storage**: All other configuration stored encrypted in PostgreSQL
 - **Runtime updates**: Configuration can be changed without restart
 - **Audit trail**: All configuration changes tracked in history table
-- **Categories**: auth, flask, ldap, genesys, graph, search
+- **Categories**: auth, flask, ldap, genesys, graph, search, session
 - **Encryption**: Sensitive values encrypted with Fernet using PBKDF2-derived key
 
 ### Search Features
@@ -161,8 +168,16 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 ### Background Services
 - **Token Refresh Service**: Runs in background thread, checks tokens every 5 minutes
 - **Genesys Cache Service**: Refreshes groups, skills, locations every 6 hours
-- **Session Cleanup**: Automatic removal of expired sessions
+- **Session Cleanup**: Automatic removal of expired sessions on startup
 - **Audit Log Cleanup**: Removes logs older than 90 days (configurable)
+
+### Session Management
+- **Inactivity Timeout**: Configurable timeout (15min default) with 2min warning
+- **Warning Modal**: Shows countdown timer before session expiration
+- **Activity Tracking**: Mouse, keyboard, scroll, and touch events reset timer
+- **Session Extension**: Users can extend their session from warning modal
+- **SSO Integration**: Seamless re-authentication through Azure AD
+- **JavaScript Client**: Handles client-side tracking and warning display
 
 ### Key Implementation Notes
 - All services implement timeout handling to prevent hanging searches
@@ -234,3 +249,5 @@ All other configuration is stored encrypted in the database and can be managed t
 - Use background services for long-running operations
 - Implement proper error handling with audit logging
 - Test encryption/decryption after any configuration changes
+- Run ANALYZE on new tables to prevent -1 row counts in admin UI
+- See [Database Documentation](docs/database.md) for detailed troubleshooting

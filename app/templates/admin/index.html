@@ -41,7 +41,9 @@
                     <div class="card-body">
                         <h5 class="card-title"><i class="bi bi-sliders"></i> Configuration</h5>
                         <p class="card-text text-muted">Toggle settings you'll probably forget you changed.</p>
-                        <button class="btn btn-outline-secondary w-100" disabled>Future Feature</button>
+                        <a href="{{ url_for('admin.configuration') }}" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-gear-fill"></i> Manage Configuration
+                        </a>
                     </div>
                 </div>
             </div>

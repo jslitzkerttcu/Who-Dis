@@ -1,4 +1,4 @@
-from flask import g, request, render_template, Response
+from flask import g, request, render_template, Response, session as flask_session
 from functools import wraps
 import os
 import base64
@@ -109,6 +109,9 @@ def get_user_role(email):
 
 def authenticate():
     """Authenticate user and set g.user and g.role"""
+    from app.models.session import UserSession
+    from app.services.configuration_service import config_get
+
     user_email = None
 
     ms_principal = request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME")
@@ -131,6 +134,40 @@ def authenticate():
         if g.role is None:
             log_access_denied(user_email, g.role)
             return False
+
+        # Session management
+        session_id = flask_session.get("session_id")
+        user_session = None
+
+        if session_id:
+            # Check existing session
+            user_session = UserSession.query.get(session_id)
+            if user_session and user_session.user_email == user_email:
+                if user_session.is_expired() or not user_session.is_active:
+                    # Session expired or inactive
+                    user_session.deactivate()
+                    flask_session.clear()
+                    user_session = None
+                else:
+                    # Update activity
+                    user_session.update_activity()
+            else:
+                # Session doesn't match user
+                flask_session.clear()
+                user_session = None
+
+        # Create new session if needed
+        if not user_session:
+            timeout_minutes = int(config_get("session", "timeout_minutes", 15))
+            user_session = UserSession.create_session(
+                user_email=user_email,
+                timeout_minutes=timeout_minutes,
+                ip_address=request.headers.get("X-Forwarded-For", request.remote_addr),
+                user_agent=request.headers.get("User-Agent"),
+            )
+            flask_session["session_id"] = user_session.id
+            flask_session.permanent = True
+
         return True
     else:
         return False
@@ -243,3 +280,15 @@ def require_role(minimum_role):
         return decorated_function
 
     return decorator
+
+
+def login_required(f):
+    """Simple decorator to check if user is logged in (for API endpoints)"""
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not authenticate():
+            return {"error": "Authentication required"}, 401
+        return f(*args, **kwargs)
+
+    return decorated_function

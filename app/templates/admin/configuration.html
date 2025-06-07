@@ -1,0 +1,647 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration Management - Who Dis?{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-sliders"></i> Configuration Management</h1>
+            <a href="{{ url_for('admin.index') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Admin
+            </a>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-4" id="configTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="app-tab" data-bs-toggle="tab" data-bs-target="#app" type="button" role="tab">
+                    <i class="bi bi-gear"></i> Application
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="ldap-tab" data-bs-toggle="tab" data-bs-target="#ldap" type="button" role="tab">
+                    <i class="bi bi-diagram-3"></i> LDAP
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="azure-tab" data-bs-toggle="tab" data-bs-target="#azure" type="button" role="tab">
+                    <i class="bi bi-microsoft"></i> Azure AD
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="genesys-tab" data-bs-toggle="tab" data-bs-target="#genesys" type="button" role="tab">
+                    <i class="bi bi-headset"></i> Genesys
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="configTabContent">
+            <!-- Application Tab -->
+            <div class="tab-pane fade show active" id="app" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-gear"></i> Application Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="app-config-loading" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div id="app-config-content" style="display: none;">
+                            <!-- Flask Settings -->
+                            <h6 class="border-bottom pb-2 mb-3">Flask Configuration</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Flask Host</label>
+                                    <input type="text" class="form-control" id="flask-host" data-category="flask" data-key="FLASK_HOST">
+                                    <small class="text-muted">Host address for Flask server</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Flask Port</label>
+                                    <input type="number" class="form-control" id="flask-port" data-category="flask" data-key="FLASK_PORT">
+                                    <small class="text-muted">Port number for Flask server</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Debug Mode</label>
+                                    <select class="form-select" id="flask-debug" data-category="flask" data-key="FLASK_DEBUG">
+                                        <option value="True">Enabled</option>
+                                        <option value="False">Disabled</option>
+                                    </select>
+                                    <small class="text-muted">Enable debug mode (not for production)</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Secret Key</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="flask-secret-key" data-category="flask" data-key="SECRET_KEY" data-sensitive="true">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('flask-secret-key')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Application secret key (keep secure!)</small>
+                                </div>
+                            </div>
+
+                            <!-- Search Settings -->
+                            <h6 class="border-bottom pb-2 mb-3 mt-4">Search Configuration</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Overall Search Timeout (seconds)</label>
+                                    <input type="number" class="form-control" id="search-timeout" data-category="search" data-key="SEARCH_OVERALL_TIMEOUT">
+                                    <small class="text-muted">Maximum time for all searches to complete</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Cache Expiration (hours)</label>
+                                    <input type="number" class="form-control" id="cache-expiration" data-category="search" data-key="CACHE_EXPIRATION_HOURS">
+                                    <small class="text-muted">How long to cache search results</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Lazy Load Photos</label>
+                                    <select class="form-select" id="search-lazy-photos" data-category="search" data-key="SEARCH_LAZY_LOAD_PHOTOS">
+                                        <option value="true">Enabled (Recommended)</option>
+                                        <option value="false">Disabled</option>
+                                    </select>
+                                    <small class="text-muted">Load user photos after search results for better performance</small>
+                                </div>
+                            </div>
+
+                            <!-- Audit Settings -->
+                            <h6 class="border-bottom pb-2 mb-3 mt-4">Audit Configuration</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Audit Log Retention (days)</label>
+                                    <input type="number" class="form-control" id="audit-retention" data-category="audit" data-key="AUDIT_LOG_RETENTION_DAYS">
+                                    <small class="text-muted">Days to keep audit logs</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Session Timeout (minutes)</label>
+                                    <input type="number" class="form-control" id="session-timeout" data-category="auth" data-key="SESSION_TIMEOUT_MINUTES">
+                                    <small class="text-muted">User session timeout period</small>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <button class="btn btn-primary" onclick="saveConfiguration('app')">
+                                    <i class="bi bi-save"></i> Save Application Settings
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LDAP Tab -->
+            <div class="tab-pane fade" id="ldap" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-diagram-3"></i> LDAP Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="ldap-config-loading" class="text-center py-4">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div id="ldap-config-content" style="display: none;">
+                            <!-- Connection Settings -->
+                            <h6 class="border-bottom pb-2 mb-3">Connection Settings</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-8">
+                                    <label class="form-label">LDAP Host</label>
+                                    <input type="text" class="form-control" id="ldap-host" data-category="ldap" data-key="LDAP_HOST">
+                                    <small class="text-muted">LDAP server URL (e.g., ldap://dc.example.com)</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">LDAP Port</label>
+                                    <input type="number" class="form-control" id="ldap-port" data-category="ldap" data-key="LDAP_PORT">
+                                    <small class="text-muted">Default: 389 (636 for SSL)</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Use SSL</label>
+                                    <select class="form-select" id="ldap-ssl" data-category="ldap" data-key="LDAP_USE_SSL">
+                                        <option value="True">Yes</option>
+                                        <option value="False">No</option>
+                                    </select>
+                                    <small class="text-muted">Enable SSL/TLS connection</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Connection Timeout (seconds)</label>
+                                    <input type="number" class="form-control" id="ldap-connect-timeout" data-category="ldap" data-key="LDAP_CONNECT_TIMEOUT">
+                                    <small class="text-muted">Timeout for establishing connection</small>
+                                </div>
+                            </div>
+
+                            <!-- Authentication -->
+                            <h6 class="border-bottom pb-2 mb-3 mt-4">Authentication</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Bind DN</label>
+                                    <input type="text" class="form-control" id="ldap-bind-dn" data-category="ldap" data-key="LDAP_BIND_DN">
+                                    <small class="text-muted">Distinguished name for binding (e.g., CN=service,OU=Accounts,DC=example,DC=com)</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Bind Password</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="ldap-bind-password" data-category="ldap" data-key="LDAP_BIND_PASSWORD" data-sensitive="true">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('ldap-bind-password')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Password for bind DN</small>
+                                </div>
+                            </div>
+
+                            <!-- Search Settings -->
+                            <h6 class="border-bottom pb-2 mb-3 mt-4">Search Settings</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Base DN</label>
+                                    <input type="text" class="form-control" id="ldap-base-dn" data-category="ldap" data-key="LDAP_BASE_DN">
+                                    <small class="text-muted">Base distinguished name (e.g., DC=example,DC=com)</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">User Search Base</label>
+                                    <input type="text" class="form-control" id="ldap-user-search-base" data-category="ldap" data-key="LDAP_USER_SEARCH_BASE">
+                                    <small class="text-muted">Base DN for user searches (e.g., OU=Employees,DC=example,DC=com)</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Operation Timeout (seconds)</label>
+                                    <input type="number" class="form-control" id="ldap-operation-timeout" data-category="ldap" data-key="LDAP_OPERATION_TIMEOUT">
+                                    <small class="text-muted">Timeout for search operations</small>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <button class="btn btn-success" onclick="saveConfiguration('ldap')">
+                                    <i class="bi bi-save"></i> Save LDAP Settings
+                                </button>
+                                <button class="btn btn-outline-secondary ms-2" onclick="testLDAPConnection()">
+                                    <i class="bi bi-arrow-repeat"></i> Test Connection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Azure AD Tab -->
+            <div class="tab-pane fade" id="azure" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-header" style="background-color: #007c59; color: white;">
+                        <h5 class="mb-0"><i class="bi bi-microsoft"></i> Azure AD (Graph API) Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="azure-config-loading" class="text-center py-4">
+                            <div class="spinner-border" style="color: #007c59;" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div id="azure-config-content" style="display: none;">
+                            <!-- Authentication -->
+                            <h6 class="border-bottom pb-2 mb-3">Authentication</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Tenant ID</label>
+                                    <input type="text" class="form-control" id="graph-tenant-id" data-category="graph" data-key="GRAPH_TENANT_ID">
+                                    <small class="text-muted">Azure AD tenant ID</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Client ID</label>
+                                    <input type="text" class="form-control" id="graph-client-id" data-category="graph" data-key="GRAPH_CLIENT_ID">
+                                    <small class="text-muted">Application (client) ID</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Client Secret</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="graph-client-secret" data-category="graph" data-key="GRAPH_CLIENT_SECRET" data-sensitive="true">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('graph-client-secret')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Client secret value</small>
+                                </div>
+                            </div>
+
+                            <!-- API Settings -->
+                            <h6 class="border-bottom pb-2 mb-3 mt-4">API Settings</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">API Timeout (seconds)</label>
+                                    <input type="number" class="form-control" id="graph-api-timeout" data-category="graph" data-key="GRAPH_API_TIMEOUT">
+                                    <small class="text-muted">Timeout for Graph API calls</small>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <button class="btn btn-primary" style="background-color: #007c59; border-color: #007c59;" onclick="saveConfiguration('azure')">
+                                    <i class="bi bi-save"></i> Save Azure AD Settings
+                                </button>
+                                <button class="btn btn-outline-secondary ms-2" onclick="testGraphConnection()">
+                                    <i class="bi bi-arrow-repeat"></i> Test Connection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Genesys Tab -->
+            <div class="tab-pane fade" id="genesys" role="tabpanel">
+                <div class="card shadow-sm">
+                    <div class="card-header" style="background-color: #FF4F1F; color: white;">
+                        <h5 class="mb-0"><i class="bi bi-headset"></i> Genesys Cloud Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="genesys-config-loading" class="text-center py-4">
+                            <div class="spinner-border" style="color: #FF4F1F;" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div id="genesys-config-content" style="display: none;">
+                            <!-- Authentication -->
+                            <h6 class="border-bottom pb-2 mb-3">Authentication</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Client ID</label>
+                                    <input type="text" class="form-control" id="genesys-client-id" data-category="genesys" data-key="GENESYS_CLIENT_ID">
+                                    <small class="text-muted">OAuth client ID</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Client Secret</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="genesys-client-secret" data-category="genesys" data-key="GENESYS_CLIENT_SECRET" data-sensitive="true">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('genesys-client-secret')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">OAuth client secret</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Region</label>
+                                    <select class="form-select" id="genesys-region" data-category="genesys" data-key="GENESYS_REGION">
+                                        <option value="mypurecloud.com">Americas (mypurecloud.com)</option>
+                                        <option value="mypurecloud.ie">EMEA (mypurecloud.ie)</option>
+                                        <option value="mypurecloud.com.au">Asia Pacific (mypurecloud.com.au)</option>
+                                        <option value="mypurecloud.jp">Japan (mypurecloud.jp)</option>
+                                        <option value="mypurecloud.de">Germany (mypurecloud.de)</option>
+                                    </select>
+                                    <small class="text-muted">Genesys Cloud region</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">API Timeout (seconds)</label>
+                                    <input type="number" class="form-control" id="genesys-api-timeout" data-category="genesys" data-key="GENESYS_API_TIMEOUT">
+                                    <small class="text-muted">Timeout for API calls</small>
+                                </div>
+                            </div>
+
+                            <!-- Cache Settings -->
+                            <h6 class="border-bottom pb-2 mb-3 mt-4">Cache Settings</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Cache Refresh Period (hours)</label>
+                                    <input type="number" class="form-control" id="genesys-cache-refresh" data-category="genesys" data-key="GENESYS_CACHE_REFRESH_HOURS" step="0.5">
+                                    <small class="text-muted">How often to refresh groups, skills, locations</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Cache Status</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="genesys-cache-status" readonly>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="refreshGenesysCache()">
+                                            <i class="bi bi-arrow-clockwise"></i> Refresh Now
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Current cache status</small>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <button class="btn btn-primary" style="background-color: #FF4F1F; border-color: #FF4F1F;" onclick="saveConfiguration('genesys')">
+                                    <i class="bi bi-save"></i> Save Genesys Settings
+                                </button>
+                                <button class="btn btn-outline-secondary ms-2" onclick="testGenesysConnection()">
+                                    <i class="bi bi-arrow-repeat"></i> Test Connection
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="configToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto">Configuration</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage">
+            <!-- Message will be inserted here -->
+        </div>
+    </div>
+</div>
+
+<script>
+// Load configuration when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadConfiguration('app');
+    
+    // Load other tabs when clicked
+    document.getElementById('ldap-tab').addEventListener('shown.bs.tab', function() {
+        loadConfiguration('ldap');
+    });
+    document.getElementById('azure-tab').addEventListener('shown.bs.tab', function() {
+        loadConfiguration('azure');
+    });
+    document.getElementById('genesys-tab').addEventListener('shown.bs.tab', function() {
+        loadConfiguration('genesys');
+        loadGenesysCacheStatus();
+    });
+});
+
+function loadConfiguration(category) {
+    const loadingDiv = document.getElementById(`${category === 'azure' ? 'azure' : category}-config-loading`);
+    const contentDiv = document.getElementById(`${category === 'azure' ? 'azure' : category}-config-content`);
+    
+    loadingDiv.style.display = 'block';
+    contentDiv.style.display = 'none';
+    
+    fetch('/admin/api/configuration')
+        .then(response => response.json())
+        .then(data => {
+            // Populate form fields
+            const inputs = contentDiv.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                const configCategory = input.dataset.category;
+                const configKey = input.dataset.key;
+                
+                if (data[configCategory] && data[configCategory][configKey] !== undefined) {
+                    input.value = data[configCategory][configKey];
+                }
+            });
+            
+            loadingDiv.style.display = 'none';
+            contentDiv.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error loading configuration:', error);
+            showToast('Error loading configuration', 'danger');
+        });
+}
+
+function saveConfiguration(section) {
+    const contentDiv = document.getElementById(`${section === 'azure' ? 'azure' : section}-config-content`);
+    const inputs = contentDiv.querySelectorAll('input, select');
+    const updates = {};
+    
+    inputs.forEach(input => {
+        const category = input.dataset.category;
+        const key = input.dataset.key;
+        const value = input.value;
+        
+        if (!updates[category]) {
+            updates[category] = {};
+        }
+        updates[category][key] = value;
+    });
+    
+    fetch('/admin/api/configuration', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ updates: updates })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`${section.charAt(0).toUpperCase() + section.slice(1)} configuration saved successfully`, 'success');
+        } else {
+            showToast(data.error || 'Error saving configuration', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving configuration:', error);
+        showToast('Error saving configuration', 'danger');
+    });
+}
+
+function togglePasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    const button = input.nextElementSibling;
+    const icon = button.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+    }
+}
+
+function showToast(message, type) {
+    const toast = document.getElementById('configToast');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastElement = new bootstrap.Toast(toast);
+    
+    toastMessage.textContent = message;
+    toast.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+    
+    if (type === 'success') {
+        toast.classList.add('bg-success', 'text-white');
+    } else if (type === 'danger') {
+        toast.classList.add('bg-danger', 'text-white');
+    } else if (type === 'warning') {
+        toast.classList.add('bg-warning');
+    }
+    
+    toastElement.show();
+}
+
+function testLDAPConnection() {
+    // Save current config first
+    saveConfiguration('ldap');
+    
+    setTimeout(() => {
+        fetch('/admin/api/test/ldap')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('LDAP connection successful!', 'success');
+                } else {
+                    showToast(`LDAP connection failed: ${data.error}`, 'danger');
+                }
+            })
+            .catch(error => {
+                showToast('Error testing LDAP connection', 'danger');
+            });
+    }, 1000);
+}
+
+function testGraphConnection() {
+    // Save current config first
+    saveConfiguration('azure');
+    
+    setTimeout(() => {
+        fetch('/admin/api/test/graph')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Graph API connection successful!', 'success');
+                } else {
+                    showToast(`Graph API connection failed: ${data.error}`, 'danger');
+                }
+            })
+            .catch(error => {
+                showToast('Error testing Graph API connection', 'danger');
+            });
+    }, 1000);
+}
+
+function testGenesysConnection() {
+    // Save current config first
+    saveConfiguration('genesys');
+    
+    setTimeout(() => {
+        fetch('/admin/api/test/genesys')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Genesys connection successful!', 'success');
+                } else {
+                    showToast(`Genesys connection failed: ${data.error}`, 'danger');
+                }
+            })
+            .catch(error => {
+                showToast('Error testing Genesys connection', 'danger');
+            });
+    }, 1000);
+}
+
+function loadGenesysCacheStatus() {
+    fetch('/admin/api/genesys/cache/status')
+        .then(response => response.json())
+        .then(data => {
+            const statusInput = document.getElementById('genesys-cache-status');
+            if (data.needs_refresh) {
+                statusInput.value = 'Needs refresh';
+                statusInput.classList.add('text-warning');
+            } else {
+                const ageText = formatCacheAge(data.group_cache_age || '0:00:00');
+                statusInput.value = `Last updated ${ageText}`;
+                statusInput.classList.remove('text-warning');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading cache status:', error);
+        });
+}
+
+function formatCacheAge(ageString) {
+    const match = ageString.match(/(\d+):(\d+):(\d+)/);
+    if (match) {
+        const hours = parseInt(match[1]);
+        const minutes = parseInt(match[2]);
+        
+        if (hours > 0) {
+            return `${hours}h ${minutes}m ago`;
+        } else if (minutes > 0) {
+            return `${minutes}m ago`;
+        } else {
+            return 'just now';
+        }
+    }
+    return ageString;
+}
+
+function refreshGenesysCache() {
+    const button = event.target.closest('button');
+    const originalHTML = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Refreshing...';
+    
+    fetch('/admin/api/genesys/cache/refresh', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Genesys cache refreshed successfully', 'success');
+            loadGenesysCacheStatus();
+        } else {
+            showToast(data.error || 'Error refreshing cache', 'danger');
+        }
+    })
+    .catch(error => {
+        showToast('Error refreshing cache', 'danger');
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = originalHTML;
+    });
+}
+</script>
+{% endblock %}

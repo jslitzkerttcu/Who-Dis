@@ -140,6 +140,8 @@ class LDAPService:
                     "pwdLastSet",
                     "accountExpires",
                     "msDS-UserPasswordExpiryTimeComputed",
+                    "ExclaimerMobile",
+                    "pager",
                 ]
 
                 logger.info(f"Searching with filter: {search_filter}")
@@ -278,6 +280,8 @@ class LDAPService:
                     "pwdLastSet",
                     "accountExpires",
                     "msDS-UserPasswordExpiryTimeComputed",
+                    "ExclaimerMobile",
+                    "pager",
                 ]
 
                 # Search for the specific DN
@@ -330,13 +334,26 @@ class LDAPService:
                 logger.error(f"Error parsing lockoutTime: {str(e)}")
                 locked = False
 
-        # Extract phone numbers
+        # Extract phone numbers with new attribute mappings
         phone_numbers = {}
-        if hasattr(entry, "extensionAttribute4") and entry.extensionAttribute4:
-            phone_numbers["genesys"] = str(entry.extensionAttribute4)
+        
+        # telephoneNumber -> Teams DID
         if hasattr(entry, "telephoneNumber") and entry.telephoneNumber:
-            phone_numbers["teams"] = str(entry.telephoneNumber)
+            phone_numbers["teams_did"] = str(entry.telephoneNumber)
+            
+        # extensionAttribute4 -> Genesys DID
+        if hasattr(entry, "extensionAttribute4") and entry.extensionAttribute4:
+            phone_numbers["genesys_did"] = str(entry.extensionAttribute4)
+            
+        # ExclaimerMobile -> Cell Phone
+        if hasattr(entry, "ExclaimerMobile") and entry.ExclaimerMobile:
+            phone_numbers["mobile"] = str(entry.ExclaimerMobile)
+            
+        # pager -> Genesys Extension
+        if hasattr(entry, "pager") and entry.pager:
+            phone_numbers["genesys_ext"] = str(entry.pager)
 
+        # ipPhone -> Legacy Extension
         extension = (
             str(entry.ipPhone) if hasattr(entry, "ipPhone") and entry.ipPhone else None
         )
@@ -479,6 +496,38 @@ class LDAPService:
             except Exception:
                 continue
         return groups
+
+
+def test_connection() -> bool:
+    """Test LDAP connection with current configuration."""
+    try:
+        ldap_service = LDAPService()
+        server = Server(
+            ldap_service.host,
+            port=ldap_service.port,
+            use_ssl=ldap_service.use_ssl,
+            get_info=ALL,
+            connect_timeout=ldap_service.connect_timeout,
+        )
+
+        with Connection(
+            server,
+            user=ldap_service.bind_dn,
+            password=ldap_service.bind_password,
+            auto_bind=True,
+            receive_timeout=ldap_service.operation_timeout,
+        ) as conn:
+            # Test with a simple search
+            conn.search(
+                search_base=ldap_service.base_dn,
+                search_filter="(objectClass=top)",
+                search_scope="BASE",
+                attributes=["namingContexts"],
+            )
+            return True
+    except Exception as e:
+        logger.error(f"LDAP connection test failed: {str(e)}")
+        return False
 
 
 ldap_service = LDAPService()

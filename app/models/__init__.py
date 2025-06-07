@@ -7,6 +7,8 @@ from .cache import SearchCache
 from .session import UserSession
 from .user import User
 from .api_token import ApiToken
+from .graph_photo import GraphPhoto
+from .user_note import UserNote
 
 __all__ = [
     "AuditLog",
@@ -19,4 +21,6 @@ __all__ = [
     "UserSession",
     "User",
     "ApiToken",
+    "GraphPhoto",
+    "UserNote",
 ]

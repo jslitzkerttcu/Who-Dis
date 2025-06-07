@@ -139,9 +139,14 @@
                                 <span id="genesys-cache-age" class="text-muted small">Unknown</span>
                             </div>
                         </div>
-                        <button class="btn btn-outline-info w-100" onclick="clearCaches()">
-                            <i class="bi bi-trash"></i> Clear All Caches
-                        </button>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" onclick="refreshGenesysCache()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh Genesys Cache
+                            </button>
+                            <button class="btn btn-outline-info" onclick="clearCaches()">
+                                <i class="bi bi-trash"></i> Clear All Caches
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -428,6 +433,47 @@ function loadSessionStats() {
         .then(response => response.json())
         .then(data => {
             document.getElementById('active-sessions').textContent = data.active_sessions || 0;
+        });
+}
+
+function refreshGenesysCache() {
+    if (!confirm('This will refresh the Genesys cache (groups, skills, locations). Continue?')) {
+        return;
+    }
+    
+    // Show loading state
+    const button = event.target.closest('button');
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Refreshing...';
+    
+    fetch('/admin/api/genesys/cache/refresh', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Genesys cache refreshed successfully!', 'success');
+                loadGenesysCacheStatus();
+                
+                // Show results if available
+                if (data.results) {
+                    const messages = [];
+                    if (data.results.groups) messages.push(`${data.results.groups.cached || 0} groups`);
+                    if (data.results.skills) messages.push(`${data.results.skills.cached || 0} skills`);
+                    if (data.results.locations) messages.push(`${data.results.locations.cached || 0} locations`);
+                    if (messages.length > 0) {
+                        showToast(`Cached: ${messages.join(', ')}`, 'info');
+                    }
+                }
+            } else {
+                showToast('Failed to refresh cache: ' + (data.message || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Error refreshing cache: ' + error.message, 'error');
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = originalText;
         });
 }
 

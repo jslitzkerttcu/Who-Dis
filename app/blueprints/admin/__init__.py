@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request, Response, current_app
 from app.middleware.auth import require_role
-from app.services.genesys_cache import genesys_cache
+from app.services.genesys_cache_db import genesys_cache_db as genesys_cache
 from app.database import db
 from datetime import datetime, timedelta
 import re
@@ -34,7 +34,7 @@ def cache_status():
 @require_role("admin")
 def manage_users():
     """Display user management page."""
-    from app.models import User
+    from app.models import User, UserNote
 
     # Get all users from database
     users = User.get_all_active()
@@ -42,13 +42,21 @@ def manage_users():
     # Convert to list of dicts for template
     user_list = []
     for user in users:
+        # Get all notes for this user
+        notes = (
+            UserNote.query.filter_by(user_id=user.id, is_active=True)
+            .order_by(UserNote.created_at.desc())
+            .all()
+        )
+
         user_list.append(
             {
+                "id": user.id,
                 "email": user.email,
                 "role": user.role,
                 "last_login": user.last_login,
                 "created_at": user.created_at,
-                "notes": user.notes,
+                "notes": notes,
             }
         )
 
@@ -63,7 +71,6 @@ def add_user():
 
     email = request.form.get("email", "").strip().lower()
     role = request.form.get("role", "viewer")
-    notes = request.form.get("notes", "")
 
     if not email or not re.match(
         r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email
@@ -93,7 +100,6 @@ def add_user():
             existing_user.is_active = True
             existing_user.role = role
             existing_user.updated_by = admin_email
-            existing_user.notes = notes
             db.session.commit()
 
             message = f"User {email} reactivated as {role}."
@@ -104,9 +110,7 @@ def add_user():
         )
 
         try:
-            User.create_user(
-                email=email, role=role, created_by=admin_email, notes=notes
-            )
+            User.create_user(email=email, role=role, created_by=admin_email)
             message = f"User {email} added as {role}. May the Force be with them."
         except Exception as e:
             return jsonify(
@@ -133,7 +137,7 @@ def add_user():
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
-        additional_data={"new_user": email, "assigned_role": role, "notes": notes},
+        additional_data={"new_user": email, "assigned_role": role},
     )
 
     return jsonify(
@@ -152,7 +156,6 @@ def update_user():
 
     email = request.form.get("email", "").strip().lower()
     new_role = request.form.get("role", "viewer")
-    notes = request.form.get("notes", "")
 
     # Get admin info
     admin_email = request.headers.get(
@@ -166,11 +169,6 @@ def update_user():
         return jsonify(
             {"success": False, "message": "User not found. They must have ghosted us."}
         ), 404
-
-    # Update notes if provided
-    if notes is not None:
-        user.notes = notes
-        db.session.commit()
 
     # Audit log
     from app.services.audit_service_postgres import audit_service
@@ -186,7 +184,7 @@ def update_user():
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
-        additional_data={"user": email, "new_role": new_role, "notes": notes},
+        additional_data={"user": email, "new_role": new_role},
     )
 
     return jsonify(
@@ -404,16 +402,20 @@ def database_tables():
                 SELECT 
                     n.nspname as schemaname,
                     c.relname as tablename,
-                    c.reltuples::bigint as row_count,
+                    CASE 
+                        WHEN c.reltuples < 0 THEN 0
+                        ELSE c.reltuples::bigint 
+                    END as row_count,
                     pg_size_pretty(pg_total_relation_size(c.oid)) as size,
                     s.last_vacuum,
-                    s.last_autovacuum
+                    s.last_autovacuum,
+                    s.n_live_tup as live_tuples
                 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 LEFT JOIN pg_stat_user_tables s ON s.schemaname = n.nspname AND s.relid = c.oid
                 WHERE n.nspname = 'public' 
                 AND c.relkind = 'r'
-                ORDER BY c.reltuples DESC
+                ORDER BY c.relname
             """)
 
             results = db.session.execute(query)
@@ -423,17 +425,32 @@ def database_tables():
                 if last_activity:
                     last_activity = last_activity.strftime("%Y-%m-%d %H:%M")
 
-                # For Genesys tables, get actual count since estimates can be wrong
+                # Use live_tuples if available and row_count is 0 or -1
                 actual_count = row.row_count
-                if row.tablename in [
-                    "genesys_groups",
-                    "genesys_locations",
-                    "genesys_skills",
-                ]:
-                    count_result = db.session.execute(
-                        text(f"SELECT COUNT(*) as count FROM {row.tablename}")
-                    ).first()
-                    actual_count = count_result.count if count_result else 0
+                if row.live_tuples is not None and (row.row_count <= 0):
+                    actual_count = row.live_tuples
+
+                # For certain tables, get actual count since estimates can be wrong
+                if (
+                    row.tablename
+                    in [
+                        "genesys_groups",
+                        "genesys_locations",
+                        "genesys_skills",
+                        "graph_photos",
+                        "user_sessions",
+                        "search_cache",
+                    ]
+                    or actual_count <= 0
+                ):
+                    try:
+                        count_result = db.session.execute(
+                            text(f"SELECT COUNT(*) as count FROM {row.tablename}")
+                        ).first()
+                        actual_count = count_result.count if count_result else 0
+                    except Exception:
+                        # If count fails, keep the estimate
+                        pass
 
                 tables.append(
                     {
@@ -528,7 +545,7 @@ def search_cache_status():
 def clear_caches():
     """Clear all caches."""
     from app.models import SearchCache
-    from app.services.genesys_cache import genesys_cache
+    from app.services.genesys_cache_db import genesys_cache_db as genesys_cache
     from app.services.audit_service_postgres import audit_service
 
     try:
@@ -912,58 +929,9 @@ def refresh_token(service_name):
 @require_role("admin")
 def genesys_cache_status():
     """Get detailed Genesys cache status."""
-    try:
-        from app.services.genesys_cache_db import genesys_cache_db
+    from app.services.genesys_cache_db import genesys_cache_db
 
-        return jsonify(genesys_cache_db.get_cache_status())
-    except Exception:
-        # Fallback to old cache
-        from app.services.genesys_cache import genesys_cache
-
-        return jsonify(genesys_cache.get_cache_status())
-
-
-@admin_bp.route("/api/genesys/cache/refresh", methods=["POST"])
-@require_role("admin")
-def refresh_genesys_cache():
-    """Manually refresh Genesys cache."""
-    from app.services.audit_service_postgres import audit_service
-
-    try:
-        from app.services.genesys_cache_db import genesys_cache_db
-
-        # Log action
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
-        admin_role = getattr(request, "user_role", None)
-        user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-
-        # Perform refresh
-        results = genesys_cache_db.refresh_all()
-
-        audit_service.log_admin_action(
-            user_email=admin_email,
-            action="refresh_genesys_cache",
-            target_resource="genesys_cache",
-            user_role=admin_role,
-            ip_address=user_ip,
-            user_agent=request.headers.get("User-Agent"),
-            success=True,
-            additional_data={"results": results},
-        )
-
-        return jsonify(
-            {
-                "success": True,
-                "message": "Genesys cache refreshed successfully",
-                "results": results,
-            }
-        )
-    except Exception as e:
-        return jsonify(
-            {"success": False, "message": f"Failed to refresh Genesys cache: {str(e)}"}
-        ), 500
+    return jsonify(genesys_cache_db.get_cache_status())
 
 
 @admin_bp.route("/api/genesys/cache/config", methods=["GET", "POST"])
@@ -1037,3 +1005,521 @@ def genesys_cache_config():
                     "message": f"Failed to update configuration: {str(e)}",
                 }
             ), 500
+
+
+@admin_bp.route("/configuration")
+@require_role("admin")
+def configuration():
+    """Display configuration management page."""
+    return render_template("admin/configuration.html")
+
+
+@admin_bp.route("/api/configuration", methods=["GET", "POST"])
+@require_role("admin")
+def api_configuration():
+    """Get or update configuration values."""
+    from app.services.configuration_service import config_get
+    from app.services.audit_service_postgres import audit_service
+
+    if request.method == "GET":
+        # Get all configuration values grouped by category
+        config_data = {
+            "flask": {
+                "FLASK_HOST": config_get("flask", "FLASK_HOST", "0.0.0.0"),
+                "FLASK_PORT": config_get("flask", "FLASK_PORT", "5000"),
+                "FLASK_DEBUG": config_get("flask", "FLASK_DEBUG", "False"),
+                "SECRET_KEY": config_get("flask", "SECRET_KEY", ""),
+            },
+            "auth": {
+                "SESSION_TIMEOUT_MINUTES": config_get(
+                    "auth", "SESSION_TIMEOUT_MINUTES", "60"
+                ),
+            },
+            "search": {
+                "SEARCH_OVERALL_TIMEOUT": config_get(
+                    "search", "SEARCH_OVERALL_TIMEOUT", "20"
+                ),
+                "CACHE_EXPIRATION_HOURS": config_get(
+                    "search", "CACHE_EXPIRATION_HOURS", "24"
+                ),
+                "SEARCH_LAZY_LOAD_PHOTOS": config_get(
+                    "search", "lazy_load_photos", "true"
+                ),
+            },
+            "audit": {
+                "AUDIT_LOG_RETENTION_DAYS": config_get(
+                    "audit", "AUDIT_LOG_RETENTION_DAYS", "90"
+                ),
+            },
+            "ldap": {
+                "LDAP_HOST": config_get("ldap", "LDAP_HOST", ""),
+                "LDAP_PORT": config_get("ldap", "LDAP_PORT", "389"),
+                "LDAP_USE_SSL": config_get("ldap", "LDAP_USE_SSL", "False"),
+                "LDAP_BIND_DN": config_get("ldap", "LDAP_BIND_DN", ""),
+                "LDAP_BIND_PASSWORD": config_get("ldap", "LDAP_BIND_PASSWORD", ""),
+                "LDAP_BASE_DN": config_get("ldap", "LDAP_BASE_DN", ""),
+                "LDAP_USER_SEARCH_BASE": config_get(
+                    "ldap", "LDAP_USER_SEARCH_BASE", ""
+                ),
+                "LDAP_CONNECT_TIMEOUT": config_get("ldap", "LDAP_CONNECT_TIMEOUT", "5"),
+                "LDAP_OPERATION_TIMEOUT": config_get(
+                    "ldap", "LDAP_OPERATION_TIMEOUT", "10"
+                ),
+            },
+            "graph": {
+                "GRAPH_CLIENT_ID": config_get("graph", "GRAPH_CLIENT_ID", ""),
+                "GRAPH_CLIENT_SECRET": config_get("graph", "GRAPH_CLIENT_SECRET", ""),
+                "GRAPH_TENANT_ID": config_get("graph", "GRAPH_TENANT_ID", ""),
+                "GRAPH_API_TIMEOUT": config_get("graph", "GRAPH_API_TIMEOUT", "15"),
+            },
+            "genesys": {
+                "GENESYS_CLIENT_ID": config_get("genesys", "GENESYS_CLIENT_ID", ""),
+                "GENESYS_CLIENT_SECRET": config_get(
+                    "genesys", "GENESYS_CLIENT_SECRET", ""
+                ),
+                "GENESYS_REGION": config_get(
+                    "genesys", "GENESYS_REGION", "mypurecloud.com"
+                ),
+                "GENESYS_API_TIMEOUT": config_get(
+                    "genesys", "GENESYS_API_TIMEOUT", "15"
+                ),
+                "GENESYS_CACHE_REFRESH_HOURS": str(
+                    int(config_get("genesys", "cache_refresh_period", "21600")) / 3600
+                ),
+            },
+        }
+        return jsonify(config_data)
+
+    else:  # POST
+        try:
+            updates = request.json.get("updates", {})
+            config_service = current_app.config.get("CONFIG_SERVICE")
+
+            if not config_service:
+                return jsonify(
+                    {"success": False, "error": "Configuration service not available"}
+                ), 500
+
+            # Track changes for audit log
+            changes = []
+
+            # Apply updates
+            for category, settings in updates.items():
+                for key, value in settings.items():
+                    # Special handling for cache refresh hours
+                    if key == "GENESYS_CACHE_REFRESH_HOURS":
+                        key = "cache_refresh_period"
+                        value = str(int(float(value) * 3600))
+                    # Special handling for lazy load photos
+                    elif key == "SEARCH_LAZY_LOAD_PHOTOS":
+                        key = "lazy_load_photos"
+
+                    old_value = config_get(category, key, "")
+                    if str(old_value) != str(value):
+                        config_service.set(category, key, value)
+                        changes.append(
+                            {
+                                "category": category,
+                                "key": key,
+                                "old_value": old_value,
+                                "new_value": value,
+                            }
+                        )
+
+            # Log configuration changes
+            if changes:
+                admin_email = request.headers.get(
+                    "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+                )
+                admin_role = getattr(request, "user_role", None)
+                user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+                audit_service.log_config_change(
+                    user_email=admin_email,
+                    config_section="multiple",
+                    config_key="multiple",
+                    old_value="various",
+                    new_value="various",
+                    user_role=admin_role,
+                    ip_address=user_ip,
+                    user_agent=request.headers.get("User-Agent"),
+                    success=True,
+                    additional_data={"changes": changes},
+                )
+
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"Configuration updated successfully ({len(changes)} changes)",
+                    "changes": len(changes),
+                }
+            )
+
+        except Exception as e:
+            return jsonify(
+                {"success": False, "error": f"Failed to update configuration: {str(e)}"}
+            ), 500
+
+
+@admin_bp.route("/api/test/ldap", methods=["GET"])
+@require_role("admin")
+def test_ldap_connection():
+    """Test LDAP connection with current configuration."""
+    from app.services.ldap_service import test_connection
+
+    try:
+        result = test_connection()
+        return jsonify(
+            {
+                "success": result,
+                "message": "Connection successful" if result else "Connection failed",
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/api/test/graph", methods=["GET"])
+@require_role("admin")
+def test_graph_connection():
+    """Test Microsoft Graph API connection."""
+    from app.services.graph_service import graph_service
+
+    try:
+        # Try to get token
+        if graph_service.refresh_token_if_needed():
+            return jsonify({"success": True, "message": "Connection successful"})
+        else:
+            return jsonify({"success": False, "error": "Failed to obtain access token"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/api/test/genesys", methods=["GET"])
+@require_role("admin")
+def test_genesys_connection():
+    """Test Genesys Cloud API connection."""
+    from app.services.genesys_service import genesys_service
+
+    try:
+        # Try to get token
+        if genesys_service.refresh_token_if_needed():
+            return jsonify({"success": True, "message": "Connection successful"})
+        else:
+            return jsonify({"success": False, "error": "Failed to obtain access token"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@admin_bp.route("/api/genesys/cache-status", methods=["GET"])
+@require_role("admin")
+def get_genesys_cache_status():
+    """Get Genesys cache status."""
+    try:
+        status = genesys_cache.get_cache_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/api/genesys/refresh-cache", methods=["POST"])
+@require_role("admin")
+def refresh_genesys_cache():
+    """Manually refresh Genesys cache."""
+    try:
+        cache_type = request.json.get("type", "all")
+
+        if cache_type == "all":
+            results = genesys_cache.refresh_all()
+        elif cache_type == "locations":
+            results = {"locations": genesys_cache.refresh_locations()}
+        elif cache_type == "groups":
+            results = {"groups": genesys_cache.refresh_groups()}
+        elif cache_type == "skills":
+            results = {"skills": genesys_cache.refresh_skills()}
+        else:
+            return jsonify({"error": "Invalid cache type"}), 400
+
+        return jsonify({"success": True, "results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@admin_bp.route("/api/users/<int:user_id>/notes", methods=["GET"])
+@require_role("admin")
+def get_user_notes(user_id):
+    """Get all notes for a specific user."""
+    from app.models import UserNote
+
+    notes = (
+        UserNote.query.filter_by(user_id=user_id, is_active=True)
+        .order_by(UserNote.created_at.desc())
+        .all()
+    )
+
+    notes_list = []
+    for note in notes:
+        notes_list.append(
+            {
+                "id": note.id,
+                "note": note.note,
+                "created_by": note.created_by,
+                "created_at": note.created_at.isoformat(),
+                "updated_at": note.updated_at.isoformat(),
+            }
+        )
+
+    return jsonify({"notes": notes_list})
+
+
+@admin_bp.route("/api/users/<int:user_id>/notes", methods=["POST"])
+@require_role("editor")  # Allow editors and admins
+def add_user_note(user_id):
+    """Add a note for a specific user."""
+    from app.models import User, UserNote
+    from app.services.audit_service_postgres import audit_service
+
+    # Verify user exists
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 404
+
+    note_text = request.json.get("note", "").strip()
+    if not note_text:
+        return jsonify({"success": False, "message": "Note cannot be empty"}), 400
+
+    # Get admin info
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+
+    # Create note
+    note = UserNote(user_id=user_id, note=note_text, created_by=admin_email)
+    db.session.add(note)
+    db.session.commit()
+
+    # Audit log
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    audit_service.log_admin_action(
+        user_email=admin_email,
+        action="add_user_note",
+        target_resource=f"user:{user.email}",
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+        additional_data={
+            "user": user.email,
+            "note_id": note.id,
+            "note_preview": note_text[:50] + "..."
+            if len(note_text) > 50
+            else note_text,
+        },
+    )
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "Note added successfully",
+            "note": {
+                "id": note.id,
+                "note": note.note,
+                "created_by": note.created_by,
+                "created_at": note.created_at.isoformat(),
+            },
+        }
+    )
+
+
+@admin_bp.route("/api/users/notes/<int:note_id>", methods=["PUT"])
+@require_role("editor")  # Allow editors and admins
+def update_user_note(note_id):
+    """Update an existing user note."""
+    from app.models import UserNote
+    from app.services.audit_service_postgres import audit_service
+
+    note = UserNote.query.get(note_id)
+    if not note or not note.is_active:
+        return jsonify({"success": False, "message": "Note not found"}), 404
+
+    note_text = request.json.get("note", "").strip()
+    if not note_text:
+        return jsonify({"success": False, "message": "Note cannot be empty"}), 400
+
+    old_note_text = note.note
+    note.note = note_text
+    db.session.commit()
+
+    # Audit log
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    audit_service.log_admin_action(
+        user_email=admin_email,
+        action="update_user_note",
+        target_resource=f"note:{note_id}",
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+        additional_data={
+            "note_id": note_id,
+            "old_note": old_note_text[:50] + "..."
+            if len(old_note_text) > 50
+            else old_note_text,
+            "new_note": note_text[:50] + "..." if len(note_text) > 50 else note_text,
+        },
+    )
+
+    return jsonify({"success": True, "message": "Note updated successfully"})
+
+
+@admin_bp.route("/api/users/notes/<int:note_id>", methods=["DELETE"])
+@require_role("editor")  # Allow editors and admins
+def delete_user_note(note_id):
+    """Delete (soft delete) a user note."""
+    from app.models import UserNote
+    from app.services.audit_service_postgres import audit_service
+
+    note = UserNote.query.get(note_id)
+    if not note or not note.is_active:
+        return jsonify({"success": False, "message": "Note not found"}), 404
+
+    note.is_active = False
+    db.session.commit()
+
+    # Audit log
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    audit_service.log_admin_action(
+        user_email=admin_email,
+        action="delete_user_note",
+        target_resource=f"note:{note_id}",
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+        additional_data={
+            "note_id": note_id,
+            "note_preview": note.note[:50] + "..."
+            if len(note.note) > 50
+            else note.note,
+        },
+    )
+
+    return jsonify({"success": True, "message": "Note deleted successfully"})
+
+
+@admin_bp.route("/api/users/by-email/<email>/notes", methods=["GET"])
+@require_role("viewer")
+def get_user_notes_by_email(email):
+    """Get notes for a user by email (for search results)."""
+    from app.models import User, UserNote
+
+    # All authenticated users can see notes
+    user_role = getattr(request, "user_role", "viewer")
+
+    # Find user by email
+    user = User.query.filter_by(email=email.lower()).first()
+    if not user:
+        return jsonify({"notes": []})
+
+    # Get active notes
+    notes = (
+        UserNote.query.filter_by(user_id=user.id, is_active=True)
+        .order_by(UserNote.created_at.desc())
+        .all()
+    )
+
+    notes_list = []
+    for note in notes:
+        notes_list.append(
+            {
+                "id": note.id,
+                "note": note.note,
+                "created_by": note.created_by,
+                "created_at": note.created_at.isoformat(),
+                "updated_at": note.updated_at.isoformat(),
+                "can_edit": user_role
+                in ["admin", "editor"],  # Add edit permission flag
+            }
+        )
+
+    return jsonify({"notes": notes_list, "can_edit": user_role in ["admin", "editor"]})
+
+
+@admin_bp.route("/api/users/by-email/<email>/notes", methods=["POST"])
+@require_role("editor")  # Allow editors and admins
+def add_user_note_by_email(email):
+    """Add a note for a user by email."""
+    from app.models import User, UserNote
+    from app.services.audit_service_postgres import audit_service
+
+    # Find user by email, create if doesn't exist
+    user = User.query.filter_by(email=email.lower()).first()
+
+    if not user:
+        # Create user if they don't exist
+        admin_email = request.headers.get(
+            "X-MS-CLIENT-PRINCIPAL_NAME", request.remote_user or "unknown"
+        )
+        user = User.create_user(
+            email=email.lower(), role="viewer", created_by=admin_email
+        )
+
+    note_text = request.json.get("note", "").strip()
+    if not note_text:
+        return jsonify({"success": False, "message": "Note cannot be empty"}), 400
+
+    # Get admin info
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+
+    # Create note
+    note = UserNote(user_id=user.id, note=note_text, created_by=admin_email)
+    db.session.add(note)
+    db.session.commit()
+
+    # Audit log
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    audit_service.log_admin_action(
+        user_email=admin_email,
+        action="add_user_note",
+        target_resource=f"user:{user.email}",
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+        additional_data={
+            "user": user.email,
+            "note_id": note.id,
+            "note_preview": note_text[:50] + "..."
+            if len(note_text) > 50
+            else note_text,
+        },
+    )
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "Note added successfully",
+            "note": {
+                "id": note.id,
+                "note": note.note,
+                "created_by": note.created_by,
+                "created_at": note.created_at.isoformat(),
+            },
+        }
+    )

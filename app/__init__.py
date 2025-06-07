@@ -125,6 +125,15 @@ def create_app():
                 except Exception as e:
                     app.logger.error(f"Error initializing Genesys cache: {str(e)}")
 
+                # Clean up expired sessions on startup
+                try:
+                    from app.models.session import UserSession
+
+                    UserSession.cleanup_expired()
+                    app.logger.info("Expired sessions cleaned up")
+                except Exception as e:
+                    app.logger.error(f"Error cleaning up sessions: {str(e)}")
+
             except Exception as e:
                 app.logger.error(f"Error refreshing tokens at startup: {str(e)}")
 
@@ -144,10 +153,14 @@ def create_app():
     from app.blueprints.home import home_bp
     from app.blueprints.search import search_bp
     from app.blueprints.admin import admin_bp
+    from app.blueprints.session import session_bp
+    from app.blueprints.cli import cli_bp
 
     app.register_blueprint(home_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
     app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(session_bp)
+    app.register_blueprint(cli_bp, url_prefix="/cli")
 
     # Global error handlers
     @app.errorhandler(Exception)

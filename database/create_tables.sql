@@ -192,6 +192,20 @@ CREATE TABLE IF NOT EXISTS search_cache (
 CREATE INDEX IF NOT EXISTS idx_search_cache_query ON search_cache(search_query, search_type);
 CREATE INDEX IF NOT EXISTS idx_search_cache_expires ON search_cache(expires_at);
 
+-- Graph photos cache table
+CREATE TABLE IF NOT EXISTS graph_photos (
+    user_id VARCHAR(255) PRIMARY KEY,
+    user_principal_name VARCHAR(255),
+    photo_data BYTEA NOT NULL,
+    content_type VARCHAR(50) DEFAULT 'image/jpeg' NOT NULL,
+    fetched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Indexes for graph photos
+CREATE INDEX IF NOT EXISTS idx_graph_photos_upn ON graph_photos(user_principal_name);
+CREATE INDEX IF NOT EXISTS idx_graph_photos_updated ON graph_photos(updated_at);
+
 -- Session tracking (optional)
 CREATE TABLE IF NOT EXISTS user_sessions (
     id VARCHAR(255) PRIMARY KEY,
@@ -200,7 +214,9 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     user_agent TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_activity TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL
+    expires_at TIMESTAMP NOT NULL,
+    warning_shown BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE
 );
 
 -- Index for sessions
@@ -250,6 +266,9 @@ BEGIN
     
     -- Delete expired sessions
     DELETE FROM user_sessions WHERE expires_at < CURRENT_TIMESTAMP;
+    
+    -- Delete graph photos older than 30 days
+    DELETE FROM graph_photos WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
 END;
 $$ LANGUAGE plpgsql;
 
@@ -280,6 +299,12 @@ INSERT INTO configuration (category, setting_key, setting_value, data_type, desc
 
 -- Search settings
 ('search', 'overall_timeout', '20', 'integer', 'Overall search timeout in seconds', FALSE),
+('search', 'lazy_load_photos', 'true', 'boolean', 'Enable lazy loading of user photos for better performance', FALSE),
+
+-- Session settings
+('session', 'timeout_minutes', '15', 'integer', 'Session timeout in minutes (default 15)', FALSE),
+('session', 'warning_minutes', '2', 'integer', 'Minutes before timeout to show warning (default 2)', FALSE),
+('session', 'check_interval_seconds', '30', 'integer', 'How often to check session validity in seconds', FALSE),
 
 -- Sensitive settings (will be populated during migration)
 ('auth', 'viewers', NULL, 'string', 'Comma-separated list of viewer emails', TRUE),

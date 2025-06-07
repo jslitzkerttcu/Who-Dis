@@ -25,27 +25,8 @@
 
         <div id="searchResults" class="d-none">
             <h3 class="mb-3">Search Results</h3>
-            <div class="row">
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100 border-success">
-                        <div class="card-header text-white bg-success">
-                            <h5 class="mb-0">Azure AD (a.k.a. The Corporate Truth)</h5>
-                        </div>
-                        <div class="card-body" id="azureADResults">
-                            <!-- Magic goes here -->
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100 border-warning">
-                        <div class="card-header text-white" style="background-color: #FF4F1F;">
-                            <h5 class="mb-0">Genesys Cloud (where voices live)</h5>
-                        </div>
-                        <div class="card-body" id="genesysResults">
-                            <!-- And here too -->
-                        </div>
-                    </div>
-                </div>
+            <div id="unifiedResults">
+                <!-- Unified profile card will be inserted here -->
             </div>
         </div>
 
@@ -60,6 +41,9 @@
 </div>
 
 <script>
+    // Set user role from template context
+    window.userRole = '{{ g.user_role|default("viewer") }}';
+    
     // Format phone numbers consistently
     function formatPhoneNumber(phone) {
         if (!phone) return phone;
@@ -214,25 +198,700 @@
             return;
         }
 
-        // Handle Azure AD (combined LDAP + Graph) results or errors
-        if (data.azureAD_error) {
-            document.getElementById('azureADResults').innerHTML = `<div class="alert alert-warning">${data.azureAD_error}</div>`;
-        } else if (data.azureAD_multiple && data.azureAD) {
-            document.getElementById('azureADResults').innerHTML = formatAzureADMultipleResults(data.azureAD);
+        // Handle multiple results scenarios
+        if ((data.azureAD_multiple && data.azureAD) || (data.genesys_multiple && data.genesys)) {
+            // Show selection lists for multiple results
+            let html = '';
+            if (data.azureAD_multiple && data.azureAD) {
+                html += formatAzureADMultipleResults(data.azureAD);
+            }
+            if (data.genesys_multiple && data.genesys) {
+                if (html) html += '<hr class="my-4">';
+                html += formatGenesysMultipleResults(data.genesys);
+            }
+            document.getElementById('unifiedResults').innerHTML = html;
         } else {
-            document.getElementById('azureADResults').innerHTML = formatAzureADResults(data.azureAD);
-        }
-
-        // Handle Genesys results
-        if (data.genesys_error) {
-            document.getElementById('genesysResults').innerHTML = `<div class="alert alert-warning">${data.genesys_error}</div>`;
-        } else if (data.genesys_multiple && data.genesys) {
-            document.getElementById('genesysResults').innerHTML = formatGenesysMultipleResults(data.genesys);
-        } else {
-            document.getElementById('genesysResults').innerHTML = formatGenesysResults(data.genesys);
+            // Create unified profile card
+            const mergedUser = mergeUserData(data.azureAD, data.genesys);
+            if (data.azureAD_error || data.genesys_error) {
+                let errorHtml = '';
+                if (data.azureAD_error) {
+                    errorHtml += `<div class="alert alert-warning">${data.azureAD_error}</div>`;
+                }
+                if (data.genesys_error) {
+                    errorHtml += `<div class="alert alert-warning">${data.genesys_error}</div>`;
+                }
+                document.getElementById('unifiedResults').innerHTML = errorHtml + formatUnifiedProfile(mergedUser);
+            } else {
+                document.getElementById('unifiedResults').innerHTML = formatUnifiedProfile(mergedUser);
+            }
         }
 
         document.getElementById('searchResults').classList.remove('d-none');
+        
+        // Lazy load photos after results are displayed
+        setTimeout(lazyLoadPhotos, 100);
+        
+        // Load user notes for all authenticated users
+        setTimeout(loadAdminNotes, 100);
+    }
+
+    function mergeUserData(azureAD, genesys) {
+        const merged = {
+            // Core Identity - prefer Azure AD
+            displayName: azureAD?.displayName || genesys?.name || null,
+            givenName: azureAD?.givenName || null,
+            surname: azureAD?.surname || null,
+            email: azureAD?.mail || genesys?.email || null,
+            title: azureAD?.title || genesys?.title || null,
+            department: azureAD?.department || genesys?.department || null,
+            
+            // Account Details
+            username: azureAD?.sAMAccountName || genesys?.username || null,
+            userPrincipalName: azureAD?.userPrincipalName || null,
+            employeeID: azureAD?.employeeID || null,
+            employeeType: azureAD?.employeeType || null,
+            genesysUsername: genesys?.username || null,
+            
+            // Manager & Office
+            manager: azureAD?.manager || null,
+            managerEmail: azureAD?.managerEmail || null,
+            officeLocation: azureAD?.officeLocation || null,
+            companyName: azureAD?.companyName || null,
+            
+            // Contact Information
+            phoneNumbers: {},
+            extension: azureAD?.extension || null,
+            
+            // Address
+            address: azureAD?.address || null,
+            
+            // Groups & Roles
+            adGroups: azureAD?.groupMembership || [],
+            genesysGroups: genesys?.groups || [],
+            genesysRoles: genesys?.roles || [],
+            genesysSkills: genesys?.skills || [],
+            genesysQueues: genesys?.queues || [],
+            genesysLocations: genesys?.locations || [],
+            genesysDivision: genesys?.division || null,
+            genesysPresence: genesys?.presence || null,
+            
+            // Status
+            enabled: azureAD?.enabled,
+            locked: azureAD?.locked,
+            genesysState: genesys?.state || null,
+            
+            // Dates
+            createdDateTime: azureAD?.createdDateTime || null,
+            employeeHireDate: azureAD?.employeeHireDate || null,
+            dateOfBirth: azureAD?.dateOfBirth || null,
+            pwdLastSet: azureAD?.pwdLastSet || null,
+            lastPasswordChangeDateTime: azureAD?.lastPasswordChangeDateTime || null,
+            pwdExpires: azureAD?.pwdExpires || null,
+            refreshTokensValidFromDateTime: azureAD?.refreshTokensValidFromDateTime || null,
+            signInSessionsValidFromDateTime: azureAD?.signInSessionsValidFromDateTime || null,
+            onPremisesLastSyncDateTime: azureAD?.onPremisesLastSyncDateTime || null,
+            passwordPolicies: azureAD?.passwordPolicies || null,
+            genesysLastLogin: genesys?.dateLastLogin || null,
+            
+            // Photo - only use Graph/AD photo
+            thumbnailPhoto: azureAD?.thumbnailPhoto || null,
+            hasPhotoCached: azureAD?.hasPhotoCached || false,
+            graphId: azureAD?.graphId || null,
+            
+            // Data source tracking
+            hasAzureAD: !!azureAD,
+            hasGenesys: !!genesys,
+            hasGraphData: azureAD?.hasGraphData || false
+        };
+        
+        // Merge phone numbers - keep all phone numbers with their original keys
+        if (azureAD?.phoneNumbers) {
+            Object.assign(merged.phoneNumbers, azureAD.phoneNumbers);
+        }
+        if (genesys?.phoneNumbers) {
+            // Add Genesys phone numbers with genesys_ prefix to distinguish source
+            for (const [type, number] of Object.entries(genesys.phoneNumbers)) {
+                merged.phoneNumbers[`genesys_${type}`] = number;
+            }
+        }
+        
+        return merged;
+    }
+
+    function formatUnifiedProfile(user) {
+        if (!user || (!user.hasAzureAD && !user.hasGenesys)) {
+            return '<p class="text-muted">No user found</p>';
+        }
+
+        let html = '<div class="card">';
+        html += '<div class="card-body">';
+        
+        // Profile header with photo and status badges
+        html += '<div class="d-flex align-items-start mb-4">';
+        
+        // Profile photo on the left
+        html += '<div class="me-4">';
+        if (user.thumbnailPhoto) {
+            html += `<img src="${user.thumbnailPhoto}" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" alt="Profile">`;
+        } else if (user.hasPhotoCached || user.graphId) {
+            html += `<img src="/static/img/user-placeholder.svg" data-graph-id="${user.graphId || ''}" data-upn="${user.userPrincipalName || ''}" class="rounded-circle lazy-photo" style="width: 120px; height: 120px; object-fit: cover;" alt="Profile">`;
+        } else {
+            html += '<div class="rounded-circle bg-light d-flex align-items-center justify-content-center" style="width: 120px; height: 120px;">';
+            html += '<i class="bi bi-person-fill text-secondary" style="font-size: 3rem;"></i>';
+            html += '</div>';
+        }
+        html += '</div>';
+        
+        // User info on the right
+        html += '<div class="flex-grow-1">';
+        
+        // Name and status badges
+        html += '<div class="d-flex justify-content-between align-items-start mb-2">';
+        html += '<div>';
+        html += `<h4 class="mb-1">${user.displayName || 'Unknown User'}</h4>`;
+        if (user.title) {
+            html += `<p class="text-muted mb-0">${user.title}</p>`;
+        }
+        if (user.department) {
+            html += `<p class="text-muted mb-0">${user.department}</p>`;
+        }
+        if (user.officeLocation) {
+            html += `<p class="text-muted mb-0">${user.officeLocation}</p>`;
+        }
+        html += '</div>';
+        
+        // Status badges
+        html += '<div class="text-end">';
+        
+        // AD Status - first line
+        if (user.enabled !== undefined) {
+            if (user.enabled) {
+                html += '<span class="badge bg-success">AD Enabled</span>';
+            } else {
+                html += '<span class="badge bg-danger">AD Disabled</span>';
+            }
+        }
+        
+        // Account Lock Status - second line
+        if (user.locked !== undefined) {
+            html += '<br>';
+            if (user.locked) {
+                html += '<span class="badge bg-warning text-dark mt-1">Account Locked</span>';
+            } else {
+                html += '<span class="badge bg-success mt-1">Account Unlocked</span>';
+            }
+        }
+        
+        // Check for Genesys and Teams presence based on phone numbers
+        let hasGenesys = false;
+        let hasTeams = false;
+        
+        if (user.phoneNumbers) {
+            for (const [type, number] of Object.entries(user.phoneNumbers)) {
+                if (!number) continue;
+                
+                // Check for Genesys DID or Extension
+                if (type === 'genesys_did' || type === 'genesys_ext' || type === 'genesys' || 
+                    type.startsWith('genesys_')) {
+                    hasGenesys = true;
+                }
+                
+                // Check for Teams DID
+                if (type === 'teams' || type === 'teams_did') {
+                    hasTeams = true;
+                }
+            }
+        }
+        
+        // Check extension field for Genesys
+        if (user.extension) {
+            hasGenesys = true;
+        }
+        
+        // Third line - Genesys and Teams badges
+        if (hasGenesys || hasTeams) {
+            html += '<br>';
+            if (hasGenesys) {
+                html += '<span class="badge mt-1 me-1" style="background-color: #FF4F1F;">Genesys User</span>';
+            }
+            if (hasTeams) {
+                html += '<span class="badge mt-1" style="background-color: #4f42b5;">Teams User</span>';
+            }
+        }
+        
+        html += '</div>';
+        html += '</div>';
+        
+        html += '</div>';
+        html += '</div>';
+        
+        // Core Identity Section
+        html += '<hr class="my-3">';
+        html += '<div class="row">';
+        html += '<div class="col-md-6">';
+        html += '<h6 class="text-muted mb-3"><i class="bi bi-person-badge"></i> Core Identity</h6>';
+        html += '<dl class="row mb-0">';
+        
+        // Email
+        html += `<dt class="col-sm-4">Email:</dt><dd class="col-sm-8">${user.email || '<span class="text-muted">-</span>'}</dd>`;
+        
+        // Username
+        if (user.username || user.userPrincipalName) {
+            html += '<dt class="col-sm-4">Username:</dt><dd class="col-sm-8">';
+            if (user.username) {
+                html += user.username;
+                if (user.hasAzureAD) {
+                    html += ' <span class="badge bg-light text-dark" style="font-size: 0.7rem;">AD</span>';
+                }
+            }
+            if (user.userPrincipalName && user.userPrincipalName !== user.email) {
+                if (user.username) html += '<br>';
+                html += `<small class="text-muted">UPN: ${user.userPrincipalName}</small>`;
+            }
+            html += '</dd>';
+        }
+        
+        // Employee ID
+        if (user.employeeID) {
+            html += `<dt class="col-sm-4">Employee ID:</dt><dd class="col-sm-8">${user.employeeID}</dd>`;
+        }
+        
+        // Phone Numbers
+        html += '<dt class="col-sm-4">Phone:</dt><dd class="col-sm-8">';
+        const hasPhones = (user.phoneNumbers && Object.keys(user.phoneNumbers).length > 0) || user.extension;
+        if (hasPhones) {
+            // Create a map to deduplicate phone numbers
+            const phoneMap = new Map();
+            
+            // Process all phone numbers and track their sources
+            for (const [type, number] of Object.entries(user.phoneNumbers)) {
+                if (!number) continue;
+                
+                // Format the phone number FIRST for consistent comparison
+                const formatted = formatPhoneNumber(number);
+                
+                // Determine the label, source, and attribute name
+                let label = '';
+                let source = '';
+                let attributeName = '';
+                
+                if (type === 'mobile') {
+                    label = 'Cell Phone';
+                    source = 'AD';
+                    attributeName = 'ExclaimerMobile';
+                } else if (type === 'business') {
+                    label = 'Business';
+                    source = 'AD';
+                    attributeName = 'businessPhones (Graph)';
+                } else if (type === 'teams') {
+                    label = 'Office';
+                    source = 'Teams';
+                    attributeName = 'Teams Phone';
+                } else if (type === 'teams_did') {
+                    label = 'Teams DID';
+                    source = 'AD';
+                    attributeName = 'telephoneNumber';
+                } else if (type === 'genesys_did') {
+                    label = 'Genesys DID';
+                    source = 'AD';
+                    attributeName = 'extensionAttribute4';
+                } else if (type === 'genesys_ext') {
+                    label = 'Genesys Ext';
+                    source = 'AD';
+                    attributeName = 'pager';
+                } else if (type === 'genesys') {
+                    // This is from AD's phoneNumbers.genesys (legacy)
+                    label = 'Office';
+                    source = 'Genesys';
+                    attributeName = 'extensionAttribute4';
+                } else if (type.startsWith('genesys_')) {
+                    const genesysType = type.replace('genesys_', '');
+                    if (genesysType === 'ext') {
+                        // This is from AD's pager attribute
+                        label = 'Genesys Ext';
+                        source = 'AD';
+                        attributeName = 'pager';
+                    } else if (genesysType === 'primary') {
+                        label = 'Primary';
+                        source = 'Genesys';
+                        attributeName = 'primaryContactInfo[type=PHONE]';
+                    } else if (genesysType === 'work') {
+                        label = 'Work';
+                        source = 'Genesys';
+                        attributeName = 'addresses[type=WORK]';
+                    } else if (genesysType === 'work2_ext') {
+                        label = 'Genesys Ext';
+                        source = 'Genesys';
+                        attributeName = 'addresses[type=WORK2].extension';
+                    } else if (genesysType === 'work3') {
+                        label = 'Work 3';
+                        source = 'Genesys';
+                        attributeName = 'addresses[type=WORK3]';
+                    } else {
+                        label = genesysType.charAt(0).toUpperCase() + genesysType.slice(1);
+                        source = 'Genesys';
+                        attributeName = 'Genesys ' + label;
+                    }
+                } else {
+                    // Default label for any other type
+                    label = type.charAt(0).toUpperCase() + type.slice(1);
+                    source = 'AD';
+                    attributeName = type;
+                }
+                
+                // Check if this phone number already exists
+                if (phoneMap.has(formatted)) {
+                    // Add the source to existing entry
+                    const existing = phoneMap.get(formatted);
+                    if (!existing.sources.includes(source) && source) {
+                        existing.sources.push(source);
+                    }
+                    // Add attribute name to the list
+                    if (attributeName && !existing.attributes.includes(attributeName)) {
+                        existing.attributes.push(attributeName);
+                    }
+                    // Update label preference: prefer more specific labels
+                    const labelPriority = {
+                        'Phone': 1,
+                        'Office': 2,
+                        'Work': 3,
+                        'Business': 4,
+                        'Primary': 5,
+                        'Cell Phone': 6,
+                        'Mobile': 7,
+                        'Teams DID': 8,
+                        'Genesys DID': 9,
+                        'Genesys Ext': 10,
+                        'Extension': 11,
+                        'Work 3': 12,
+                        'Legacy Extension': 13
+                    };
+                    
+                    const currentPriority = labelPriority[existing.label] || 0;
+                    const newPriority = labelPriority[label] || 0;
+                    
+                    // Use the label with higher priority (higher number = more specific)
+                    if (newPriority > currentPriority) {
+                        existing.label = label;
+                    }
+                } else {
+                    // New phone number
+                    phoneMap.set(formatted, {
+                        label: label,
+                        sources: source ? [source] : [],
+                        attributes: attributeName ? [attributeName] : []
+                    });
+                }
+            }
+            
+            // Add extension if different from other numbers (ipPhone -> Legacy Extension)
+            if (user.extension) {
+                const formattedExt = formatPhoneNumber(user.extension);
+                if (!phoneMap.has(formattedExt)) {
+                    phoneMap.set(formattedExt, {
+                        label: 'Legacy Extension',
+                        sources: ['AD'],
+                        attributes: ['ipPhone']
+                    });
+                } else {
+                    // Add to existing entry
+                    const existing = phoneMap.get(formattedExt);
+                    if (!existing.sources.includes('AD')) {
+                        existing.sources.push('AD');
+                    }
+                    if (!existing.attributes.includes('ipPhone')) {
+                        existing.attributes.push('ipPhone');
+                    }
+                }
+            }
+            
+            // Build display
+            const phoneDisplay = [];
+            for (const [phone, info] of phoneMap.entries()) {
+                let displayLabel = info.label || 'Phone';
+                let display = '';
+                
+                // Build tooltip with attribute names
+                const attributeTooltip = info.attributes && info.attributes.length > 0 
+                    ? `Found in: ${info.attributes.join(', ')}` 
+                    : '';
+                
+                // Custom display logic based on phone type
+                if (info.label === 'Teams DID') {
+                    // Teams DIDs show as "DID: number Teams"
+                    display = `<strong>DID:</strong> ${phone} <span class="badge" style="background-color: #4f42b5; font-size: 0.7rem;" title="${attributeTooltip}">Teams</span>`;
+                } else if (info.label === 'Genesys DID') {
+                    // Genesys DIDs show as "DID: number Genesys"
+                    display = `<strong>DID:</strong> ${phone} <span class="badge" style="background-color: #FF4F1F; font-size: 0.7rem;" title="${attributeTooltip}">Genesys</span>`;
+                    
+                    // Check if it exists in both AD and Genesys, show warning if not
+                    if (info.sources.includes('AD') && !info.sources.includes('Genesys')) {
+                        display += ' <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Found in AD but not in Genesys">⚠️ AD only</span>';
+                    } else if (!info.sources.includes('AD') && info.sources.includes('Genesys')) {
+                        display += ' <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Found in Genesys but not in AD">⚠️ Genesys only</span>';
+                    }
+                } else if (info.label === 'Genesys Ext') {
+                    // Genesys Extensions show as "Ext.: number Genesys"
+                    display = `<strong>Ext.:</strong> ${phone} <span class="badge" style="background-color: #FF4F1F; font-size: 0.7rem;" title="${attributeTooltip}">Genesys</span>`;
+                    
+                    // Check if it exists in both AD and Genesys, show warning if not
+                    if (info.sources.includes('AD') && !info.sources.includes('Genesys')) {
+                        display += ' <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Found in AD but not in Genesys">⚠️ AD only</span>';
+                    } else if (!info.sources.includes('AD') && info.sources.includes('Genesys')) {
+                        display += ' <span class="badge bg-warning text-dark" style="font-size: 0.7rem;" title="Found in Genesys but not in AD">⚠️ Genesys only</span>';
+                    }
+                } else {
+                    // All other phone types display normally with all badges
+                    display = `<strong>${displayLabel}:</strong> ${phone}`;
+                    
+                    // Add all relevant source badges for non-DID/Ext types
+                    const badges = [];
+                    if (info.sources.includes('AD')) {
+                        badges.push(`<span class="badge bg-primary" style="font-size: 0.7rem;" title="${attributeTooltip}">AD</span>`);
+                    }
+                    if (info.sources.includes('Teams')) {
+                        badges.push(`<span class="badge" style="background-color: #4f42b5; font-size: 0.7rem;" title="${attributeTooltip}">Teams</span>`);
+                    }
+                    if (info.sources.includes('Genesys')) {
+                        badges.push(`<span class="badge" style="background-color: #FF4F1F; font-size: 0.7rem;" title="${attributeTooltip}">Genesys</span>`);
+                    }
+                    
+                    if (badges.length > 0) {
+                        display += ' ' + badges.join(' ');
+                    }
+                }
+                
+                phoneDisplay.push(display);
+            }
+            
+            html += phoneDisplay.join('<br>');
+        } else {
+            html += '<span class="text-muted">-</span>';
+        }
+        html += '</dd>';
+        
+        html += '</dl>';
+        html += '</div>';
+        
+        // Account Details Section
+        html += '<div class="col-md-6">';
+        html += '<h6 class="text-muted mb-3"><i class="bi bi-gear"></i> Account Details</h6>';
+        html += '<dl class="row mb-0">';
+        
+        // Manager
+        if (user.manager) {
+            html += '<dt class="col-sm-4">Manager:</dt><dd class="col-sm-8">';
+            html += user.manager;
+            if (user.managerEmail) {
+                html += ` <small class="text-muted">(${user.managerEmail})</small>`;
+            }
+            html += '</dd>';
+        }
+        
+        
+        // Genesys Division
+        if (user.genesysDivision) {
+            html += `<dt class="col-sm-4">Division:</dt><dd class="col-sm-8">${user.genesysDivision} <span class="badge" style="background-color: #FF4F1F; font-size: 0.7rem;">Genesys</span></dd>`;
+        }
+        
+        html += '</dl>';
+        html += '</div>';
+        html += '</div>';
+        
+        // Address if available
+        if (user.address && Object.values(user.address).some(v => v)) {
+            html += '<hr class="my-3">';
+            html += '<div>';
+            html += '<h6 class="text-muted mb-3"><i class="bi bi-geo-alt"></i> Address</h6>';
+            html += '<address class="mb-0">';
+            if (user.address.street) html += `${user.address.street}<br>`;
+            if (user.address.city || user.address.state || user.address.postalCode) {
+                html += `${user.address.city || ''}${user.address.city && user.address.state ? ', ' : ''}${user.address.state || ''} ${user.address.postalCode || ''}<br>`;
+            }
+            if (user.address.country) html += user.address.country;
+            html += '</address>';
+            html += '</div>';
+        }
+        
+        // Skills, Queues, Locations (Genesys)
+        if (user.hasGenesys && (user.genesysSkills.length > 0 || user.genesysQueues.length > 0 || user.genesysLocations.length > 0 || user.genesysLastLogin)) {
+            html += '<hr class="my-3">';
+            html += '<div>';
+            html += '<h6 class="text-muted mb-3"><i class="bi bi-headset"></i> Contact Center Details</h6>';
+            
+            // Add Genesys Username
+            if (user.genesysUsername) {
+                html += '<div class="mb-2">';
+                html += `<strong>Genesys Username:</strong> ${user.genesysUsername}`;
+                html += '</div>';
+            }
+            
+            // Add Genesys Last Login
+            if (user.genesysLastLogin) {
+                const loginInfo = formatDateInfo(user.genesysLastLogin, 'Last Login');
+                if (loginInfo) {
+                    html += '<div class="mb-2">';
+                    html += `<strong>Last Login:</strong> ${loginInfo.dateStr} ${loginInfo.timeStr}`;
+                    if (loginInfo.daysInfo) {
+                        html += ` <span class="text-muted">(${loginInfo.daysInfo})</span>`;
+                    }
+                    html += '</div>';
+                }
+            }
+            
+            if (user.genesysSkills.length > 0) {
+                html += '<div class="mb-2">';
+                html += '<strong>Skills:</strong> ';
+                user.genesysSkills.forEach(skill => {
+                    const skillName = typeof skill === 'string' ? skill : (skill.name || skill);
+                    html += `<span class="badge bg-info me-1">${skillName}</span>`;
+                });
+                html += '</div>';
+            }
+            
+            if (user.genesysQueues.length > 0) {
+                html += '<div class="mb-2">';
+                html += '<strong>Queues:</strong> ';
+                user.genesysQueues.forEach(queue => {
+                    const queueName = typeof queue === 'string' ? queue : (queue.name || queue);
+                    html += `<span class="badge bg-warning text-dark me-1">${queueName}</span>`;
+                });
+                html += '</div>';
+            }
+            
+            if (user.genesysLocations.length > 0) {
+                html += '<div class="mb-2">';
+                html += '<strong>Locations:</strong> ';
+                user.genesysLocations.forEach(location => {
+                    const locationName = typeof location === 'string' ? location : (location.name || location);
+                    html += `<span class="badge bg-secondary me-1">${locationName}</span>`;
+                });
+                html += '</div>';
+            }
+            
+            html += '</div>';
+        }
+        
+        // Account Dates
+        const dateFields = [];
+        if (user.createdDateTime) {
+            dateFields.push(formatDateInfo(user.createdDateTime, 'Account Created', true));
+        }
+        if (user.employeeHireDate) {
+            dateFields.push(formatDateInfo(user.employeeHireDate, 'Hire Date', false));
+        }
+        if (user.pwdLastSet || user.lastPasswordChangeDateTime) {
+            dateFields.push(formatDateInfo(user.pwdLastSet || user.lastPasswordChangeDateTime, 'Password Changed'));
+        }
+        if (user.pwdExpires) {
+            dateFields.push(formatDateInfo(user.pwdExpires, 'Password Expires'));
+        }
+        
+        if (dateFields.length > 0) {
+            html += '<hr class="my-3">';
+            html += '<div>';
+            html += '<h6 class="text-muted mb-3"><i class="bi bi-calendar3"></i> Important Dates</h6>';
+            html += '<table class="table table-sm table-borderless mb-0" style="font-size: 0.875rem;">';
+            html += '<tbody>';
+            
+            dateFields.forEach(field => {
+                if (field) {
+                    html += '<tr>';
+                    html += `<td style="width: 40%;">${field.label}:</td>`;
+                    html += `<td style="width: 25%;">${field.dateStr}</td>`;
+                    html += `<td style="width: 15%;">${field.timeStr}</td>`;
+                    html += `<td style="width: 20%; text-align: right;" class="${field.daysClass}">${field.daysInfo}</td>`;
+                    html += '</tr>';
+                }
+            });
+            
+            html += '</tbody>';
+            html += '</table>';
+            
+            if (user.passwordPolicies) {
+                html += `<small class="text-muted"><strong>Password Policy:</strong> ${user.passwordPolicies}</small>`;
+            }
+            html += '</div>';
+        }
+        
+        // Groups section (collapsible)
+        if (user.adGroups.length > 0 || user.genesysGroups.length > 0) {
+            html += '<hr class="my-3">';
+            html += '<div>';
+            html += '<h6 class="text-muted mb-3"><i class="bi bi-people"></i> Group Memberships</h6>';
+            
+            // AD Groups
+            if (user.adGroups.length > 0) {
+                const groupId = 'unified-ad-groups-' + Math.random().toString(36).substr(2, 9);
+                html += '<div class="mb-3">';
+                html += `<strong>AD Groups (${user.adGroups.length})</strong> `;
+                html += `<a href="#" onclick="toggleGroups('${groupId}'); return false;" class="text-decoration-none">`;
+                html += `<small id="${groupId}-toggle">[Show]</small></a>`;
+                html += `<div id="${groupId}" class="mt-2" style="display: none;">`;
+                html += '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px;">';
+                html += '<ul class="list-unstyled mb-0">';
+                user.adGroups.forEach(group => {
+                    html += `<li><small>${group}</small></li>`;
+                });
+                html += '</ul></div></div></div>';
+            }
+            
+            // Genesys Groups
+            if (user.genesysGroups.length > 0) {
+                const groupId = 'unified-genesys-groups-' + Math.random().toString(36).substr(2, 9);
+                html += '<div>';
+                html += `<strong>Genesys Groups (${user.genesysGroups.length})</strong> `;
+                html += `<a href="#" onclick="toggleGroups('${groupId}'); return false;" class="text-decoration-none">`;
+                html += `<small id="${groupId}-toggle">[Show]</small></a>`;
+                html += `<div id="${groupId}" class="mt-2" style="display: none;">`;
+                html += '<div style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px;">';
+                html += '<ul class="list-unstyled mb-0">';
+                user.genesysGroups.forEach(group => {
+                    html += `<li><small>${group}</small></li>`;
+                });
+                html += '</ul></div></div></div>';
+            }
+            
+            html += '</div>';
+        }
+        
+        // User Notes Section (visible to all authenticated users)
+        if (user.email) {
+            html += '<div class="user-notes-section mt-3" data-user-email="' + user.email + '">';
+            html += '<hr>';
+            html += '<h6 class="text-muted mb-3">';
+            html += '<i class="bi bi-sticky-fill text-warning"></i> User Notes ';
+            if (window.userRole === 'admin' || window.userRole === 'editor') {
+                html += '<button class="btn btn-sm btn-outline-warning add-note-btn ms-2" data-user-email="' + user.email + '">';
+                html += '<i class="bi bi-plus-circle"></i> Add Note';
+                html += '</button>';
+            }
+            html += '</h6>';
+            html += '<div class="notes-container" style="max-height: 300px; overflow-y: auto;">';
+            html += '<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div></div>';
+            html += '</div>';
+            html += '</div>';
+        }
+        
+        // Data source indicator
+        html += '<div class="text-center mt-4">';
+        html += '<small class="text-muted">Data from: ';
+        const sources = [];
+        if (user.hasAzureAD) {
+            sources.push('Active Directory' + (user.hasGraphData ? ' + Microsoft Graph' : ''));
+        }
+        if (user.hasGenesys) {
+            sources.push('Genesys Cloud');
+        }
+        html += sources.join(' | ');
+        html += '</small>';
+        html += '</div>';
+        
+        html += '</div>';
+        html += '</div>';
+        
+        return html;
     }
 
     function formatAzureADResults(user) {
@@ -252,6 +911,11 @@
         if (user.thumbnailPhoto) {
             html += '<div class="text-center">';
             html += `<img src="${user.thumbnailPhoto}" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;" alt="Profile">`;
+            html += '</div>';
+        } else if (user.hasPhotoCached || user.graphId) {
+            // Lazy load photo if available
+            html += '<div class="text-center">';
+            html += `<img src="/static/img/user-placeholder.svg" data-graph-id="${user.graphId || ''}" data-upn="${user.userPrincipalName || ''}" class="rounded-circle lazy-photo" style="width: 100px; height: 100px; object-fit: cover;" alt="Profile">`;
             html += '</div>';
         }
         
@@ -494,6 +1158,23 @@
                 html += `<li><small>${group}</small></li>`;
             });
             html += '</ul></div></div></div>';
+        }
+
+        // User Notes Section (visible to all authenticated users)
+        if (user.mail) {
+            html += '<div class="admin-notes-section mt-3" data-user-email="' + user.mail + '">';
+            html += '<hr>';
+            html += '<h6><i class="bi bi-sticky-fill text-warning"></i> User Notes</h6>';
+            html += '<div class="notes-container" style="max-height: 200px; overflow-y: auto;">';
+            html += '<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div></div>';
+            html += '</div>';
+            // Add note button for editors/admins
+            if (window.userRole === 'admin' || window.userRole === 'editor') {
+                html += '<div class="mt-2">';
+                html += '<button class="btn btn-sm btn-outline-warning add-note-btn" data-user-email="' + user.mail + '">Add Note</button>';
+                html += '</div>';
+            }
+            html += '</div>';
         }
 
         // Data source indicator
@@ -885,6 +1566,404 @@
         } else {
             groupDiv.style.display = 'none';
             toggleLink.textContent = '[Show]';
+        }
+    }
+
+    // Lazy load photos after search results are displayed
+    function lazyLoadPhotos() {
+        const lazyPhotos = document.querySelectorAll('.lazy-photo');
+        lazyPhotos.forEach(img => {
+            const graphId = img.getAttribute('data-graph-id');
+            const upn = img.getAttribute('data-upn');
+            
+            if (graphId) {
+                // Build URL with optional UPN parameter
+                let photoUrl = `/search/photo/${graphId}`;
+                if (upn) {
+                    photoUrl += `?upn=${encodeURIComponent(upn)}`;
+                }
+                
+                // Create a new image to test loading
+                const tempImg = new Image();
+                tempImg.onload = function() {
+                    // Successfully loaded, update the src
+                    img.src = photoUrl;
+                    img.classList.remove('lazy-photo');
+                };
+                tempImg.onerror = function() {
+                    // Failed to load, keep placeholder
+                    img.classList.remove('lazy-photo');
+                };
+                tempImg.src = photoUrl;
+            }
+        });
+    }
+    
+    // Load user notes
+    async function loadAdminNotes() {
+        const noteSections = document.querySelectorAll('.user-notes-section, .admin-notes-section');
+        
+        noteSections.forEach(async (section) => {
+            const userEmail = section.getAttribute('data-user-email');
+            const notesContainer = section.querySelector('.notes-container');
+            
+            try {
+                const response = await fetch(`/admin/api/users/by-email/${encodeURIComponent(userEmail)}/notes`);
+                const data = await response.json();
+                
+                if (data.notes && data.notes.length > 0) {
+                    let notesHtml = '';
+                    data.notes.forEach(note => {
+                        // Format the created date and time
+                        const createdDate = new Date(note.created_at);
+                        const createdDateStr = createdDate.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        const createdTimeStr = createdDate.toLocaleTimeString('en-US', { 
+                            hour: 'numeric', 
+                            minute: '2-digit',
+                            hour12: true 
+                        });
+                        
+                        // Check if note was updated
+                        const wasUpdated = note.updated_at && note.updated_at !== note.created_at;
+                        let updateInfo = '';
+                        if (wasUpdated) {
+                            const updatedDate = new Date(note.updated_at);
+                            const updatedDateStr = updatedDate.toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                            });
+                            const updatedTimeStr = updatedDate.toLocaleTimeString('en-US', { 
+                                hour: 'numeric', 
+                                minute: '2-digit',
+                                hour12: true 
+                            });
+                            updateInfo = ' • <i class="bi bi-pencil"></i> Updated: ' + updatedDateStr + ' at ' + updatedTimeStr;
+                        }
+                        
+                        notesHtml += '<div class="card mb-2 border-warning" style="border-width: 1px;">';
+                        notesHtml += '<div class="card-body py-2 px-3 position-relative">';
+                        
+                        // Note content
+                        notesHtml += '<div class="note-text mb-1" style="font-size: 0.9rem;">' + escapeHtml(note.note) + '</div>';
+                        
+                        // Note metadata
+                        notesHtml += '<div class="d-flex justify-content-between align-items-center">';
+                        notesHtml += '<small class="text-muted">';
+                        notesHtml += '<i class="bi bi-person-circle"></i> ' + note.created_by;
+                        notesHtml += ' • <i class="bi bi-calendar3"></i> Created: ' + createdDateStr;
+                        notesHtml += ' at ' + createdTimeStr;
+                        notesHtml += updateInfo;
+                        notesHtml += '</small>';
+                        
+                        // Edit/Delete buttons for editors and admins
+                        if (data.can_edit && (window.userRole === 'admin' || window.userRole === 'editor')) {
+                            notesHtml += '<div class="btn-group btn-group-sm" role="group">';
+                            notesHtml += '<button class="btn btn-link btn-sm p-0 me-2 edit-note-btn" data-note-id="' + note.id + '" data-user-email="' + userEmail + '" title="Edit note">';
+                            notesHtml += '<i class="bi bi-pencil-square text-primary"></i>';
+                            notesHtml += '</button>';
+                            notesHtml += '<button class="btn btn-link btn-sm p-0 delete-note-btn" data-note-id="' + note.id + '" data-user-email="' + userEmail + '" title="Delete note">';
+                            notesHtml += '<i class="bi bi-trash text-danger"></i>';
+                            notesHtml += '</button>';
+                            notesHtml += '</div>';
+                        }
+                        
+                        notesHtml += '</div>';
+                        notesHtml += '</div>';
+                        notesHtml += '</div>';
+                    });
+                    notesContainer.innerHTML = notesHtml;
+                    
+                    // Attach event handlers only for editors/admins
+                    if (window.userRole === 'admin' || window.userRole === 'editor') {
+                        attachNoteEventHandlers(section);
+                    }
+                } else {
+                    notesContainer.innerHTML = '<div class="alert alert-light mb-0" style="font-size: 0.9rem;">';
+                    notesContainer.innerHTML += '<i class="bi bi-info-circle"></i> No notes have been added for this user.';
+                    notesContainer.innerHTML += '</div>';
+                }
+                
+                // Store user email on section for later use
+                section.dataset.userEmail = userEmail;
+            } catch (error) {
+                console.error('Failed to load notes:', error);
+                notesContainer.innerHTML = '<div class="alert alert-danger mb-0" style="font-size: 0.9rem;">';
+                notesContainer.innerHTML += '<i class="bi bi-exclamation-triangle"></i> Failed to load notes.';
+                notesContainer.innerHTML += '</div>';
+            }
+        });
+        
+        // Attach handlers for add note buttons (only for editors/admins)
+        if (window.userRole === 'admin' || window.userRole === 'editor') {
+            document.querySelectorAll('.add-note-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const userEmail = this.getAttribute('data-user-email');
+                    showAddNoteModal(userEmail);
+                });
+            });
+        }
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Attach event handlers for note actions
+    function attachNoteEventHandlers(section) {
+        // Edit buttons
+        section.querySelectorAll('.edit-note-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const noteId = this.getAttribute('data-note-id');
+                const noteDiv = this.closest('.alert');
+                const noteText = noteDiv.querySelector('.note-text').textContent;
+                editNoteInline(noteId, noteDiv, noteText);
+            });
+        });
+        
+        // Delete buttons
+        section.querySelectorAll('.delete-note-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                if (!confirm('Are you sure you want to delete this note?')) {
+                    return;
+                }
+                
+                const noteId = this.getAttribute('data-note-id');
+                const userEmail = this.getAttribute('data-user-email');
+                
+                try {
+                    const response = await fetch(`/admin/api/users/notes/${noteId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        // Reload notes for this user
+                        const section = document.querySelector(`.admin-notes-section[data-user-email="${userEmail}"]`);
+                        if (section) {
+                            loadNotesForSection(section);
+                        }
+                    } else {
+                        alert('Failed to delete note: ' + data.message);
+                    }
+                } catch (error) {
+                    alert('Failed to delete note');
+                }
+            });
+        });
+    }
+    
+    // Edit note inline
+    function editNoteInline(noteId, noteDiv, currentText) {
+        const noteTextDiv = noteDiv.querySelector('.note-text');
+        const cardBody = noteDiv.querySelector('.card-body');
+        
+        // Create textarea with auto-sizing
+        const textarea = document.createElement('textarea');
+        textarea.className = 'form-control form-control-sm mb-2';
+        textarea.value = currentText;
+        textarea.style.resize = 'vertical';
+        textarea.style.minHeight = '60px';
+        
+        // Auto-size the textarea based on content
+        function autoSizeTextarea() {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+        
+        // Initial sizing
+        setTimeout(autoSizeTextarea, 0);
+        textarea.addEventListener('input', autoSizeTextarea);
+        
+        // Create save/cancel buttons
+        const buttonDiv = document.createElement('div');
+        buttonDiv.className = 'd-flex justify-content-end gap-2';
+        buttonDiv.innerHTML = `
+            <button class="btn btn-sm btn-secondary cancel-edit-btn">Cancel</button>
+            <button class="btn btn-sm btn-primary save-note-btn">Save Changes</button>
+        `;
+        
+        // Hide original content and show edit interface
+        const originalContent = cardBody.innerHTML;
+        cardBody.innerHTML = '';
+        cardBody.appendChild(textarea);
+        cardBody.appendChild(buttonDiv);
+        
+        // Handle save
+        buttonDiv.querySelector('.save-note-btn').addEventListener('click', async function() {
+            const newText = textarea.value.trim();
+            
+            if (!newText) {
+                alert('Note cannot be empty');
+                return;
+            }
+            
+            // Show loading state
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+            
+            try {
+                const response = await fetch(`/admin/api/users/notes/${noteId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ note: newText })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Reload the notes section to show updated content
+                    const section = noteDiv.closest('.user-notes-section');
+                    if (section) {
+                        loadNotesForSection(section);
+                    }
+                } else {
+                    alert('Failed to update note: ' + data.message);
+                    cardBody.innerHTML = originalContent;
+                }
+            } catch (error) {
+                alert('Failed to update note');
+                cardBody.innerHTML = originalContent;
+            }
+        });
+        
+        // Handle cancel
+        buttonDiv.querySelector('.cancel-edit-btn').addEventListener('click', function() {
+            cardBody.innerHTML = originalContent;
+        });
+        
+        // Focus textarea and move cursor to end
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }
+    
+    // Show add note modal
+    async function showAddNoteModal(userEmail) {
+        // Find user info from search to get user ID
+        const response = await fetch(`/admin/api/users/by-email/${encodeURIComponent(userEmail)}/notes`);
+        const data = await response.json();
+        
+        // Create modal
+        const modalHtml = `
+            <div class="modal fade" id="addNoteModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Add Note for ${userEmail}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <textarea class="form-control" id="newNoteText" rows="4" placeholder="Enter your note..."></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="saveNewNote">Add Note</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('addNoteModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('addNoteModal'));
+        modal.show();
+        
+        // Handle save
+        document.getElementById('saveNewNote').addEventListener('click', async function() {
+            const noteText = document.getElementById('newNoteText').value.trim();
+            
+            if (!noteText) {
+                alert('Note cannot be empty');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/admin/api/users/by-email/${encodeURIComponent(userEmail)}/notes`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ note: noteText })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Hide modal
+                    modal.hide();
+                    
+                    // Reload notes for this user
+                    const section = document.querySelector(`.admin-notes-section[data-user-email="${userEmail}"]`);
+                    if (section) {
+                        loadNotesForSection(section);
+                    }
+                } else {
+                    alert('Failed to add note: ' + result.message);
+                }
+            } catch (error) {
+                alert('Failed to add note');
+            }
+        });
+    }
+    
+    // Load notes for a specific section
+    async function loadNotesForSection(section) {
+        const userEmail = section.getAttribute('data-user-email');
+        const notesContainer = section.querySelector('.notes-container');
+        
+        try {
+            const response = await fetch(`/admin/api/users/by-email/${encodeURIComponent(userEmail)}/notes`);
+            const data = await response.json();
+            
+            if (data.notes && data.notes.length > 0) {
+                let notesHtml = '';
+                data.notes.forEach(note => {
+                    notesHtml += '<div class="alert alert-warning py-2 mb-2 position-relative" style="font-size: 0.9rem;">';
+                    notesHtml += '<div class="note-text">' + escapeHtml(note.note) + '</div>';
+                    notesHtml += '<small class="text-muted">- ' + note.created_by + ' (' + new Date(note.created_at).toLocaleDateString() + ')</small>';
+                    
+                    // Add edit/delete buttons if user can edit
+                    if (data.can_edit) {
+                        notesHtml += '<div class="position-absolute top-0 end-0 p-1">';
+                        notesHtml += '<button class="btn btn-sm btn-link p-0 me-2 edit-note-btn" data-note-id="' + note.id + '" data-user-email="' + userEmail + '">';
+                        notesHtml += '<i class="bi bi-pencil-square text-primary"></i>';
+                        notesHtml += '</button>';
+                        notesHtml += '<button class="btn btn-sm btn-link p-0 delete-note-btn" data-note-id="' + note.id + '" data-user-email="' + userEmail + '">';
+                        notesHtml += '<i class="bi bi-trash text-danger"></i>';
+                        notesHtml += '</button>';
+                        notesHtml += '</div>';
+                    }
+                    
+                    notesHtml += '</div>';
+                });
+                notesContainer.innerHTML = notesHtml;
+                
+                // Attach event handlers
+                attachNoteEventHandlers(section);
+            } else {
+                notesContainer.innerHTML = '<p class="text-muted mb-0" style="font-size: 0.9rem;">No notes for this user.</p>';
+            }
+        } catch (error) {
+            console.error('Failed to load notes:', error);
+            notesContainer.innerHTML = '<p class="text-danger mb-0" style="font-size: 0.9rem;">Failed to load notes.</p>';
         }
     }
 </script>

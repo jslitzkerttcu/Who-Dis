@@ -14,6 +14,7 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 - **👥 Database User Management**: Admin panel for managing users with persistent storage
 - **🔄 Automatic Token Management**: API tokens are persisted and automatically refreshed in the background
 - **📦 Genesys Data Caching**: Groups, skills, and locations are cached in PostgreSQL for faster searches
+- **⏱️ Session Timeout**: Configurable inactivity timeout with warning modal (perfect for shared workstations)
 - **🚨 Enhanced Security**: Failed access attempts tracked, configuration changes audited, and error logging
 
 ---
@@ -38,7 +39,8 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 * **Encrypted Storage**: All sensitive configuration values encrypted at rest
 * **Audit Trail**: Complete audit log of all searches, access attempts, and configuration changes
 * **Role-Based Access**: Three-tier access control (Viewer, Editor, Admin)
-* **Session Management**: Persistent sessions with automatic cleanup
+* **Session Management**: Persistent sessions with automatic cleanup and inactivity timeout
+* **Inactivity Protection**: Configurable session timeout with warning modal (15min default)
 * **Error Tracking**: Comprehensive error logging with stack traces
 
 ### UI/UX Features
@@ -164,6 +166,7 @@ WhoDis uses a sophisticated configuration management system where:
 | genesys | Genesys Cloud OAuth credentials | Partial |
 | graph | Microsoft Graph API credentials | ✅ |
 | search | Search timeout settings | ❌ |
+| session | Session timeout settings (timeout, warning, check interval) | ❌ |
 
 For detailed database setup and configuration management, see [Database Documentation](docs/database.md).
 
@@ -189,7 +192,8 @@ WhoDis/
 │   │   ├── configuration.py      # Configuration model
 │   │   ├── error.py              # Error log model
 │   │   ├── genesys.py            # Genesys cache models
-│   │   ├── session.py            # User session model
+│   │   ├── graph_photo.py        # Microsoft Graph photo cache
+│   │   ├── session.py            # User session model with timeout support
 │   │   └── user.py               # User management model
 │   ├── services/                 # External service integrations
 │   │   ├── audit_service_postgres.py    # PostgreSQL audit logging
@@ -205,7 +209,8 @@ WhoDis/
 ├── database/                     # Database SQL scripts
 │   ├── create_database.sql       # Database creation
 │   ├── create_tables.sql         # Complete schema with encryption
-│   └── add_*.sql                 # Migration scripts
+│   ├── alter_session_timeout.sql # Session timeout migration
+│   └── analyze_tables.sql        # Table statistics update
 ├── docs/                         # Documentation
 │   └── database.md               # Database documentation
 ├── logs/                         # Application logs (deprecated)
