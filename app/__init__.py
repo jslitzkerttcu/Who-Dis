@@ -8,9 +8,9 @@ import psycopg2
 def create_app():
     app = Flask(__name__)
 
-    app.config["SECRET_KEY"] = os.getenv(
-        "SECRET_KEY", "dev-secret-key-change-in-production"
-    )
+    # Generate a secure random key if none is provided
+    import secrets
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 
     # Configure logging
     logging.basicConfig(
