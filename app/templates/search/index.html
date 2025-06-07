@@ -1722,9 +1722,10 @@
         section.querySelectorAll('.edit-note-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const noteId = this.getAttribute('data-note-id');
-                const noteDiv = this.closest('.alert');
-                const noteText = noteDiv.querySelector('.note-text').textContent;
-                editNoteInline(noteId, noteDiv, noteText);
+                const userEmail = this.getAttribute('data-user-email');
+                const noteCard = this.closest('.card');
+                const noteText = noteCard.querySelector('.note-text').textContent;
+                editNoteInline(noteId, noteCard, noteText, userEmail);
             });
         });
         
@@ -1746,7 +1747,7 @@
                     const data = await response.json();
                     if (data.success) {
                         // Reload notes for this user
-                        const section = document.querySelector(`.admin-notes-section[data-user-email="${userEmail}"]`);
+                        const section = document.querySelector(`.user-notes-section[data-user-email="${userEmail}"], .admin-notes-section[data-user-email="${userEmail}"]`);
                         if (section) {
                             loadNotesForSection(section);
                         }
@@ -1761,9 +1762,8 @@
     }
     
     // Edit note inline
-    function editNoteInline(noteId, noteDiv, currentText) {
-        const noteTextDiv = noteDiv.querySelector('.note-text');
-        const cardBody = noteDiv.querySelector('.card-body');
+    function editNoteInline(noteId, noteCard, currentText, userEmail) {
+        const cardBody = noteCard.querySelector('.card-body');
         
         // Create textarea with auto-sizing
         const textarea = document.createElement('textarea');
@@ -1822,7 +1822,7 @@
                 
                 if (data.success) {
                     // Reload the notes section to show updated content
-                    const section = noteDiv.closest('.user-notes-section');
+                    const section = document.querySelector(`.user-notes-section[data-user-email="${userEmail}"], .admin-notes-section[data-user-email="${userEmail}"]`);
                     if (section) {
                         loadNotesForSection(section);
                     }
@@ -1911,7 +1911,7 @@
                     modal.hide();
                     
                     // Reload notes for this user
-                    const section = document.querySelector(`.admin-notes-section[data-user-email="${userEmail}"]`);
+                    const section = document.querySelector(`.user-notes-section[data-user-email="${userEmail}"], .admin-notes-section[data-user-email="${userEmail}"]`);
                     if (section) {
                         loadNotesForSection(section);
                     }
@@ -1936,30 +1936,90 @@
             if (data.notes && data.notes.length > 0) {
                 let notesHtml = '';
                 data.notes.forEach(note => {
-                    notesHtml += '<div class="alert alert-warning py-2 mb-2 position-relative" style="font-size: 0.9rem;">';
-                    notesHtml += '<div class="note-text">' + escapeHtml(note.note) + '</div>';
-                    notesHtml += '<small class="text-muted">- ' + note.created_by + ' (' + new Date(note.created_at).toLocaleDateString() + ')</small>';
+                    // Format the created date and time
+                    const createdDate = new Date(note.created_at);
+                    const createdDateStr = createdDate.toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                    const createdTimeStr = createdDate.toLocaleTimeString('en-US', { 
+                        hour: 'numeric', 
+                        minute: '2-digit',
+                        hour12: true 
+                    });
                     
-                    // Add edit/delete buttons if user can edit
-                    if (data.can_edit) {
-                        notesHtml += '<div class="position-absolute top-0 end-0 p-1">';
-                        notesHtml += '<button class="btn btn-sm btn-link p-0 me-2 edit-note-btn" data-note-id="' + note.id + '" data-user-email="' + userEmail + '">';
+                    // Check if note was updated
+                    const wasUpdated = note.updated_at && note.updated_at !== note.created_at;
+                    let updateInfo = '';
+                    if (wasUpdated) {
+                        const updatedDate = new Date(note.updated_at);
+                        const updatedDateStr = updatedDate.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        const updatedTimeStr = updatedDate.toLocaleTimeString('en-US', { 
+                            hour: 'numeric', 
+                            minute: '2-digit',
+                            hour12: true 
+                        });
+                        updateInfo = ' • <i class="bi bi-pencil"></i> Updated: ' + updatedDateStr + ' at ' + updatedTimeStr;
+                    }
+                    
+                    notesHtml += '<div class="card mb-2 border-warning" style="border-width: 1px;">';
+                    notesHtml += '<div class="card-body py-2 px-3 position-relative">';
+                    
+                    // Note content
+                    notesHtml += '<div class="note-text mb-1" style="font-size: 0.9rem;">' + escapeHtml(note.note) + '</div>';
+                    
+                    // Note metadata
+                    notesHtml += '<div class="d-flex justify-content-between align-items-center">';
+                    notesHtml += '<small class="text-muted">';
+                    notesHtml += '<i class="bi bi-person-circle"></i> ' + note.created_by;
+                    notesHtml += ' • <i class="bi bi-calendar3"></i> Created: ' + createdDateStr;
+                    notesHtml += ' at ' + createdTimeStr;
+                    notesHtml += updateInfo;
+                    notesHtml += '</small>';
+                    
+                    // Edit/Delete buttons for editors and admins
+                    if (data.can_edit && (window.userRole === 'admin' || window.userRole === 'editor')) {
+                        notesHtml += '<div class="btn-group btn-group-sm" role="group">';
+                        notesHtml += '<button class="btn btn-link btn-sm p-0 me-2 edit-note-btn" data-note-id="' + note.id + '" data-user-email="' + userEmail + '" title="Edit note">';
                         notesHtml += '<i class="bi bi-pencil-square text-primary"></i>';
                         notesHtml += '</button>';
-                        notesHtml += '<button class="btn btn-sm btn-link p-0 delete-note-btn" data-note-id="' + note.id + '" data-user-email="' + userEmail + '">';
+                        notesHtml += '<button class="btn btn-link btn-sm p-0 delete-note-btn" data-note-id="' + note.id + '" data-user-email="' + userEmail + '" title="Delete note">';
                         notesHtml += '<i class="bi bi-trash text-danger"></i>';
                         notesHtml += '</button>';
                         notesHtml += '</div>';
                     }
                     
                     notesHtml += '</div>';
+                    notesHtml += '</div>';
+                    notesHtml += '</div>';
                 });
                 notesContainer.innerHTML = notesHtml;
                 
-                // Attach event handlers
-                attachNoteEventHandlers(section);
+                // Attach event handlers only for editors/admins
+                if (window.userRole === 'admin' || window.userRole === 'editor') {
+                    attachNoteEventHandlers(section);
+                }
             } else {
-                notesContainer.innerHTML = '<p class="text-muted mb-0" style="font-size: 0.9rem;">No notes for this user.</p>';
+                notesContainer.innerHTML = '<div class="alert alert-light mb-0" style="font-size: 0.9rem;">';
+                notesContainer.innerHTML += '<i class="bi bi-info-circle"></i> No notes have been added for this user.';
+                notesContainer.innerHTML += '</div>';
+            }
+            
+            // Re-attach add note button handler if needed
+            if (window.userRole === 'admin' || window.userRole === 'editor') {
+                const addNoteBtn = section.querySelector('.add-note-btn');
+                if (addNoteBtn) {
+                    addNoteBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const userEmail = this.getAttribute('data-user-email');
+                        showAddNoteModal(userEmail);
+                    });
+                }
             }
         } catch (error) {
             console.error('Failed to load notes:', error);
