@@ -63,6 +63,12 @@ python scripts/diagnose_config.py
 
 # Apply session timeout migration (if upgrading)
 psql -U postgres -d whodis_db -h localhost -f database/alter_session_timeout.sql
+
+# Add user notes table (if upgrading)
+psql -U postgres -d whodis_db -h localhost -f database/add_user_notes.sql
+
+# Add graph photos table (if upgrading)
+psql -U postgres -d whodis_db -h localhost -f database/add_graph_photos_table.sql
 ```
 
 ## Architecture
@@ -72,10 +78,12 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 
 - **`app/__init__.py`**: Application factory that initializes Flask, database, configuration service, and registers blueprints
 - **`app/database.py`**: Database configuration and connection management
-- **`app/blueprints/`**: Contains three main blueprints:
-  - `home`: Landing page with product branding (requires authentication)
+- **`app/blueprints/`**: Contains five main blueprints:
+  - `home`: Landing page with product branding and login interface
   - `search`: Identity search interface with real-time results (requires 'viewer' role minimum)
-  - `admin`: Admin panel with user management and audit logs (requires 'admin' role)
+  - `admin`: Admin panel with user management, configuration editor, and audit logs (requires 'admin' role)
+  - `cli`: Terminal-style interface with matrix aesthetic for command-line interaction
+  - `session`: Session management endpoints for timeout tracking and extension
 - **`app/middleware/auth.py`**: Implements role-based authentication with database users, encrypted config fallback, and basic auth
 - **`app/models/`**: SQLAlchemy models for all database tables:
   - `user.py`: User management with roles
@@ -86,6 +94,7 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
   - `genesys.py`: Genesys cache models
   - `graph_photo.py`: Microsoft Graph photo caching
   - `session.py`: User session management with timeout tracking
+  - `user_note.py`: Internal notes about users
   - `cache.py`: Search result caching
 - **`app/services/`**: Contains service integrations:
   - `ldap_service.py`: Active Directory/LDAP integration with fuzzy search and timeout handling
@@ -106,12 +115,13 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 
 ### Authentication Flow
 1. Primary authentication via Azure AD (`X-MS-CLIENT-PRINCIPAL-NAME` header)
-2. Fallback to HTTP basic authentication
-3. Users are managed in PostgreSQL `users` table
+2. Fallback to HTTP basic authentication with dedicated login page
+3. Users are managed in PostgreSQL `users` table with roles
 4. Secondary fallback to encrypted configuration in database
-5. Final fallback to environment variables (migration path)
-6. Role hierarchy: Admin > Editor > Viewer
+5. Role hierarchy: Admin > Editor > Viewer
+6. Session management with configurable timeout and warning modal
 7. All authentication events and access denials are logged to PostgreSQL
+8. Snarky denial messages for unauthorized access attempts
 
 ### Configuration Management
 - **Minimal .env**: Only contains database connection and CONFIG_ENCRYPTION_KEY
@@ -135,10 +145,14 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 - **Status Indicators**: Visual badges for account status (Enabled/Disabled, Locked/Not Locked)
 - **Phone Number Formatting**: Consistent +1 XXX-XXX-XXXX format with service tags
 - **Date Formatting**: Clean M/D/YYYY format with 24-hour time and smart relative dates (e.g., "6Yr 8Mo ago")
-- **Profile Photos**: Fetched from Microsoft Graph API with binary data handling
+- **Profile Photos**: Fetched from Microsoft Graph API with lazy loading and placeholder
 - **Collapsible Groups**: AD and Genesys groups shown in expandable sections
 - **Custom Branding**: TTCU colors (#007c59 for Azure AD, #FF4F1F for Genesys, #f2c655 for buttons)
-- **Admin Dashboard**: User management and audit log viewer with filtering
+- **Admin Dashboard**: User management, configuration editor, and audit log viewer
+- **Terminal Interface**: Matrix-style CLI emulator at /cli for command-line interaction
+- **Session Timeout Warning**: Modal with countdown timer and extension option
+- **User Notes**: Admin ability to add internal notes about users
+- **Login Page**: Dedicated login route with SSO support
 
 ### API Integrations
 
@@ -170,6 +184,7 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 - **Genesys Cache Service**: Refreshes groups, skills, locations every 6 hours
 - **Session Cleanup**: Automatic removal of expired sessions on startup
 - **Audit Log Cleanup**: Removes logs older than 90 days (configurable)
+- **Session Monitoring**: Active monitoring of user sessions with inactivity tracking
 
 ### Session Management
 - **Inactivity Timeout**: Configurable timeout (15min default) with 2min warning
@@ -217,6 +232,8 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 - No sensitive data logged in plaintext
 - Database connections use connection pooling with SSL in production
 - Failed login attempts tracked in `access_attempts` table
+- CSRF protection via Flask sessions
+- Session hijacking prevention with timeout and activity tracking
 
 ### Environment Variables (Minimal)
 After migration, only these are needed in .env:
@@ -250,4 +267,6 @@ All other configuration is stored encrypted in the database and can be managed t
 - Implement proper error handling with audit logging
 - Test encryption/decryption after any configuration changes
 - Run ANALYZE on new tables to prevent -1 row counts in admin UI
+- Test session timeout behavior with different configurations
+- Verify terminal interface functionality after changes
 - See [Database Documentation](docs/database.md) for detailed troubleshooting

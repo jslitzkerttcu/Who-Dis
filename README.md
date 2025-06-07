@@ -4,18 +4,26 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 
 ---
 
-## 🚀 What's New in v2.0
+## 🚀 What's New in v2.1
 
-**WhoDis** has undergone a major upgrade with enterprise-grade features:
+**WhoDis** continues to evolve with new features and improvements:
 
-- **🐘 PostgreSQL Backend**: Migrated from SQLite to PostgreSQL for better performance and scalability
-- **🔐 Encrypted Configuration**: Sensitive credentials are now encrypted in the database using Fernet encryption
-- **📊 Comprehensive Audit Logging**: All searches, access attempts, and admin actions are logged to PostgreSQL
-- **👥 Database User Management**: Admin panel for managing users with persistent storage
-- **🔄 Automatic Token Management**: API tokens are persisted and automatically refreshed in the background
-- **📦 Genesys Data Caching**: Groups, skills, and locations are cached in PostgreSQL for faster searches
-- **⏱️ Session Timeout**: Configurable inactivity timeout with warning modal (perfect for shared workstations)
-- **🚨 Enhanced Security**: Failed access attempts tracked, configuration changes audited, and error logging
+- **💻 Terminal Interface**: New CLI-style terminal emulator at `/cli` with matrix aesthetic
+- **📝 User Notes**: Admins can now add internal notes about users
+- **🖼️ Photo Caching**: Microsoft Graph photos are cached in PostgreSQL for performance
+- **🔧 Configuration Editor**: Web-based configuration management at `/admin/configuration`
+- **🔐 Session Management**: Enhanced session tracking with dedicated login page
+- **🎨 UI Improvements**: Lazy-loaded photos, user placeholders, and refined styling
+
+### Previously Added in v2.0:
+- **🐘 PostgreSQL Backend**: Migrated from SQLite to PostgreSQL
+- **🔐 Encrypted Configuration**: Sensitive credentials encrypted with Fernet
+- **📊 Comprehensive Audit Logging**: All system events logged to PostgreSQL
+- **👥 Database User Management**: Persistent user storage with roles
+- **🔄 Automatic Token Management**: Background token refresh service
+- **📦 Genesys Data Caching**: Groups, skills, locations cached in database
+- **⏱️ Session Timeout**: Configurable inactivity timeout with warning modal
+- **🚨 Enhanced Security**: Access tracking and configuration auditing
 
 ---
 
@@ -31,8 +39,9 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 ### Data Integration
 * **Azure AD Card**: Combines LDAP and Microsoft Graph data with Graph taking priority
 * **Enhanced Fields**: Hire dates, birth dates, password policies, token refresh times
-* **Profile Photos**: Fetches user photos from Microsoft Graph API
+* **Profile Photos**: Fetches and caches user photos from Microsoft Graph API
 * **Phone Number Tags**: Visual indicators showing source (Genesys/Teams)
+* **User Notes**: Internal notes feature for admin documentation
 * **Date Formatting**: Smart relative dates (e.g., "6Yr 8Mo ago") with consistent formatting
 
 ### Security & Compliance
@@ -42,13 +51,16 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 * **Session Management**: Persistent sessions with automatic cleanup and inactivity timeout
 * **Inactivity Protection**: Configurable session timeout with warning modal (15min default)
 * **Error Tracking**: Comprehensive error logging with stack traces
+* **Configuration Management**: Web-based editor for runtime configuration changes
 
 ### UI/UX Features
 * **Status Badges**: Visual indicators for Enabled/Disabled and Locked/Not Locked accounts
 * **Collapsible Groups**: AD and Genesys groups in expandable sections
 * **Profile Photos**: Centered display with status badges
 * **Modern Search Bar**: Pill-shaped design with subtle shadow effects
-* **Admin Dashboard**: User management and audit log viewer
+* **Admin Dashboard**: User management, configuration editor, and audit log viewer
+* **Terminal Interface**: Matrix-style CLI at `/cli` for power users
+* **Login Page**: Dedicated authentication page with SSO support
 
 ---
 
@@ -65,7 +77,7 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 | Genesys | OAuth2 + requests | Contact center data |
 | ORM | SQLAlchemy | Database abstraction |
 | Frontend | Bootstrap 5.3.0 | UI components |
-| Task Management | Background threads | Token refresh service |
+| Task Management | Background threads | Token refresh & cache updates |
 
 ---
 
@@ -106,6 +118,9 @@ A comprehensive Flask-based identity lookup service that searches across Active 
    
    # Run database schema
    psql -U whodis_user -d whodis_db -h localhost -f database/create_tables.sql
+   
+   # Run table statistics (prevents -1 row counts)
+   psql -U postgres -d whodis_db -h localhost -f database/analyze_tables.sql
    ```
 
 5. **Configure minimal environment**:
@@ -180,8 +195,10 @@ WhoDis/
 │   ├── __init__.py               # Flask app factory with config service
 │   ├── blueprints/               # Route handlers
 │   │   ├── admin/                # Admin panel with user & audit management
-│   │   ├── home/                 # Landing page
-│   │   └── search/               # Search interface and logic
+│   │   ├── cli/                  # Terminal interface
+│   │   ├── home/                 # Landing page and login
+│   │   ├── search/               # Search interface and logic
+│   │   └── session/              # Session management endpoints
 │   ├── database.py               # Database configuration
 │   ├── middleware/               # Authentication and authorization
 │   │   └── auth.py               # RBAC with database/config fallback
@@ -194,7 +211,8 @@ WhoDis/
 │   │   ├── genesys.py            # Genesys cache models
 │   │   ├── graph_photo.py        # Microsoft Graph photo cache
 │   │   ├── session.py            # User session model with timeout support
-│   │   └── user.py               # User management model
+│   │   ├── user.py               # User management model
+│   │   └── user_note.py          # User notes model
 │   ├── services/                 # External service integrations
 │   │   ├── audit_service_postgres.py    # PostgreSQL audit logging
 │   │   ├── configuration_service.py     # Encrypted config management
@@ -205,15 +223,24 @@ WhoDis/
 │   │   ├── ldap_service.py             # Active Directory queries
 │   │   └── token_refresh_service.py    # Background token management
 │   ├── static/                   # CSS, JS, images
+│   │   ├── css/                  # Stylesheets
+│   │   ├── img/                  # Images and icons
+│   │   └── js/                   # JavaScript files
 │   └── templates/                # Jinja2 HTML templates
+│       ├── admin/                # Admin panel templates
+│       ├── cli/                  # Terminal interface
+│       ├── home/                 # Home and login pages
+│       └── search/               # Search interface
 ├── database/                     # Database SQL scripts
 │   ├── create_database.sql       # Database creation
 │   ├── create_tables.sql         # Complete schema with encryption
+│   ├── add_graph_photos_table.sql # Graph photos table
+│   ├── add_user_notes.sql        # User notes table
 │   ├── alter_session_timeout.sql # Session timeout migration
 │   └── analyze_tables.sql        # Table statistics update
 ├── docs/                         # Documentation
 │   └── database.md               # Database documentation
-├── logs/                         # Application logs (deprecated)
+├── logs/                         # Application logs (git-ignored)
 ├── scripts/                      # Utility scripts
 │   ├── migrate_config_to_db.py  # Migrate .env to encrypted database
 │   ├── verify_encrypted_config.py # Verify encryption setup
@@ -232,7 +259,7 @@ WhoDis/
 
 ### Authentication Methods
 1. **Azure AD (Primary)**: Checks `X-MS-CLIENT-PRINCIPAL-NAME` header from Azure App Service
-2. **Basic Auth (Fallback)**: Username/password for development or non-Azure environments
+2. **Basic Auth (Fallback)**: Username/password with dedicated login page
 
 ### Role Hierarchy
 - **👀 Viewers**: Can search and view user information
@@ -243,7 +270,8 @@ WhoDis/
 - Users managed in database with fallback to encrypted configuration
 - Failed access attempts logged with IP, user agent, and timestamp
 - Unauthorized users see creative denial messages
-- Session management with automatic expiration
+- Session management with automatic expiration and timeout warnings
+- Dedicated login page at `/login` with SSO support
 
 ---
 
@@ -255,12 +283,14 @@ WhoDis/
 - **Admin Actions**: User management changes tracked
 - **Error Logging**: Application errors with stack traces
 - **Configuration Changes**: All config modifications logged
+- **Session Events**: Login, logout, and timeout events
 
 ### Background Services
 - **Token Refresh**: Automatic renewal of API tokens before expiration
 - **Cache Management**: Genesys data refreshed every 6 hours
 - **Session Cleanup**: Expired sessions removed automatically
 - **Database Maintenance**: Old audit logs cleaned up periodically
+- **Photo Caching**: Microsoft Graph photos stored in database
 
 ### Performance Optimizations
 - **Connection Pooling**: SQLAlchemy connection pool for PostgreSQL
@@ -281,10 +311,11 @@ WhoDis/
 - **Error Handling**: User-friendly error messages
 
 ### Admin Dashboard
-- **User Management**: Add, edit, deactivate users
+- **User Management**: Add, edit, deactivate users with notes
+- **Configuration Editor**: Modify settings without restart
 - **Audit Log Viewer**: Search and filter audit logs
+- **Session Monitor**: View active sessions and timeout status
 - **Real-time Updates**: Live data refresh without page reload
-- **Bulk Operations**: Manage multiple users at once
 - **Export Options**: Download audit logs as CSV
 
 ---
@@ -300,10 +331,11 @@ WhoDis/
 
 ### Microsoft Graph (Beta API)
 - Enhanced user profiles with extended properties
-- Binary photo retrieval and caching
+- Binary photo retrieval with database caching
 - Manager relationships with expansion
 - License assignments and usage location
 - Token refresh and session validity
+- Lazy loading of photos for performance
 
 ### Genesys Cloud
 - OAuth2 client credentials flow
@@ -429,6 +461,10 @@ pytest --cov=app
 - [x] Comprehensive audit logging
 - [x] Background token refresh
 - [x] Genesys data caching
+- [x] Terminal interface (CLI)
+- [x] User notes feature
+- [x] Configuration web editor
+- [x] Photo caching
 - [ ] Redis caching layer
 - [ ] REST API endpoints
 - [ ] Bulk user operations
