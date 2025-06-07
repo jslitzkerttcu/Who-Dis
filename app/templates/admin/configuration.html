@@ -623,8 +623,12 @@ function refreshGenesysCache() {
     button.disabled = true;
     button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Refreshing...';
     
-    fetch('/admin/api/genesys/cache/refresh', {
-        method: 'POST'
+    fetch('/admin/api/genesys/refresh-cache', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ type: 'all' })
     })
     .then(response => response.json())
     .then(data => {

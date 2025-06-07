@@ -161,11 +161,15 @@ class GenesysCacheDB:
         try:
             logger.info("Fetching locations from Genesys Cloud...")
 
-            # Fetch all locations (up to 500)
+            # Log the exact URL being called
+            url = f"{self.base_url}/api/v2/locations"
+            logger.info(f"Calling: {url} with pageSize=400")
+
+            # Fetch all locations (up to 400 as per the requirement)
             response = requests.get(
-                f"{self.base_url}/api/v2/locations",
+                url,
                 headers=headers,
-                params={"pageSize": 500},
+                params={"pageSize": 400},
                 timeout=self.cache_timeout,
             )
 
@@ -179,16 +183,29 @@ class GenesysCacheDB:
             locations = data.get("entities", [])
             total_count = data.get("total", 0)
 
+            logger.info(
+                f"Received {len(locations)} locations from API (total: {total_count})"
+            )
+
             # Clear old cache and insert new data
             GenesysLocation.query.delete()
 
             for location in locations:
                 location_id = location.get("id")
                 if location_id:
+                    # Extract emergency number properly
+                    emergency_number = None
+                    emergency_obj = location.get("emergencyNumber")
+                    if emergency_obj and isinstance(emergency_obj, dict):
+                        # Prefer formatted number, fallback to e164
+                        emergency_number = emergency_obj.get(
+                            "number"
+                        ) or emergency_obj.get("e164")
+
                     db_location = GenesysLocation(
                         id=location_id,
                         name=location.get("name", "Unknown"),
-                        emergency_number=location.get("emergencyNumber"),
+                        emergency_number=emergency_number,
                         address=location.get("address"),
                         raw_data=location,
                     )
@@ -302,7 +319,12 @@ class GenesysCacheDB:
             # Check if we're in an application context
             if has_app_context():
                 location = GenesysLocation.query.get(location_id)
-                return location.name if location else location_id
+                if location:
+                    logger.debug(f"Found location {location_id}: {location.name}")
+                    return location.name
+                else:
+                    logger.debug(f"Location {location_id} not found in cache")
+                    return location_id
         except Exception as e:
             # If we're outside the app context or any other error, return the ID
             if "application context" not in str(e):

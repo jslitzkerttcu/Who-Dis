@@ -336,19 +336,19 @@ class LDAPService:
 
         # Extract phone numbers with new attribute mappings
         phone_numbers = {}
-        
+
         # telephoneNumber -> Teams DID
         if hasattr(entry, "telephoneNumber") and entry.telephoneNumber:
             phone_numbers["teams_did"] = str(entry.telephoneNumber)
-            
+
         # extensionAttribute4 -> Genesys DID
         if hasattr(entry, "extensionAttribute4") and entry.extensionAttribute4:
             phone_numbers["genesys_did"] = str(entry.extensionAttribute4)
-            
+
         # ExclaimerMobile -> Cell Phone
         if hasattr(entry, "ExclaimerMobile") and entry.ExclaimerMobile:
             phone_numbers["mobile"] = str(entry.ExclaimerMobile)
-            
+
         # pager -> Genesys Extension
         if hasattr(entry, "pager") and entry.pager:
             phone_numbers["genesys_ext"] = str(entry.pager)

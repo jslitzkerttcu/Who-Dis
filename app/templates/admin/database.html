@@ -55,34 +55,6 @@
             </div>
         </div>
 
-        <!-- Table Statistics -->
-        <div class="card mb-4 border-dark">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-table"></i> Table Statistics</h5>
-            </div>
-            <div class="card-body">
-                <div id="table-stats-loading" class="text-center">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-                <div id="table-stats-content" style="display: none;">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Table</th>
-                                <th>Row Count</th>
-                                <th>Size</th>
-                                <th>Last Activity</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-stats-body">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
         <!-- Quick Actions -->
         <div class="row">
             <!-- Error Logs -->
@@ -188,6 +160,43 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Table Statistics Accordion (at bottom) -->
+        <div class="accordion mb-4" id="tableStatsAccordion">
+            <div class="accordion-item border-dark">
+                <h2 class="accordion-header" id="tableStatsHeading">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#tableStatsCollapse" aria-expanded="false" 
+                            aria-controls="tableStatsCollapse">
+                        <i class="bi bi-table me-2"></i> Table Statistics
+                    </button>
+                </h2>
+                <div id="tableStatsCollapse" class="accordion-collapse collapse" 
+                     aria-labelledby="tableStatsHeading" data-bs-parent="#tableStatsAccordion">
+                    <div class="accordion-body">
+                        <div id="table-stats-loading" class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div id="table-stats-content" style="display: none;">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Table</th>
+                                        <th>Row Count</th>
+                                        <th>Size</th>
+                                        <th>Last Activity</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-stats-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -195,10 +204,15 @@
 // Load database health on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadDatabaseHealth();
-    loadTableStats();
     loadCacheStatus();
     loadErrorStats();
     loadSessionStats();
+    
+    // Load table stats when accordion is expanded
+    const tableStatsAccordion = document.getElementById('tableStatsCollapse');
+    tableStatsAccordion.addEventListener('show.bs.collapse', function () {
+        loadTableStats();
+    });
     
     // Refresh every 30 seconds
     setInterval(function() {
@@ -447,12 +461,18 @@ function refreshGenesysCache() {
     button.disabled = true;
     button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Refreshing...';
     
-    fetch('/admin/api/genesys/cache/refresh', { method: 'POST' })
+    fetch('/admin/api/genesys/refresh-cache', { 
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ type: 'all' })
+    })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 showToast('Genesys cache refreshed successfully!', 'success');
-                loadGenesysCacheStatus();
+                loadCacheStatus();
                 
                 // Show results if available
                 if (data.results) {

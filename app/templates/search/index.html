@@ -42,7 +42,7 @@
 
 <script>
     // Set user role from template context
-    window.userRole = '{{ g.user_role|default("viewer") }}';
+    window.userRole = '{{ g.role|default("viewer") }}';
     
     // Format phone numbers consistently
     function formatPhoneNumber(phone) {

@@ -960,7 +960,13 @@ def genesys_cache_config():
             # Update configuration
             config_service = current_app.config.get("CONFIG_SERVICE")
             if config_service:
-                config_service.set("genesys", "cache_refresh_period", seconds)
+                # Get admin email for updated_by
+                admin_email = request.headers.get(
+                    "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+                )
+                config_service.set(
+                    "genesys", "cache_refresh_period", seconds, updated_by=admin_email
+                )
 
                 # Log action
                 admin_email = request.headers.get(
@@ -1116,7 +1122,12 @@ def api_configuration():
 
                     old_value = config_get(category, key, "")
                     if str(old_value) != str(value):
-                        config_service.set(category, key, value)
+                        # Get the admin email for updated_by
+                        admin_email = request.headers.get(
+                            "X-MS-CLIENT-PRINCIPAL-NAME",
+                            request.remote_user or "unknown",
+                        )
+                        config_service.set(category, key, value, updated_by=admin_email)
                         changes.append(
                             {
                                 "category": category,
@@ -1136,8 +1147,9 @@ def api_configuration():
 
                 audit_service.log_config_change(
                     user_email=admin_email,
-                    config_section="multiple",
+                    action="update_configuration",
                     config_key="multiple",
+                    config_section="multiple",
                     old_value="various",
                     new_value="various",
                     user_role=admin_role,
