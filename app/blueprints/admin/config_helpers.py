@@ -3,23 +3,76 @@ Helper functions for rendering configuration sections with Htmx.
 """
 
 
-def has_encrypted_value(config_key):
-    """Check if a configuration key has an encrypted value in the database."""
-    from app.database import db
-    from sqlalchemy import text
-    
+def is_sensitive_field(config_key):
+    """Check if a configuration key should be treated as sensitive/encrypted based on naming."""
     try:
         category, key = config_key.split('.', 1)
-        with db.engine.begin() as conn:
-            result = conn.execute(
-                text("SELECT encrypted_value FROM configuration WHERE category = :category AND setting_key = :key"),
-                {"category": category, "key": key}
-            )
-            row = result.fetchone()
-            if row and row[0]:
-                return True
-    except Exception:
-        pass
+        
+        # Check if this should be encrypted based on naming (same logic as config.py)
+        is_sensitive = any(
+            suffix in key.lower() for suffix in ["secret", "password"]
+        )
+        
+        # Special case: API keys ending with '_key' but not 'client_id' or 'tenant_id'
+        if key.lower().endswith("_key") and not any(
+            exclude in key.lower() for exclude in ["encryption_key"]
+        ):
+            is_sensitive = True
+            
+        return is_sensitive
+    except:
+        return False
+
+
+def has_encrypted_value(config_key):
+    """Check if a configuration key has an encrypted value in the database."""
+    from app.services.configuration_service import config_get
+    
+    try:
+        # First check if this is a sensitive field type
+        if not is_sensitive_field(config_key):
+            return False
+            
+        # Get the actual value - if it exists and looks encrypted, consider it encrypted
+        value = config_get(config_key, None)
+        
+        # If we get None or empty string, but it's a sensitive field, 
+        # it likely means there IS an encrypted value but it's being masked/hidden
+        # In this case, we should check the database directly
+        if not value:
+            from app.database import db
+            from sqlalchemy import text
+            
+            category, key = config_key.split('.', 1)
+            with db.engine.begin() as conn:
+                # Try both the exact key and common variations
+                keys_to_try = [key]
+                if key.islower():
+                    keys_to_try.append(key.upper())
+                elif key.isupper():
+                    keys_to_try.append(key.lower())
+                    
+                for test_key in keys_to_try:
+                    result = conn.execute(
+                        text("SELECT encrypted_value FROM configuration WHERE category = :category AND setting_key = :key"),
+                        {"category": category, "key": test_key}
+                    )
+                    row = result.fetchone()
+                    if row and row[0]:
+                        return True
+        
+        # If value looks encrypted
+        if isinstance(value, str) and value.startswith("gAAAAAB") and len(value) > 50:
+            return True
+            
+    except Exception as e:
+        # Log the error for debugging
+        try:
+            from flask import current_app
+            current_app.logger.error(f"Error checking encrypted value for {config_key}: {e}")
+        except:
+            pass
+    
     return False
 
 
@@ -39,7 +92,7 @@ def render_app_config():
     session_timeout = config_get("auth.session_timeout_minutes", "15")
     
     # Check for encrypted values
-    secret_key_encrypted = has_encrypted_value("flask.secret_key")
+    secret_key_encrypted = is_sensitive_field("flask.secret_key")
 
     return f'''
     <form hx-post="/admin/api/configuration?section=app" 
@@ -175,34 +228,62 @@ def render_app_config():
         function resetForm(form) {{
             form.reset();
             // Re-check all password fields after reset
-            document.querySelectorAll('input[type="password"], input[type="text"][name*="password"], input[type="text"][name*="secret"]').forEach(input => {{
-                updatePasswordToggle(input);
-            }});
+            setTimeout(() => {{
+                document.querySelectorAll('input[type="password"], input[type="text"][name*="password"], input[type="text"][name*="secret"]').forEach(input => {{
+                    updatePasswordToggle(input);
+                }});
+            }}, 100);
         }}
         
         // Handle dynamic show/hide of toggle button
         document.addEventListener('DOMContentLoaded', function() {{
+            setupPasswordToggles();
+        }});
+        
+        // Also setup toggles when HTMX loads new content
+        document.body.addEventListener('htmx:afterSwap', function(evt) {{
+            setupPasswordToggles();
+        }});
+        
+        function setupPasswordToggles() {{
+            console.log('setupPasswordToggles called');
             // Monitor all password fields
-            document.querySelectorAll('input[type="password"]').forEach(input => {{
-                // Update on input
-                input.addEventListener('input', function() {{
-                    updatePasswordToggle(input);
-                }});
+            const passwordFields = document.querySelectorAll('input[type="password"]');
+            console.log('Found password fields:', passwordFields.length);
+            
+            passwordFields.forEach((input, index) => {{
+                console.log('Setting up password field', index, ':', input.name, input.placeholder);
+                
+                // Remove existing listeners to avoid duplicates
+                input.removeEventListener('input', handlePasswordInput);
+                
+                // Add new listener
+                input.addEventListener('input', handlePasswordInput);
                 
                 // Initial state
                 updatePasswordToggle(input);
             }});
-        }});
+        }}
+        
+        function handlePasswordInput(event) {{
+            updatePasswordToggle(event.target);
+        }}
         
         function updatePasswordToggle(input) {{
+            console.log('updatePasswordToggle called for:', input.name, 'value length:', input.value.length, 'placeholder:', input.placeholder);
+            
             const container = input.parentElement;
             const existingBtn = container.querySelector('button[onclick*="togglePassword"]');
-            const hasPlaceholder = input.placeholder.startsWith('••••');
-            const hasValue = input.value.length > 0;
+            const hasPlaceholder = input.placeholder && input.placeholder.includes('••••');
+            const hasValue = input.value && input.value.length > 0;
             
+            console.log('hasPlaceholder:', hasPlaceholder, 'hasValue:', hasValue, 'existingBtn:', !!existingBtn);
+            
+            // Only show button if user has typed something AND it's not a placeholder field
             if (hasValue && !hasPlaceholder) {{
                 // Show button if it doesn't exist
                 if (!existingBtn) {{
+                    console.log('Creating new toggle button');
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.onclick = function() {{ togglePassword(this); }};
@@ -213,6 +294,7 @@ def render_app_config():
             }} else {{
                 // Remove button if it exists
                 if (existingBtn) {{
+                    console.log('Removing existing toggle button');
                     existingBtn.remove();
                 }}
             }}
@@ -267,7 +349,7 @@ def render_ldap_config():
     ldap_operation_timeout = config_get("ldap.operation_timeout", "10")
     
     # Check for encrypted values
-    ldap_password_encrypted = has_encrypted_value("ldap.bind_password")
+    ldap_password_encrypted = is_sensitive_field("ldap.bind_password")
     
     return f'''
     <form hx-post="/admin/api/configuration?section=ldap" 
@@ -383,7 +465,7 @@ def render_graph_config():
     graph_api_timeout = config_get("graph.api_timeout", "15")
     
     # Check for encrypted values
-    graph_secret_encrypted = has_encrypted_value("graph.client_secret")
+    graph_secret_encrypted = is_sensitive_field("graph.client_secret")
     
     return f'''
     <form hx-post="/admin/api/configuration?section=graph" 
@@ -471,7 +553,7 @@ def render_genesys_config():
     genesys_cache_refresh_hours = config_get("genesys.cache_refresh_hours", "6")
     
     # Check for encrypted values
-    genesys_secret_encrypted = has_encrypted_value("genesys.client_secret")
+    genesys_secret_encrypted = is_sensitive_field("genesys.client_secret")
     
     return f'''
     <form hx-post="/admin/api/configuration?section=genesys" 
@@ -576,7 +658,7 @@ def render_data_warehouse_config():
     dw_cache_refresh_hours = config_get("data_warehouse.cache_refresh_hours", "6.0")
     
     # Check for encrypted values
-    dw_secret_encrypted = has_encrypted_value("data_warehouse.client_secret")
+    dw_secret_encrypted = is_sensitive_field("data_warehouse.client_secret")
     
     return f'''
     <form hx-post="/admin/api/configuration?section=data_warehouse" 

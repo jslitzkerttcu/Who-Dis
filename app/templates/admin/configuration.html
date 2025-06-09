@@ -248,7 +248,7 @@
     
     // Handle test result display
     document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (evt.detail.target.id.endsWith('-test-result')) {
+        if (evt.detail.target.id.endsWith('-test-result') || evt.detail.target.id.endsWith('-header-test-result')) {
             evt.detail.target.classList.remove('hidden');
             // Auto-hide success messages after 5 seconds
             if (evt.detail.target.querySelector('.bg-green-50')) {
