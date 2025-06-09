@@ -6,6 +6,8 @@ from typing import Dict, Optional, Any
 from datetime import datetime
 from app.database import db
 from app.services.base import BaseCacheService
+from app.models.api_token import ApiToken
+from app.models.external_service import ExternalServiceData
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ class GenesysCacheDB(BaseCacheService):
     def _get_access_token(self) -> Optional[str]:
         """Get access token from database (managed by GenesysService)."""
         try:
-            token_record = CacheEntry.get_token("genesys")
+            token_record = ApiToken.get_token("genesys")
             if token_record and hasattr(token_record, "access_token"):
                 return str(token_record.access_token)
         except Exception as e:

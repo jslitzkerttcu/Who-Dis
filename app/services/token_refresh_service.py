@@ -76,7 +76,7 @@ class TokenRefreshService:
 
     def _refresh_using_container(self):
         """Refresh tokens using dynamic service discovery via container."""
-        from app.models.unified_cache import CacheEntry
+        from app.models.api_token import ApiToken
 
         # Get all services that implement ITokenService
         if self.container is not None:
@@ -87,7 +87,7 @@ class TokenRefreshService:
         for service in token_services:
             try:
                 # Check if this service's token needs refresh
-                token_entry = CacheEntry.get_token(service.token_service_name)
+                token_entry = ApiToken.get_token(service.token_service_name)
 
                 if token_entry and hasattr(token_entry, "expires_at"):
                     now = datetime.now(timezone.utc)
@@ -124,12 +124,12 @@ class TokenRefreshService:
 
     def _refresh_legacy(self):
         """Legacy refresh method with hard-coded services."""
-        from app.models.unified_cache import CacheEntry
+        from app.models.api_token import ApiToken
         from app.services.genesys_service import genesys_service
         from app.services.graph_service import graph_service
 
-        # Get all API tokens from the unified cache
-        tokens = CacheEntry.query.filter_by(cache_type="api_token").all()
+        # Get all API tokens from the ApiToken table
+        tokens = ApiToken.query.all()
 
         for token in tokens:
             # Check if token expires within next 10 minutes
@@ -143,8 +143,8 @@ class TokenRefreshService:
             time_until_expiry = expires_at - now
 
             if time_until_expiry <= timedelta(minutes=10):
-                # Extract service name from cache_key
-                service_name = token.cache_key
+                # Extract service name from service_name field
+                service_name = token.service_name
                 logger.info(
                     f"Token for {service_name} expires in {time_until_expiry}, refreshing..."
                 )

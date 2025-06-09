@@ -233,17 +233,16 @@ class BaseTokenService(BaseAPIService):
                 from flask import current_app
 
                 if current_app:
-                    from app.models.unified_cache import CacheEntry
+                    from app.models.api_token import ApiToken
 
-                    token_data = CacheEntry.get_token(self._token_service_name)
+                    token_data = ApiToken.get_token(self._token_service_name)
+                    if token_data and hasattr(token_data, "access_token"):
+                        logger.debug(
+                            f"Using cached {self._token_service_name} token from database"
+                        )
+                        return str(token_data.access_token)
                 else:
                     return None
-
-            if token_data and hasattr(token_data, "access_token"):
-                logger.debug(
-                    f"Using cached {self._token_service_name} token from database"
-                )
-                return str(token_data.access_token)
         except RuntimeError:
             logger.debug(
                 f"No Flask app context for {self._token_service_name} token lookup"
@@ -275,9 +274,9 @@ class BaseTokenService(BaseAPIService):
                 from flask import current_app
 
                 if current_app:
-                    from app.models.unified_cache import CacheEntry
+                    from app.models.api_token import ApiToken
 
-                    CacheEntry.cache_api_token(
+                    ApiToken.upsert_token(
                         service_name=self._token_service_name,
                         access_token=access_token,
                         expires_in_seconds=expires_in,
