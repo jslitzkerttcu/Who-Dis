@@ -3,66 +3,124 @@
 {% block title %}Admin - Who Dis?{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-8 mx-auto">
-        <h1 class="mb-4 text-center"><i class="bi bi-terminal-fill"></i> Admin Panel</h1>
-
-        <div class="alert alert-warning shadow-sm" role="alert">
-            <h5 class="alert-heading">Welcome, All-Powerful Admin</h5>
-            <p>You've reached the sacred land of unchecked responsibility and questionable judgment.</p>
-            <p class="mb-0"><strong>Note:</strong> Most of this is just for show... for now.</p>
+<div class="max-w-5xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-900 rounded-full mb-4">
+            <i class="fas fa-shield-alt text-white text-2xl"></i>
         </div>
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Admin Panel</h1>
+    </div>
 
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <div class="card border-dark h-100">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-person-gear"></i> User Management</h5>
-                        <p class="card-text text-muted">Assign roles, remove access, play God — responsibly.</p>
-                        <a href="{{ url_for('admin.manage_users') }}" class="btn btn-outline-primary w-100">
-                            <i class="bi bi-people-fill"></i> Manage Users
-                        </a>
-                    </div>
-                </div>
+    <!-- Welcome Alert -->
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg mb-8 shadow-md">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-circle text-yellow-400 text-xl"></i>
             </div>
-            <div class="col-md-6 mb-3">
-                <div class="card border-dark h-100">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-file-text"></i> Audit Logs</h5>
-                        <p class="card-text text-muted">Track searches, access denials, errors, and every questionable decision.</p>
-                        <a href="{{ url_for('admin.audit_logs') }}" class="btn btn-outline-primary w-100">
-                            <i class="bi bi-search"></i> View Audit Logs
-                        </a>
-                    </div>
-                </div>
+            <div class="ml-3">
+                <h3 class="text-lg font-semibold text-yellow-800">Welcome, All-Powerful Admin</h3>
+                <p class="mt-2 text-yellow-700">You've reached the sacred land of unchecked responsibility and questionable judgment.</p>
+                <p class="mt-1 text-sm text-yellow-600"><strong>Note:</strong> Most of this is just for show... for now.</p>
             </div>
-            <div class="col-md-6 mb-3">
-                <div class="card border-dark h-100">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-sliders"></i> Configuration</h5>
-                        <p class="card-text text-muted">Toggle settings you'll probably forget you changed.</p>
-                        <a href="{{ url_for('admin.configuration') }}" class="btn btn-outline-primary w-100">
-                            <i class="bi bi-gear-fill"></i> Manage Configuration
-                        </a>
+        </div>
+    </div>
+
+    <!-- Admin Actions Grid -->
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- User Management -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
+                            <i class="fas fa-user-cog text-blue-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-lg font-semibold text-gray-900">User Management</h3>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-6 mb-3">
-                <div class="card border-dark h-100">
-                    <div class="card-body">
-                        <h5 class="card-title"><i class="bi bi-database-fill-gear"></i> Database</h5>
-                        <p class="card-text text-muted">Monitor health, manage caches, and keep the data flowing.</p>
-                        <a href="{{ url_for('admin.database') }}" class="btn btn-outline-primary w-100">
-                            <i class="bi bi-speedometer2"></i> Database Management
-                        </a>
-                    </div>
-                </div>
+                <p class="text-gray-600 mb-4">Assign roles, remove access, play God — responsibly.</p>
+                <a href="{{ url_for('admin.users') }}" 
+                   class="inline-flex items-center justify-center w-full px-4 py-2 bg-white border-2 border-blue-600 text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition duration-150 ease-in-out">
+                    <i class="fas fa-users mr-2"></i>
+                    Manage Users
+                </a>
             </div>
         </div>
 
-        <div class="text-center text-muted mt-4">
-            <small><i class="bi bi-emoji-wink"></i> All actions are now being logged. Big Brother is watching.</small>
+        <!-- Audit Logs -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg">
+                            <i class="fas fa-file-alt text-green-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Audit Logs</h3>
+                    </div>
+                </div>
+                <p class="text-gray-600 mb-4">Track searches, access denials, errors, and every questionable decision.</p>
+                <a href="{{ url_for('admin.audit_logs') }}" 
+                   class="inline-flex items-center justify-center w-full px-4 py-2 bg-white border-2 border-green-600 text-green-600 font-medium rounded-lg hover:bg-green-50 transition duration-150 ease-in-out">
+                    <i class="fas fa-search mr-2"></i>
+                    View Audit Logs
+                </a>
+            </div>
         </div>
+
+        <!-- Configuration -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg">
+                            <i class="fas fa-sliders-h text-purple-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Configuration</h3>
+                    </div>
+                </div>
+                <p class="text-gray-600 mb-4">Toggle settings you'll probably forget you changed.</p>
+                <a href="{{ url_for('admin.configuration') }}" 
+                   class="inline-flex items-center justify-center w-full px-4 py-2 bg-white border-2 border-purple-600 text-purple-600 font-medium rounded-lg hover:bg-purple-50 transition duration-150 ease-in-out">
+                    <i class="fas fa-cog mr-2"></i>
+                    Manage Configuration
+                </a>
+            </div>
+        </div>
+
+        <!-- Database -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-red-100 rounded-lg">
+                            <i class="fas fa-database text-red-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Database</h3>
+                    </div>
+                </div>
+                <p class="text-gray-600 mb-4">Monitor health, manage caches, and keep the data flowing.</p>
+                <a href="{{ url_for('admin.database') }}" 
+                   class="inline-flex items-center justify-center w-full px-4 py-2 bg-white border-2 border-red-600 text-red-600 font-medium rounded-lg hover:bg-red-50 transition duration-150 ease-in-out">
+                    <i class="fas fa-tachometer-alt mr-2"></i>
+                    Database Management
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Notice -->
+    <div class="text-center text-gray-500 text-sm mt-8">
+        <i class="fas fa-eye mr-1"></i>
+        All actions are now being logged. Big Brother is watching.
     </div>
 </div>
 {% endblock %}

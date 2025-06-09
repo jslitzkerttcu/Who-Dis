@@ -2,7 +2,7 @@ from flask import Flask, g, request
 import os
 import logging
 import traceback
-import psycopg2
+from app.container import inject_dependencies
 
 
 def create_app():
@@ -10,6 +10,7 @@ def create_app():
 
     # Generate a secure random key if none is provided
     import secrets
+
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or secrets.token_hex(32)
 
     # Configure logging
@@ -36,35 +37,31 @@ def create_app():
         db.init_app(app)
         app.logger.warning("Falling back to SQLite database")
 
+
+    # Initialize dependency injection container
+    inject_dependencies(app)
+
     # Initialize configuration service
     try:
-        # Create a separate connection for configuration service
-        # Note: We must use os.getenv here because config service needs DB connection first
-        db_config = {
-            "host": os.getenv("POSTGRES_HOST", "localhost"),
-            "port": os.getenv("POSTGRES_PORT", "5432"),
-            "database": os.getenv("POSTGRES_DB", "whodis_db"),
-            "user": os.getenv("POSTGRES_USER", "whodis_user"),
-            "password": os.getenv("POSTGRES_PASSWORD", ""),
-        }
+        from app.services.configuration_service import config_get, config_clear_cache
 
-        config_conn = psycopg2.connect(**db_config)
-        config_conn.autocommit = True  # For configuration updates
-
-        from app.services.configuration_service import get_config_service, config_get
-
-        config_service = get_config_service(config_conn)
-        app.config["CONFIG_SERVICE"] = config_service
+        # Clear cache to ensure fresh config on startup
+        config_clear_cache()
 
         # Override Flask config with database values
-        app.config["FLASK_HOST"] = config_get("flask", "host", "0.0.0.0")
-        app.config["FLASK_PORT"] = config_get("flask", "port", 5000)
-        app.config["FLASK_DEBUG"] = config_get("flask", "debug", False)
+        app.config["FLASK_HOST"] = config_get("flask.host", "0.0.0.0")
+        app.config["FLASK_PORT"] = config_get("flask.port", 5000)
+        app.config["FLASK_DEBUG"] = config_get("flask.debug", False)
 
         # Load encrypted Flask secret key
-        secret_key = config_get("flask", "secret_key")
+        secret_key = config_get("flask.secret_key")
         if secret_key:
             app.config["SECRET_KEY"] = secret_key
+            
+        # Initialize CSRF protection after configuration is loaded
+        from app.middleware.csrf import DoubleSubmitCSRF
+        csrf = DoubleSubmitCSRF()
+        csrf.init_app(app)
 
     except Exception as e:
         app.logger.warning(f"Failed to initialize configuration service: {e}")
@@ -80,36 +77,29 @@ def create_app():
         # Initialize and refresh API tokens at startup
         with app.app_context():
             try:
-                from app.services.genesys_service import genesys_service
-                from app.services.graph_service import graph_service
+                from app.interfaces.token_service import ITokenService
 
                 app.logger.info("Checking and refreshing API tokens at startup...")
 
-                # Refresh Genesys token
-                try:
-                    if genesys_service.refresh_token_if_needed():
-                        app.logger.info("Genesys token is valid")
-                    else:
-                        app.logger.warning("Failed to refresh Genesys token at startup")
-                except Exception as e:
-                    app.logger.warning(f"Error checking Genesys token: {e}")
+                # Get all token services from container and refresh them
+                token_services = app.container.get_all_by_interface(ITokenService)
+                for service in token_services:
+                    try:
+                        service_name = getattr(service, "token_service_name", "unknown")
+                        if service.refresh_token_if_needed():
+                            app.logger.info(f"{service_name} token is valid")
+                        else:
+                            app.logger.warning(
+                                f"Failed to refresh {service_name} token at startup"
+                            )
+                    except Exception as e:
+                        app.logger.warning(f"Error checking {service_name} token: {e}")
 
-                # Refresh Graph API token
-                try:
-                    if graph_service.refresh_token_if_needed():
-                        app.logger.info("Graph API token is valid")
-                    else:
-                        app.logger.warning(
-                            "Failed to refresh Graph API token at startup"
-                        )
-                except Exception as e:
-                    app.logger.warning(f"Error checking Graph API token: {e}")
-
-                # Start background token refresh service
-                from app.services.token_refresh_service import token_refresh_service
-
-                token_refresh_service.init_app(app)
-                token_refresh_service.start()
+                # Start background token refresh service with container
+                token_refresh = app.container.get("token_refresh")
+                token_refresh.app = app
+                token_refresh.container = app.container
+                token_refresh.start()
                 app.logger.info("Token refresh background service started")
 
                 # Initialize Genesys cache if empty
@@ -154,13 +144,11 @@ def create_app():
     from app.blueprints.search import search_bp
     from app.blueprints.admin import admin_bp
     from app.blueprints.session import session_bp
-    from app.blueprints.cli import cli_bp
 
     app.register_blueprint(home_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(session_bp)
-    app.register_blueprint(cli_bp, url_prefix="/cli")
 
     # Global error handlers
     @app.errorhandler(Exception)

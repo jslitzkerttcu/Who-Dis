@@ -207,7 +207,8 @@
             const response = await fetch('/api/session/check', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCSRFToken()
                 },
                 body: JSON.stringify({
                     last_activity: Math.floor(lastActivity / 1000)
@@ -216,8 +217,10 @@
             
             if (!response.ok) {
                 if (response.status === 401) {
-                    // Session expired
-                    window.location.href = '/login?reason=session_expired';
+                    // Don't redirect if we're already on the login page to avoid loops
+                    if (!window.location.pathname.includes('/login')) {
+                        window.location.href = '/login?reason=session_expired';
+                    }
                 }
                 return;
             }
@@ -253,7 +256,8 @@
             const response = await fetch('/api/session/extend', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCSRFToken()
                 }
             });
             
@@ -269,8 +273,12 @@
     // Logout
     async function logout() {
         try {
-            await fetch('/logout', {
-                method: 'POST'
+            await fetch('/api/session/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCSRFToken()
+                }
             });
         } catch (error) {
             console.error('Logout failed:', error);
@@ -281,6 +289,12 @@
     
     // Initialize session configuration
     async function initializeSessionConfig() {
+        // Don't start session management on login page
+        if (window.location.pathname.includes('/login')) {
+            console.debug('On login page, skipping session management');
+            return;
+        }
+        
         try {
             const response = await fetch('/api/session/config');
             if (response.ok) {
@@ -288,16 +302,35 @@
                 timeoutMinutes = config.timeout_minutes || 15;
                 warningMinutes = config.warning_minutes || 2;
                 checkIntervalSeconds = config.check_interval_seconds || 30;
+                
+                // Test if session check works before starting interval
+                const testCheck = await fetch('/api/session/check', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        last_activity: Math.floor(Date.now() / 1000)
+                    })
+                });
+                
+                if (testCheck.ok) {
+                    // Session management works, start the interval
+                    sessionCheckInterval = setInterval(checkSession, checkIntervalSeconds * 1000);
+                    console.debug('Session management initialized successfully');
+                } else {
+                    console.debug('Session check failed, not starting session management');
+                    return;
+                }
+            } else if (response.status === 401) {
+                // User not authenticated, don't start session management
+                console.debug('User not authenticated, skipping session management');
+                return;
             }
         } catch (error) {
             console.error('Failed to load session config:', error);
         }
-        
-        // Start session checking
-        sessionCheckInterval = setInterval(checkSession, checkIntervalSeconds * 1000);
-        
-        // Initial check
-        checkSession();
     }
     
     // Initialize on page load

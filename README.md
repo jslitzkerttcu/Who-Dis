@@ -8,12 +8,12 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 
 **WhoDis** continues to evolve with new features and improvements:
 
-- **💻 Terminal Interface**: New CLI-style terminal emulator at `/cli` with matrix aesthetic
 - **📝 User Notes**: Admins can now add internal notes about users
 - **🖼️ Photo Caching**: Microsoft Graph photos are cached in PostgreSQL for performance
 - **🔧 Configuration Editor**: Web-based configuration management at `/admin/configuration`
 - **🔐 Session Management**: Enhanced session tracking with dedicated login page
 - **🎨 UI Improvements**: Lazy-loaded photos, user placeholders, and refined styling
+- **🏗️ DRY Architecture**: Base model and service classes eliminate code duplication
 
 ### Previously Added in v2.0:
 - **🐘 PostgreSQL Backend**: Migrated from SQLite to PostgreSQL
@@ -45,9 +45,10 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 * **Date Formatting**: Smart relative dates (e.g., "6Yr 8Mo ago") with consistent formatting
 
 ### Security & Compliance
-* **Encrypted Storage**: All sensitive configuration values encrypted at rest
+* **Encrypted Storage**: All sensitive configuration values encrypted at rest with unique per-installation salt
 * **Audit Trail**: Complete audit log of all searches, access attempts, and configuration changes
 * **Role-Based Access**: Three-tier access control (Viewer, Editor, Admin)
+* **Azure AD Only**: Basic authentication disabled for enhanced security
 * **Session Management**: Persistent sessions with automatic cleanup and inactivity timeout
 * **Inactivity Protection**: Configurable session timeout with warning modal (15min default)
 * **Error Tracking**: Comprehensive error logging with stack traces
@@ -59,7 +60,6 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 * **Profile Photos**: Centered display with status badges
 * **Modern Search Bar**: Pill-shaped design with subtle shadow effects
 * **Admin Dashboard**: User management, configuration editor, and audit log viewer
-* **Terminal Interface**: Matrix-style CLI at `/cli` for power users
 * **Login Page**: Dedicated authentication page with SSO support
 
 ---
@@ -135,7 +135,7 @@ A comprehensive Flask-based identity lookup service that searches across Active 
    POSTGRES_PASSWORD=your-secure-password
    
    # Encryption key for configuration
-   CONFIG_ENCRYPTION_KEY=$(python -c "from app.services.encryption_service import EncryptionService; print(EncryptionService.generate_key())")
+   WHODIS_ENCRYPTION_KEY=$(python -c "from app.services.encryption_service import EncryptionService; print(EncryptionService.generate_key())")
    EOF
    ```
 
@@ -171,6 +171,47 @@ WhoDis uses a sophisticated configuration management system where:
 - **Runtime Updates**: Configuration can be changed without restarting
 - **Audit Trail**: All configuration changes are logged
 
+### 🔐 WHODIS_ENCRYPTION_KEY - Critical Information
+
+The `WHODIS_ENCRYPTION_KEY` is the master key that encrypts all sensitive configuration values in the database.
+
+**⚠️ WARNING: Changing this key will make ALL encrypted configuration unreadable!**
+
+#### What happens when the key is changed:
+- All encrypted values in the database become undecryptable
+- The application will return empty strings for encrypted settings
+- You'll need to re-enter all passwords and secrets
+
+#### How to safely change the encryption key:
+
+1. **Export current configuration** (create a backup):
+   ```bash
+   python scripts/export_config.py > config_backup.json
+   ```
+
+2. **Generate a new encryption key**:
+   ```bash
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ```
+
+3. **Update the key in .env**:
+   ```bash
+   # Edit .env and replace WHODIS_ENCRYPTION_KEY with the new value
+   ```
+
+4. **Re-encrypt all values** with the new key:
+   ```bash
+   python scripts/reencrypt_config.py
+   ```
+
+5. **Restart the application**
+
+#### Best Practices:
+- **Backup the key** in a secure location (password manager, secrets vault)
+- **Never commit** the .env file to version control
+- **Use a strong key** in production (generate, don't create manually)
+- **Document key rotation** in your operational procedures
+
 ### Configuration Categories
 
 | Category | Purpose | Encrypted |
@@ -195,7 +236,6 @@ WhoDis/
 │   ├── __init__.py               # Flask app factory with config service
 │   ├── blueprints/               # Route handlers
 │   │   ├── admin/                # Admin panel with user & audit management
-│   │   ├── cli/                  # Terminal interface
 │   │   ├── home/                 # Landing page and login
 │   │   ├── search/               # Search interface and logic
 │   │   └── session/              # Session management endpoints
@@ -228,15 +268,11 @@ WhoDis/
 │   │   └── js/                   # JavaScript files
 │   └── templates/                # Jinja2 HTML templates
 │       ├── admin/                # Admin panel templates
-│       ├── cli/                  # Terminal interface
 │       ├── home/                 # Home and login pages
 │       └── search/               # Search interface
 ├── database/                     # Database SQL scripts
-│   ├── create_database.sql       # Database creation
-│   ├── create_tables.sql         # Complete schema with encryption
-│   ├── add_graph_photos_table.sql # Graph photos table
-│   ├── add_user_notes.sql        # User notes table
-│   ├── alter_session_timeout.sql # Session timeout migration
+│   ├── create_database.sql       # Database and user creation
+│   ├── create_tables.sql         # Complete schema (all tables, triggers, etc.)
 │   └── analyze_tables.sql        # Table statistics update
 ├── docs/                         # Documentation
 │   └── database.md               # Database documentation
@@ -350,7 +386,7 @@ WhoDis/
 
 1. **Environment Security**
    - Use strong PostgreSQL password
-   - Generate unique CONFIG_ENCRYPTION_KEY
+   - Generate unique WHODIS_ENCRYPTION_KEY
    - Never commit .env file
 
 2. **Database Security**
@@ -388,7 +424,7 @@ python scripts/reencrypt_config.py
 ### Common Problems
 
 **"Error decrypting configuration"**
-- Check CONFIG_ENCRYPTION_KEY in .env
+- Check WHODIS_ENCRYPTION_KEY in .env
 - Run verification script
 - Re-encrypt values if key changed
 
@@ -461,7 +497,6 @@ pytest --cov=app
 - [x] Comprehensive audit logging
 - [x] Background token refresh
 - [x] Genesys data caching
-- [x] Terminal interface (CLI)
 - [x] User notes feature
 - [x] Configuration web editor
 - [x] Photo caching

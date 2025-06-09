@@ -19,8 +19,7 @@ psql -U whodis_user -d whodis_db -h localhost -f database/create_tables.sql
 # Analyze tables for proper statistics (prevents -1 row counts)
 psql -U postgres -d whodis_db -h localhost -f database/analyze_tables.sql
 
-# Configure encryption and migrate settings
-python scripts/migrate_config_to_db.py
+# Verify encrypted configuration (for new installs)
 python scripts/verify_encrypted_config.py
 
 # Run the application
@@ -52,23 +51,17 @@ python scripts/check_config_status.py
 # Verify encrypted configuration
 python scripts/verify_encrypted_config.py
 
-# Re-encrypt all sensitive values
-python scripts/reencrypt_config.py
-
-# Fix encryption issues
-python scripts/fix_encrypted_values.py
-
 # Diagnose configuration problems
 python scripts/diagnose_config.py
 
-# Apply session timeout migration (if upgrading)
-psql -U postgres -d whodis_db -h localhost -f database/alter_session_timeout.sql
+# Export configuration for backup
+python scripts/export_config.py
 
-# Add user notes table (if upgrading)
-psql -U postgres -d whodis_db -h localhost -f database/add_user_notes.sql
+# Test Genesys cache functionality
+python scripts/check_genesys_cache.py
 
-# Add graph photos table (if upgrading)
-psql -U postgres -d whodis_db -h localhost -f database/add_graph_photos_table.sql
+# Test Genesys locations cache (manual)
+python scripts/test_locations_cache.py
 ```
 
 ## Architecture
@@ -78,33 +71,50 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 
 - **`app/__init__.py`**: Application factory that initializes Flask, database, configuration service, and registers blueprints
 - **`app/database.py`**: Database configuration and connection management
-- **`app/blueprints/`**: Contains five main blueprints:
+- **`app/blueprints/`**: Contains four main blueprints:
   - `home`: Landing page with product branding and login interface
   - `search`: Identity search interface with real-time results (requires 'viewer' role minimum)
   - `admin`: Admin panel with user management, configuration editor, and audit logs (requires 'admin' role)
-  - `cli`: Terminal-style interface with matrix aesthetic for command-line interaction
   - `session`: Session management endpoints for timeout tracking and extension
 - **`app/middleware/auth.py`**: Implements role-based authentication with database users, encrypted config fallback, and basic auth
-- **`app/models/`**: SQLAlchemy models for all database tables:
-  - `user.py`: User management with roles
-  - `configuration.py`: Encrypted configuration storage
-  - `audit.py`: Audit log entries
-  - `access.py`: Access attempt tracking
-  - `error.py`: Error logging
-  - `genesys.py`: Genesys cache models
-  - `graph_photo.py`: Microsoft Graph photo caching
+- **`app/models/`**: SQLAlchemy models with base class hierarchy:
+  - **Base Classes** (`base.py`):
+    - `BaseModel`: Common CRUD operations
+    - `TimestampMixin`: Provides created_at/updated_at
+    - `UserTrackingMixin`: Provides user_email/ip_address/user_agent/session_id
+    - `ExpirableMixin`: Provides expires_at and expiration management
+    - `AuditableModel`: Combines timestamps, user tracking, and JSON data
+    - `CacheableModel`: For cache entries with expiration
+    - `ServiceDataModel`: For external service data
+  - **Models**:
+    - `user.py`: User management with roles (extends BaseModel + TimestampMixin)
+    - `configuration.py`: Encrypted configuration storage
+    - `audit.py`: Audit log entries (extends AuditableModel)
+    - `access.py`: Access attempt tracking (extends AuditableModel)
+    - `error.py`: Error logging (extends AuditableModel)
+    - `genesys.py`: Genesys cache models (extends ServiceDataModel)
+    - `graph_photo.py`: Microsoft Graph photo caching (extends CacheableModel)
   - `session.py`: User session management with timeout tracking
   - `user_note.py`: Internal notes about users
   - `cache.py`: Search result caching
-- **`app/services/`**: Contains service integrations:
-  - `ldap_service.py`: Active Directory/LDAP integration with fuzzy search and timeout handling
-  - `genesys_service.py`: Genesys Cloud API integration for contact center data
-  - `graph_service.py`: Microsoft Graph API (beta) integration for enhanced Azure AD data and photos
-  - `audit_service_postgres.py`: PostgreSQL-based audit logging for all system events
-  - `configuration_service.py`: Encrypted configuration management with caching
-  - `encryption_service.py`: Fernet-based encryption utilities
-  - `genesys_cache_db.py`: PostgreSQL caching for Genesys groups, skills, locations
-  - `token_refresh_service.py`: Background service for automatic API token renewal
+- **`app/services/`**: Service layer with base class hierarchy:
+  - **Base Classes** (`base.py`):
+    - `BaseConfigurableService`: Configuration management
+    - `BaseAPIService`: HTTP request handling and error management
+    - `BaseTokenService`: OAuth2 token management
+    - `BaseSearchService`: User search functionality
+    - `BaseCacheService`: Database caching patterns
+    - `BaseAPITokenService`: Composite class for API services
+  - **Services**:
+    - `ldap_service.py`: Active Directory/LDAP integration with fuzzy search and timeout handling
+    - `genesys_service.py`: Genesys Cloud API integration for contact center data
+    - `graph_service.py`: Microsoft Graph API (beta) integration for enhanced Azure AD data and photos
+    - `audit_service_postgres.py`: PostgreSQL-based audit logging for all system events
+    - `configuration_service.py`: Simplified configuration access (wraps simple_config)
+    - `simple_config.py`: Core configuration service with encryption support
+    - `encryption_service.py`: Fernet-based encryption utilities
+    - `genesys_cache_db.py`: PostgreSQL caching for Genesys groups, skills, locations
+    - `token_refresh_service.py`: Background service for automatic API token renewal
 
 ### Database Architecture
 - **PostgreSQL 12+** for all data persistence
@@ -115,16 +125,15 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 
 ### Authentication Flow
 1. Primary authentication via Azure AD (`X-MS-CLIENT-PRINCIPAL-NAME` header)
-2. Fallback to HTTP basic authentication with dedicated login page
-3. Users are managed in PostgreSQL `users` table with roles
-4. Secondary fallback to encrypted configuration in database
-5. Role hierarchy: Admin > Editor > Viewer
-6. Session management with configurable timeout and warning modal
-7. All authentication events and access denials are logged to PostgreSQL
-8. Snarky denial messages for unauthorized access attempts
+2. Users are managed in PostgreSQL `users` table with roles
+3. Role hierarchy: Admin > Editor > Viewer
+4. Session management with configurable timeout and warning modal
+5. All authentication events and access denials are logged to PostgreSQL
+6. Snarky denial messages for unauthorized access attempts
+7. Note: Basic authentication has been disabled for security reasons - only Azure AD SSO is supported
 
 ### Configuration Management
-- **Minimal .env**: Only contains database connection and CONFIG_ENCRYPTION_KEY
+- **Minimal .env**: Only contains database connection and WHODIS_ENCRYPTION_KEY
 - **Database storage**: All other configuration stored encrypted in PostgreSQL
 - **Runtime updates**: Configuration can be changed without restart
 - **Audit trail**: All configuration changes tracked in history table
@@ -149,7 +158,6 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 - **Collapsible Groups**: AD and Genesys groups shown in expandable sections
 - **Custom Branding**: TTCU colors (#007c59 for Azure AD, #FF4F1F for Genesys, #f2c655 for buttons)
 - **Admin Dashboard**: User management, configuration editor, and audit log viewer
-- **Terminal Interface**: Matrix-style CLI emulator at /cli for command-line interaction
 - **Session Timeout Warning**: Modal with countdown timer and extension option
 - **User Notes**: Admin ability to add internal notes about users
 - **Login Page**: Dedicated login route with SSO support
@@ -225,8 +233,9 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 
 ### Security Considerations
 - `SECRET_KEY` stored encrypted in database
-- All API credentials encrypted at rest using Fernet
-- CONFIG_ENCRYPTION_KEY must be kept secure and backed up
+- All API credentials encrypted at rest using Fernet with unique per-installation salt
+- WHODIS_ENCRYPTION_KEY must be kept secure and backed up
+- Unique salt file generated per installation (stored in project root for development, system directories for production)
 - Graph client secrets with special characters handled properly
 - All unauthorized access attempts are logged with full context
 - No sensitive data logged in plaintext
@@ -234,6 +243,11 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 - Failed login attempts tracked in `access_attempts` table
 - CSRF protection via Flask sessions
 - Session hijacking prevention with timeout and activity tracking
+- Basic authentication disabled - only Azure AD SSO supported
+- XSS protection through comprehensive input escaping with `escapeHtml()` function
+- Content Security Policy (CSP) headers to prevent XSS attacks
+- Security headers: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
+- Permissions Policy to disable unnecessary browser features
 
 ### Environment Variables (Minimal)
 After migration, only these are needed in .env:
@@ -246,7 +260,7 @@ POSTGRES_USER=whodis_user
 POSTGRES_PASSWORD=your-secure-password
 
 # Encryption key for configuration
-CONFIG_ENCRYPTION_KEY=your-generated-encryption-key
+WHODIS_ENCRYPTION_KEY=your-generated-encryption-key
 ```
 
 All other configuration is stored encrypted in the database and can be managed through the configuration service.
@@ -268,5 +282,4 @@ All other configuration is stored encrypted in the database and can be managed t
 - Test encryption/decryption after any configuration changes
 - Run ANALYZE on new tables to prevent -1 row counts in admin UI
 - Test session timeout behavior with different configurations
-- Verify terminal interface functionality after changes
 - See [Database Documentation](docs/database.md) for detailed troubleshooting

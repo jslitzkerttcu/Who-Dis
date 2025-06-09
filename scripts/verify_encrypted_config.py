@@ -26,11 +26,11 @@ def main():
 
     # Check 1: Encryption key exists
     print("\n1. Checking encryption key...")
-    encryption_key = os.getenv("CONFIG_ENCRYPTION_KEY")
+    encryption_key = os.getenv("WHODIS_ENCRYPTION_KEY")
     if not encryption_key:
-        print("❌ CONFIG_ENCRYPTION_KEY not found in .env")
+        print("❌ WHODIS_ENCRYPTION_KEY not found in .env")
         return False
-    print("✅ CONFIG_ENCRYPTION_KEY found")
+    print("✅ WHODIS_ENCRYPTION_KEY found")
 
     # Check 2: Can initialize encryption service
     print("\n2. Testing encryption service...")
@@ -152,9 +152,9 @@ def main():
             LIMIT 1
         """)
 
-        row = cursor.fetchone()
-        if row:
-            category, key, encrypted_value = row
+        result = cursor.fetchone()
+        if result is not None:
+            category, key, encrypted_value = result
             try:
                 decrypted = encryption_service.decrypt(encrypted_value)
                 print(f"✅ Successfully decrypted {category}.{key}")
@@ -206,7 +206,7 @@ def main():
         print("✅ READY: Your encrypted configuration is set up correctly!")
         print("\n📋 Next steps:")
         print(
-            "1. Remove sensitive values from .env (keep only database connection and CONFIG_ENCRYPTION_KEY)"
+            "1. Remove sensitive values from .env (keep only database connection and WHODIS_ENCRYPTION_KEY)"
         )
         print("2. Restart your application")
         print("3. Test that everything works correctly")

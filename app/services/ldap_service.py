@@ -1,4 +1,5 @@
-import os
+"""LDAP service with simplified configuration."""
+
 from typing import Optional, Dict, Any, List
 from ldap3 import Server, Connection, ALL, SUBTREE
 from ldap3.core.exceptions import (
@@ -8,41 +9,94 @@ from ldap3.core.exceptions import (
 )
 from ldap3.utils.conv import escape_filter_chars
 import logging
-from app.services.configuration_service import config_get
+from app.services.base import BaseSearchService
+from app.interfaces.search_service import ISearchService
 
 logger = logging.getLogger(__name__)
 
 
-class LDAPService:
+class LDAPService(BaseSearchService, ISearchService):
     def __init__(self):
-        # Try to get from configuration service first, fall back to env vars
-        self.host = config_get(
-            "ldap", "host", os.getenv("LDAP_HOST", "ldap://localhost")
-        )
-        self.port = int(config_get("ldap", "port", os.getenv("LDAP_PORT", "389")))
-        self.use_ssl = config_get(
-            "ldap", "use_ssl", os.getenv("LDAP_USE_SSL", "False").lower() == "true"
-        )
-        # Get credentials from config service (encrypted in database)
-        self.bind_dn = config_get("ldap", "bind_dn", os.getenv("LDAP_BIND_DN"))
-        self.bind_password = config_get(
-            "ldap", "bind_password", os.getenv("LDAP_BIND_PASSWORD")
-        )
-        self.base_dn = config_get("ldap", "base_dn", os.getenv("LDAP_BASE_DN"))
-        self.user_search_base = config_get(
-            "ldap", "user_search_base", os.getenv("LDAP_USER_SEARCH_BASE", self.base_dn)
-        )
-        # Timeout configuration
-        self.connect_timeout = int(
-            config_get(
-                "ldap", "connect_timeout", os.getenv("LDAP_CONNECT_TIMEOUT", "5")
+        super().__init__(config_prefix="ldap")
+
+    @property
+    def host(self):
+        return self._get_config("host", "ldap://localhost")
+
+    @property
+    def port(self):
+        value = self._get_config("port", 389)
+        return int(value) if value else 389
+
+    @property
+    def use_ssl(self):
+        value = self._get_config("use_ssl", False)
+        if isinstance(value, bool):
+            return value
+        return str(value).lower() in ('true', '1', 'yes', 'on')
+
+    @property
+    def bind_dn(self):
+        return self._get_config("bind_dn")
+
+    @property
+    def bind_password(self):
+        return self._get_config("bind_password")  # Automatically decrypted
+
+    @property
+    def base_dn(self):
+        return self._get_config("base_dn")
+
+    @property
+    def user_search_base(self):
+        return self._get_config("user_search_base", self.base_dn)
+
+    @property
+    def connect_timeout(self):
+        value = self._get_config("connect_timeout", 5)
+        return int(value) if value else 5
+
+    @property
+    def operation_timeout(self):
+        value = self._get_config("operation_timeout", 10)
+        return int(value) if value else 10
+
+    @property
+    def service_name(self) -> str:
+        """Get the name of this search service."""
+        return "ldap"
+
+    def test_connection(self) -> bool:
+        """Test if the service is available and properly configured."""
+        try:
+            # Configuration is loaded automatically via properties
+            server = Server(
+                self.host,
+                port=self.port,
+                use_ssl=self.use_ssl,
+                get_info=ALL,
+                connect_timeout=self.connect_timeout,
             )
-        )  # Connection timeout in seconds
-        self.operation_timeout = int(
-            config_get(
-                "ldap", "operation_timeout", os.getenv("LDAP_OPERATION_TIMEOUT", "10")
-            )
-        )  # Operation timeout in seconds
+
+            with Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True,
+                receive_timeout=self.operation_timeout,
+            ) as conn:
+                # Test with a simple search
+                conn.search(
+                    self.base_dn,
+                    "(objectClass=*)",
+                    search_scope=SUBTREE,
+                    attributes=["dn"],
+                    size_limit=1,
+                )
+                return True
+        except Exception as e:
+            logger.error(f"LDAP connection test failed: {str(e)}")
+            return False
 
     def search_user(self, search_term: str) -> Optional[Dict[str, Any]]:
         """
@@ -78,21 +132,16 @@ class LDAPService:
                 receive_timeout=self.operation_timeout,
             ) as conn:
                 logger.info("Successfully bound to LDAP server")
-                # If search term contains @, also search for username without domain
-                search_terms = [search_term]
-                if "@" in search_term:
-                    username_only = search_term.split("@")[0]
-                    search_terms.append(username_only)
-                    logger.info(
-                        f"Email detected, also searching for username: {username_only}"
-                    )
+                # Use base class method to normalize search terms
+                search_terms = self._normalize_search_term(search_term)
+                logger.info(f"Search variations: {search_terms}")
 
                 # Build search filter with all variations including fuzzy matching
                 filter_parts = []
                 for term in search_terms:
                     # Escape LDAP special characters to prevent injection
                     escaped_term = escape_filter_chars(term)
-                    
+
                     # Exact matches
                     filter_parts.extend(
                         [
@@ -145,6 +194,7 @@ class LDAPService:
                     "accountExpires",
                     "msDS-UserPasswordExpiryTimeComputed",
                     "ExclaimerMobile",
+                    "pager",
                     "pager",
                 ]
 
@@ -212,11 +262,7 @@ class LDAPService:
                                     f"Error processing entry {entry.entry_dn}: {str(e)}"
                                 )
 
-                        return {
-                            "multiple_results": True,
-                            "results": results,
-                            "total": len(conn.entries),
-                        }
+                        return self._format_multiple_results(results, len(conn.entries))
 
                     # Single result - process as before
                     entry = conn.entries[0]
@@ -286,6 +332,7 @@ class LDAPService:
                     "msDS-UserPasswordExpiryTimeComputed",
                     "ExclaimerMobile",
                     "pager",
+                    "pager",
                 ]
 
                 # Search for the specific DN
@@ -341,23 +388,90 @@ class LDAPService:
         # Extract phone numbers with new attribute mappings
         phone_numbers = {}
 
-        # telephoneNumber -> Teams DID
-        if hasattr(entry, "telephoneNumber") and entry.telephoneNumber:
-            phone_numbers["teams_did"] = str(entry.telephoneNumber)
+        # Helper function to normalize phone numbers for comparison
+        def normalize_phone(phone):
+            if not phone:
+                return ""
+            # Remove all non-digits
+            digits = "".join(filter(str.isdigit, str(phone)))
+            # Remove country code if present (1 at the beginning for 11-digit numbers)
+            if len(digits) == 11 and digits.startswith("1"):
+                digits = digits[1:]
+            return digits
 
-        # extensionAttribute4 -> Genesys DID
-        if hasattr(entry, "extensionAttribute4") and entry.extensionAttribute4:
-            phone_numbers["genesys_did"] = str(entry.extensionAttribute4)
+        # Get raw attribute values
+        telephone_number = (
+            str(entry.telephoneNumber)
+            if hasattr(entry, "telephoneNumber") and entry.telephoneNumber
+            else None
+        )
+        extension_attr4 = (
+            str(entry.extensionAttribute4)
+            if hasattr(entry, "extensionAttribute4") and entry.extensionAttribute4
+            else None
+        )
+        pager = str(entry.pager) if hasattr(entry, "pager") and entry.pager else None
+
+        # Log raw values
+        if telephone_number:
+            logger.info(f"Found telephoneNumber: {telephone_number}")
+        if extension_attr4:
+            logger.info(f"Found extensionAttribute4: {extension_attr4}")
+        if pager:
+            logger.info(f"Found pager: {pager}")
+
+        # Normalize for comparison
+        norm_telephone = normalize_phone(telephone_number)
+        norm_ext4 = normalize_phone(extension_attr4)
+
+        # Determine user type based on business rules
+        is_genesys_extension_only = False
+        is_genesys_with_did = False
+        is_teams_user = False
+        is_dual_user = False
+
+        # Check for main switchboard number (918-749-8828)
+        if norm_telephone == "9187498828" and pager:
+            # Genesys user with extension only
+            is_genesys_extension_only = True
+            phone_numbers["genesys_ext"] = pager
+            logger.info(f"User type: Genesys Extension Only (ext: {pager})")
+        elif extension_attr4:
+            # Has extensionAttribute4 - could be Genesys with DID or dual user
+            if not telephone_number or norm_telephone == norm_ext4:
+                # Genesys user with DID (no telephoneNumber or matching numbers)
+                is_genesys_with_did = True
+                phone_numbers["genesys_did"] = extension_attr4
+                if pager:
+                    phone_numbers["genesys_ext"] = pager
+                logger.info("User type: Genesys with DID")
+            else:
+                # Different numbers - dual user
+                is_dual_user = True
+                phone_numbers["genesys_did"] = extension_attr4
+                phone_numbers["teams_did"] = telephone_number
+                if pager:
+                    phone_numbers["genesys_ext"] = pager
+                logger.info("User type: Dual user (Teams + Genesys)")
+        elif telephone_number and not pager:
+            # Teams user only
+            is_teams_user = True
+            phone_numbers["teams_did"] = telephone_number
+            logger.info("User type: Teams only")
+
+        # Store user type flags separately
+        user_type_info = {
+            "is_genesys_extension_only": is_genesys_extension_only,
+            "is_genesys_with_did": is_genesys_with_did,
+            "is_teams_user": is_teams_user,
+            "is_dual_user": is_dual_user,
+        }
 
         # ExclaimerMobile -> Cell Phone
         if hasattr(entry, "ExclaimerMobile") and entry.ExclaimerMobile:
             phone_numbers["mobile"] = str(entry.ExclaimerMobile)
 
-        # pager -> Genesys Extension
-        if hasattr(entry, "pager") and entry.pager:
-            phone_numbers["genesys_ext"] = str(entry.pager)
-
-        # ipPhone -> Legacy Extension
+        # ipPhone -> Legacy Extension (kept for backward compatibility)
         extension = (
             str(entry.ipPhone) if hasattr(entry, "ipPhone") and entry.ipPhone else None
         )
@@ -479,6 +593,7 @@ class LDAPService:
             "thumbnailPhoto": thumbnail_photo,
             "pwdLastSet": pwd_last_set.isoformat() if pwd_last_set else None,
             "pwdExpires": pwd_expires.isoformat() if pwd_expires else None,
+            "userType": user_type_info,
         }
 
         # Debug log password fields

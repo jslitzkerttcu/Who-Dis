@@ -1,8 +1,12 @@
-from flask import g, request, render_template, Response, session as flask_session
+from flask import g, request, render_template
 from functools import wraps
-import os
-import base64
 import random
+
+from .authentication_handler import AuthenticationHandler
+from .session_manager import SessionManager
+from .role_resolver import RoleResolver
+from .user_provisioner import UserProvisioner
+from .audit_logger import AuditLogger
 
 # Snarky denial reasons
 DENIAL_REASONS = [
@@ -30,191 +34,64 @@ DENIAL_REASONS = [
     "You've tripped a wire. Security is now watching in real time. Wave 👋",
 ]
 
+# Initialize service instances
+auth_handler = AuthenticationHandler()
+session_manager = SessionManager()
+role_resolver = RoleResolver()
+user_provisioner = UserProvisioner()
+audit_logger = AuditLogger()
+
 
 def load_role_lists():
-    """Load role lists from database (fallback to env for migration)"""
-    try:
-        from app.models import User
-
-        # Try database first
-        viewers = [u.email for u in User.get_by_role(User.ROLE_VIEWER)]
-        editors = [u.email for u in User.get_by_role(User.ROLE_EDITOR)]
-        admins = [u.email for u in User.get_by_role(User.ROLE_ADMIN)]
-
-        if viewers or editors or admins:
-            return viewers, editors, admins
-    except Exception:
-        # Database not available or table doesn't exist yet
-        pass
-
-    # Try configuration service (encrypted values)
-    try:
-        from app.services.configuration_service import config_get
-
-        viewers_str = config_get("auth", "viewers", "")
-        editors_str = config_get("auth", "editors", "")
-        admins_str = config_get("auth", "admins", "")
-
-        if viewers_str or editors_str or admins_str:
-            viewers = [
-                email.strip() for email in viewers_str.split(",") if email.strip()
-            ]
-            editors = [
-                email.strip() for email in editors_str.split(",") if email.strip()
-            ]
-            admins = [email.strip() for email in admins_str.split(",") if email.strip()]
-            return viewers, editors, admins
-    except Exception:
-        pass
-
-    # Fallback to environment variables
-    viewers = os.getenv("VIEWERS", "").split(",")
-    editors = os.getenv("EDITORS", "").split(",")
-    admins = os.getenv("ADMINS", "").split(",")
-
-    viewers = [email.strip() for email in viewers if email.strip()]
-    editors = [email.strip() for email in editors if email.strip()]
-    admins = [email.strip() for email in admins if email.strip()]
-
-    return viewers, editors, admins
+    """Load role lists from database (fallback to env for migration) - DEPRECATED"""
+    # This function is kept for backward compatibility
+    # Use RoleResolver class instead
+    return role_resolver._load_role_lists()
 
 
 def get_user_role(email):
-    """Determine user role based on email"""
-    try:
-        from app.models import User
-
-        # Try database first
-        user = User.get_by_email(email)
-        if user:
-            # Update last login
-            user.update_last_login()
-            return user.role
-    except Exception:
-        # Database not available, fall back to env
-        pass
-
-    # Fallback to environment variables
-    viewers, editors, admins = load_role_lists()
-
-    if email in admins:
-        return "admin"
-    elif email in editors:
-        return "editor"
-    elif email in viewers:
-        return "viewer"
-    else:
-        return None
+    """Determine user role based on email - DEPRECATED"""
+    # This function is kept for backward compatibility
+    # Use RoleResolver class instead
+    return role_resolver.get_user_role(email)
 
 
 def authenticate():
     """Authenticate user and set g.user and g.role"""
-    from app.models.session import UserSession
     from app.services.configuration_service import config_get
 
-    user_email = None
-
-    ms_principal = request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME")
-    if ms_principal:
-        user_email = ms_principal
-    else:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Basic "):
-            try:
-                credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
-                username = credentials.split(":")[0]
-                user_email = username
-            except Exception:
-                pass
-
-    if user_email:
-        g.user = user_email
-        g.role = get_user_role(user_email)
-
-        if g.role is None:
-            log_access_denied(user_email, g.role)
-            return False
-
-        # Session management
-        session_id = flask_session.get("session_id")
-        user_session = None
-
-        if session_id:
-            # Check existing session
-            user_session = UserSession.query.get(session_id)
-            if user_session and user_session.user_email == user_email:
-                if user_session.is_expired() or not user_session.is_active:
-                    # Session expired or inactive
-                    user_session.deactivate()
-                    flask_session.clear()
-                    user_session = None
-                else:
-                    # Update activity
-                    user_session.update_activity()
-            else:
-                # Session doesn't match user
-                flask_session.clear()
-                user_session = None
-
-        # Create new session if needed
-        if not user_session:
-            timeout_minutes = int(config_get("session", "timeout_minutes", 15))
-            user_session = UserSession.create_session(
-                user_email=user_email,
-                timeout_minutes=timeout_minutes,
-                ip_address=request.headers.get("X-Forwarded-For", request.remote_addr),
-                user_agent=request.headers.get("User-Agent"),
-            )
-            flask_session["session_id"] = user_session.id
-            flask_session.permanent = True
-
-        return True
-    else:
+    # Step 1: Authenticate user
+    user_email = auth_handler.authenticate_user()
+    if not user_email:
         return False
+
+    # Step 2: Determine role
+    user_role = role_resolver.get_user_role(user_email)
+    if user_role is None:
+        audit_logger.log_access_denied(user_email, user_role)
+        return False
+
+    # Step 3: Set user context
+    auth_handler.set_user_context(user_email, user_role)
+
+    # Step 4: Get or create user record
+    user = user_provisioner.get_or_create_user(user_email, user_role)
+
+    # Step 5: Manage session
+    timeout_minutes = int(config_get("session.timeout_minutes", 15))
+    session_manager.get_or_create_session(user.id, user_email, timeout_minutes)
+
+    # Step 6: Log successful authentication
+    audit_logger.log_authentication_success(user_email, user_role)
+
+    return True
 
 
 def log_access_denied(user_email=None, user_role=None):
-    """Log denied access attempts to audit database"""
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    request_path = request.path
-
-    email_display = user_email if user_email else "unauthenticated"
-    role_display = user_role if user_role else "unknown"
-
-    # Log to audit database
-    try:
-        from app.services.audit_service_postgres import audit_service
-        from app.models import AccessAttempt
-
-        # Log to access attempts table
-        AccessAttempt.log_attempt(
-            ip_address=client_ip,
-            access_granted=False,
-            user_email=email_display if email_display != "unauthenticated" else None,
-            user_agent=request.headers.get("User-Agent"),
-            requested_path=request_path,
-            denial_reason="Insufficient permissions"
-            if user_email
-            else "Not authenticated",
-            auth_method="azure_ad"
-            if request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME")
-            else "basic_auth",
-        )
-
-        # Also log to audit log
-        audit_service.log_access(
-            user_email=email_display,
-            action="access_denied",
-            target_resource=request_path,
-            user_role=role_display,
-            ip_address=client_ip,
-            user_agent=request.headers.get("User-Agent"),
-            success=False,
-            error_message="Insufficient permissions",
-        )
-    except Exception:
-        # Don't let audit logging failures break authentication
-        pass
+    """Log denied access attempts to audit database - DEPRECATED"""
+    # This function is kept for backward compatibility
+    # Use AuditLogger class instead
+    audit_logger.log_access_denied(user_email, user_role)
 
 
 def auth_required(f):
@@ -225,17 +102,16 @@ def auth_required(f):
         if not authenticate():
             if not hasattr(g, "user") or g.user is None:
                 log_access_denied()  # Log unauthenticated access
-                return Response(
-                    "Authentication required",
-                    401,
-                    {"WWW-Authenticate": 'Basic realm="Who Dis?"'},
-                )
+                # Redirect to login page for unauthenticated users
+                from flask import redirect, url_for
+
+                return redirect(url_for("home.login", reason="auth_required"))
             else:
                 return render_template(
                     "nope.html", denial_reason=random.choice(DENIAL_REASONS)
                 ), 401
         # Set user_role on request for use in view functions
-        request.user_role = g.role
+        request.user_role = g.role  # type: ignore[attr-defined]
         return f(*args, **kwargs)
 
     return decorated_function
@@ -250,31 +126,28 @@ def require_role(minimum_role):
             if not authenticate():
                 if not hasattr(g, "user") or g.user is None:
                     log_access_denied()  # Log unauthenticated access
-                    return Response(
-                        "Authentication required",
-                        401,
-                        {"WWW-Authenticate": 'Basic realm="Who Dis?"'},
-                    )
+                    # Redirect to login page for unauthenticated users
+                    from flask import redirect, url_for
+
+                    return redirect(url_for("home.login", reason="auth_required"))
                 else:
                     return render_template(
                         "nope.html", denial_reason=random.choice(DENIAL_REASONS)
                     ), 401
 
-            role_hierarchy = {"viewer": 1, "editor": 2, "admin": 3}
-
-            if g.role not in role_hierarchy:
+            if not role_resolver.is_valid_role(g.role):
                 return render_template(
                     "nope.html", denial_reason=random.choice(DENIAL_REASONS)
                 ), 401
 
-            if role_hierarchy.get(g.role, 0) < role_hierarchy.get(minimum_role, 0):
-                log_access_denied(g.user, g.role)
+            if not role_resolver.has_minimum_role(g.role, minimum_role):
+                audit_logger.log_access_denied(g.user, g.role)
                 return render_template(
                     "nope.html", denial_reason=random.choice(DENIAL_REASONS)
                 ), 401
 
             # Set user_role on request for use in view functions
-            request.user_role = g.role
+            request.user_role = g.role  # type: ignore[attr-defined]
             return f(*args, **kwargs)
 
         return decorated_function
@@ -292,3 +165,28 @@ def login_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def require_role_json(minimum_role):
+    """Decorator to require a minimum role level (returns JSON for API endpoints)"""
+
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not authenticate():
+                return {"error": "Authentication required"}, 401
+
+            if not role_resolver.is_valid_role(g.role):
+                return {"error": "Invalid role"}, 403
+
+            if not role_resolver.has_minimum_role(g.role, minimum_role):
+                audit_logger.log_access_denied(g.user, g.role)
+                return {"error": "Insufficient permissions"}, 403
+
+            # Set user_role on request for use in view functions
+            request.user_role = g.role  # type: ignore[attr-defined]
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator

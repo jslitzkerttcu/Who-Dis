@@ -1,38 +1,41 @@
 from app.database import db
-from datetime import datetime, timedelta
-from sqlalchemy.dialects.postgresql import JSONB
+from datetime import datetime, timezone, timedelta
+from .base import CacheableModel, JSONDataMixin
 
 
-class ApiToken(db.Model):  # type: ignore[name-defined]
+class ApiToken(CacheableModel, JSONDataMixin):
     """Store API tokens for various services with automatic refresh."""
 
     __tablename__ = "api_tokens"
 
-    id = db.Column(db.Integer, primary_key=True)
+    # CacheableModel provides: id, created_at, updated_at, expires_at, is_expired(),
+    # cleanup_expired(), extend_expiration()
+    # JSONDataMixin provides: additional_data, get_data(), set_data(), update_data()
+
     service_name = db.Column(db.String(50), unique=True, nullable=False, index=True)
     access_token = db.Column(db.Text, nullable=False)
     token_type = db.Column(db.String(20), default="Bearer")
-    expires_at = db.Column(db.DateTime, nullable=False, index=True)
     refresh_token = db.Column(db.Text)  # Some services provide refresh tokens
-    additional_data = db.Column(JSONB)  # Store any extra token data
-    last_refreshed = db.Column(db.DateTime, default=datetime.utcnow)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    last_refreshed = db.Column(
+        db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     def __repr__(self):
         return f"<ApiToken {self.service_name}>"
 
     @property
-    def is_expired(self):
-        """Check if token is expired or will expire soon (5 minute buffer)."""
-        return datetime.utcnow() >= (self.expires_at - timedelta(minutes=5))
-
-    @property
     def time_until_expiry(self):
         """Get time remaining until token expires."""
-        delta = self.expires_at - datetime.utcnow()
+        now = datetime.now(timezone.utc)
+        expires_at = self.expires_at
+
+        # Handle timezone-naive vs timezone-aware comparison
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        elif now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+
+        delta = expires_at - now
         return delta if delta.total_seconds() > 0 else timedelta(0)
 
     @classmethod
@@ -59,17 +62,21 @@ class ApiToken(db.Model):  # type: ignore[name-defined]
         additional_data=None,
     ):
         """Create or update a token for a service."""
-        expires_at = datetime.utcnow() + timedelta(seconds=expires_in_seconds)
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in_seconds)
 
         token = cls.query.filter_by(service_name=service_name).first()
         if token:
-            token.access_token = access_token
-            token.expires_at = expires_at
-            token.token_type = token_type
-            token.refresh_token = refresh_token
-            token.additional_data = additional_data
-            token.last_refreshed = datetime.utcnow()
-            token.updated_at = datetime.utcnow()
+            # Use base class update method
+            token.update(
+                access_token=access_token,
+                expires_at=expires_at,
+                token_type=token_type,
+                refresh_token=refresh_token,
+                last_refreshed=datetime.now(timezone.utc),
+            )
+            # Use JSONDataMixin method for additional_data
+            if additional_data:
+                token.update_data(additional_data)
         else:
             token = cls(
                 service_name=service_name,
@@ -79,14 +86,9 @@ class ApiToken(db.Model):  # type: ignore[name-defined]
                 refresh_token=refresh_token,
                 additional_data=additional_data,
             )
-            db.session.add(token)
+            token.save()
 
-        try:
-            db.session.commit()
-            return token
-        except Exception as e:
-            db.session.rollback()
-            raise e
+        return token
 
     @classmethod
     def get_all_tokens_status(cls):

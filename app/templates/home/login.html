@@ -27,7 +27,7 @@
                     Click below to refresh your Azure AD authentication.
                 </p>
                 
-                <a href="{{ url_for('home.index') }}" class="btn btn-primary">
+                <a href="{{ url_for('home.index') }}" class="btn btn-primary" id="refresh-link">
                     <i class="bi bi-arrow-clockwise"></i> Refresh Session
                 </a>
                 
@@ -44,7 +44,10 @@
 <script>
 // Auto-redirect after 2 seconds for better UX
 setTimeout(function() {
-    window.location.href = "{{ url_for('home.index') }}";
+    const refreshLink = document.getElementById('refresh-link');
+    if (refreshLink) {
+        window.location.href = refreshLink.href;
+    }
 }, 2000);
 </script>
 {% endblock %}

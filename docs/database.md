@@ -68,7 +68,7 @@ POSTGRES_USER=whodis_user
 POSTGRES_PASSWORD=your_secure_password_here
 
 # Encryption key for configuration
-CONFIG_ENCRYPTION_KEY=your_encryption_key_here
+WHODIS_ENCRYPTION_KEY=your_encryption_key_here
 ```
 
 To generate an encryption key:
@@ -86,8 +86,8 @@ Check that all tables were created:
 
 -- Should show:
 -- api_tokens, users, configuration, configuration_history, audit_log, 
--- error_log, access_attempts, genesys_groups, genesys_locations, 
--- genesys_skills, search_cache, graph_photos, user_sessions
+-- error_log, access_attempts, external_service_data, cache_entries,
+-- search_cache, graph_photos, user_sessions, log_entries
 ```
 
 ### 5. Initial Table Analysis
@@ -102,22 +102,34 @@ This prevents the `-1` row count issue in the admin interface.
 
 ## Table Descriptions
 
-### Core Tables
-- **api_tokens**: Stores API tokens for Genesys and Microsoft Graph services with automatic expiration tracking
-- **users**: User authentication and authorization with role-based access (viewer, editor, admin)
-- **configuration**: Database-stored configuration values with encryption support for sensitive data
+### Core Tables (with Base Model Structure)
+- **api_tokens** (extends CacheableModel): Stores API tokens with automatic expiration tracking
+  - Includes: `created_at`, `updated_at`, `expires_at` with automatic cleanup
+- **users** (extends BaseModel + TimestampMixin): User authentication and authorization
+  - Includes: `created_at`, `updated_at` with automatic timestamp management
+- **user_notes** (extends BaseModel + TimestampMixin): Internal notes about users
+  - Includes: `created_at`, `updated_at` for audit trail
+- **configuration**: Database-stored configuration values with encryption support
 - **configuration_history**: Audit trail of all configuration changes
 
-### Audit & Logging Tables
-- **audit_log**: Tracks all system activities (searches, access, admin actions)
-- **error_log**: Application error tracking with stack traces
-- **access_attempts**: Failed access tracking for security monitoring
+### Audit & Logging Tables (using AuditableModel)
+- **audit_log** (extends AuditableModel): Tracks all system activities
+  - Base fields: `created_at`, `updated_at`, `user_email`, `ip_address`, `user_agent`, `session_id`, `success`, `message`, `additional_data`
+  - Custom fields: `event_type`, `action`, `target_resource`, `search_query`
+- **error_log** (extends AuditableModel): Application error tracking
+  - Inherits same base fields with error-specific additions: `error_type`, `stack_trace`, `severity`
+- **access_attempts** (extends AuditableModel): Security monitoring
+  - Maps `success` to `access_granted`, `message` to `denial_reason`
 
-### Cache Tables
-- **genesys_groups/locations/skills**: Cached Genesys Cloud data with automatic refresh
-- **search_cache**: Cached search results for performance
-- **user_sessions**: Active user session management with timeout tracking
-- **graph_photos**: Cached Microsoft Graph user photos (30-day retention)
+### Cache & External Data Tables
+- **search_cache** (extends CacheableModel): Search result caching
+  - Includes automatic expiration management
+- **graph_photos** (extends CacheableModel): User photos with 30-day expiration
+  - Includes `expires_at` for automatic cleanup
+- **genesys_groups/locations/skills** (extends ServiceDataModel): Genesys data cache
+  - Includes: `service_id`, `service_name`, `is_active`, `created_at`, `updated_at`
+- **user_sessions** (extends BaseModel + TimestampMixin + ExpirableMixin): Session management
+  - Includes automatic expiration and activity tracking
 
 ## Configuration Management
 
@@ -130,13 +142,13 @@ The application supports storing ALL configuration in the database with encrypti
 
 ### Encrypted Configuration
 Sensitive values are encrypted using Fernet symmetric encryption (from the `cryptography` library):
-- Encryption key is stored in `CONFIG_ENCRYPTION_KEY` environment variable
+- Encryption key is stored in `WHODIS_ENCRYPTION_KEY` environment variable
 - Sensitive values are stored in the `encrypted_value` column as BYTEA
 - Non-sensitive values use the plain `setting_value` column
 - The system automatically encrypts/decrypts based on the `is_sensitive` flag
 
 ### Migration Process
-1. Add `CONFIG_ENCRYPTION_KEY` to your `.env` file (generate one if needed)
+1. Add `WHODIS_ENCRYPTION_KEY` to your `.env` file (generate one if needed)
 2. Run the migration script: `python scripts/migrate_config_to_db.py`
 3. Update your `.env` to contain only database connection and encryption key
 4. All other configuration will be loaded from the database
@@ -287,10 +299,7 @@ PostgreSQL's autovacuum will handle this automatically going forward.
 #### Missing columns error for user_sessions
 If you get errors about `warning_shown` or `is_active` columns:
 ```bash
-# Run the migration
-psql -U postgres -d whodis_db -h localhost -f database/alter_session_timeout.sql
-
-# Or run the Python migration script
+# Run the Python migration script
 python scripts/add_session_timeout_columns.py
 ```
 

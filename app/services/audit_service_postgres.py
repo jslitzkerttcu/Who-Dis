@@ -2,13 +2,18 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from sqlalchemy import and_, or_, desc
-from app.models import AuditLog, ErrorLog
+from app.models.unified_log import LogEntry
 from app.database import db
+from app.interfaces.audit_service import IAuditLogger, IAuditQueryService
+
+# Backward compatibility aliases
+AuditLog = LogEntry
+ErrorLog = LogEntry
 
 logger = logging.getLogger(__name__)
 
 
-class PostgresAuditService:
+class PostgresAuditService(IAuditLogger, IAuditQueryService):
     """PostgreSQL-based audit service using SQLAlchemy models"""
 
     def __init__(self):
@@ -41,23 +46,71 @@ class PostgresAuditService:
         except Exception as e:
             logger.error(f"Failed to log access: {e}")
 
-    def log_admin_action(
-        self, user_email: str, action: str, target_resource: str, **kwargs
-    ):
+    def log_access_denial(
+        self, user_email: str, requested_resource: str, reason: str, **kwargs
+    ) -> None:
+        """Log an access denial event."""
         try:
-            AuditLog.log_admin_action(user_email, action, target_resource, **kwargs)
+            AuditLog.log_access(
+                user_email=user_email,
+                action="access_denied",
+                target_resource=requested_resource,
+                success=False,
+                message=reason,
+                **kwargs,
+            )
+        except Exception as e:
+            logger.error(f"Failed to log access denial: {e}")
+
+    def log_admin_action(
+        self,
+        user_email: str,
+        action: str,
+        target: str,
+        details: Dict[str, Any],
+        **kwargs,
+    ) -> None:
+        """Log an administrative action."""
+        try:
+            AuditLog.log_admin_action(
+                user_email=user_email,
+                action=action,
+                target_resource=target,
+                additional_data=details,
+                **kwargs,
+            )
         except Exception as e:
             logger.error(f"Failed to log admin action: {e}")
 
     def log_config_change(
-        self, user_email: str, action: str, config_key: str, **kwargs
+        self, user_email: str, config_key: str, **kwargs
     ):
         try:
-            AuditLog.log_config_change(user_email, action, config_key, **kwargs)
+            AuditLog.log_config_change(user_email, config_key, **kwargs)
         except Exception as e:
             logger.error(f"Failed to log config change: {e}")
 
-    def log_error(self, error_type: str, error_message: str, **kwargs):
+    def log_config(
+        self,
+        user_email: str,
+        config_key: str,
+        old_value: Optional[str] = None,
+        new_value: Optional[str] = None,
+        **kwargs,
+    ):
+        """Log configuration changes (backward compatibility alias)."""
+        try:
+            AuditLog.log_config(user_email, config_key, old_value, new_value, **kwargs)
+        except Exception as e:
+            logger.error(f"Failed to log config: {e}")
+
+    def log_error(
+        self,
+        error_type: str,
+        error_message: str,
+        stack_trace: Optional[str] = None,
+        **kwargs,
+    ) -> None:
         try:
             # Log to both audit log and error log
             AuditLog(
@@ -68,9 +121,10 @@ class PostgresAuditService:
                 user_role=kwargs.get("user_role"),
                 ip_address=kwargs.get("ip_address"),
                 success=False,
-                error_message=error_message,
+                message=error_message,
+                error_type=error_type,
+                stack_trace=kwargs.get("stack_trace"),
                 additional_data={
-                    "stack_trace": kwargs.get("stack_trace"),
                     "request_method": kwargs.get("request_method"),
                 },
                 session_id=kwargs.get("session_id"),
@@ -79,21 +133,52 @@ class PostgresAuditService:
 
             # Also log to dedicated error log
             ErrorLog.log_error(
+                user_email=kwargs.get("user_email", "system"),
                 error_type=error_type,
                 error_message=error_message,
                 stack_trace=kwargs.get("stack_trace"),
-                user_email=kwargs.get("user_email"),
-                request_path=kwargs.get("request_path"),
+                endpoint=kwargs.get("request_path"),
                 request_method=kwargs.get("request_method"),
                 request_data=kwargs.get("additional_data", {}).get("form"),
                 ip_address=kwargs.get("ip_address"),
                 user_agent=kwargs.get("user_agent"),
-                severity=kwargs.get("severity", "ERROR"),
             )
         except Exception as e:
             logger.error(f"Failed to log error: {e}")
 
     # Query methods
+
+    def get_recent_logs(
+        self,
+        limit: int = 100,
+        event_type: Optional[str] = None,
+        user_email: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get recent audit logs with optional filters."""
+        try:
+            query = AuditLog.query
+
+            # Apply filters
+            filters = []
+            if event_type:
+                filters.append(AuditLog.event_type == event_type)
+            if user_email:
+                filters.append(AuditLog.user_email.ilike(f"%{user_email}%"))
+            if start_date:
+                filters.append(AuditLog.timestamp >= start_date)
+            if end_date:
+                filters.append(AuditLog.timestamp <= end_date)
+
+            if filters:
+                query = query.filter(and_(*filters))
+
+            results = query.order_by(desc(AuditLog.timestamp)).limit(limit).all()
+            return [log.to_dict() for log in results]
+        except Exception as e:
+            logger.error(f"Failed to get recent logs: {e}")
+            return []
 
     def query_logs(
         self,

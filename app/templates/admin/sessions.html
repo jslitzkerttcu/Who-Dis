@@ -43,7 +43,7 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Active User Sessions</h5>
-                <button class="btn btn-sm btn-outline-primary" onclick="loadSessions()">
+                <button class="btn btn-sm btn-outline-primary" data-action="refresh-sessions" aria-label="Refresh sessions">
                     <i class="bi bi-arrow-clockwise"></i> Refresh
                 </button>
             </div>
@@ -102,140 +102,11 @@
     </div>
 </div>
 
-<script>
-// Load sessions on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadSessions();
-    
-    // Auto-refresh every 30 seconds
-    setInterval(loadSessions, 30000);
-});
+{% endblock %}
 
-let sessions = [];
-
-function loadSessions() {
-    fetch('/admin/api/sessions')
-        .then(response => response.json())
-        .then(data => {
-            sessions = data.sessions;
-            document.getElementById('sessions-loading').style.display = 'none';
-            document.getElementById('sessions-content').style.display = 'block';
-            
-            const tbody = document.getElementById('sessions-tbody');
-            tbody.innerHTML = '';
-            
-            // Calculate stats
-            const uniqueUsers = new Set(sessions.map(s => s.user_email)).size;
-            let idleCount = 0;
-            const now = new Date();
-            
-            if (sessions.length === 0) {
-                document.getElementById('no-sessions').style.display = 'block';
-                tbody.parentElement.parentElement.style.display = 'none';
-            } else {
-                document.getElementById('no-sessions').style.display = 'none';
-                tbody.parentElement.parentElement.style.display = 'block';
-                
-                sessions.forEach(session => {
-                    const row = tbody.insertRow();
-                    const created = new Date(session.created_at);
-                    const lastActivity = new Date(session.last_activity);
-                    const idleMinutes = Math.floor((now - lastActivity) / (1000 * 60));
-                    
-                    if (idleMinutes > 30) idleCount++;
-                    
-                    // Determine status
-                    let statusBadge = 'bg-success';
-                    let statusText = 'Active';
-                    if (idleMinutes > 30) {
-                        statusBadge = 'bg-warning';
-                        statusText = `Idle (${idleMinutes}m)`;
-                    }
-                    if (idleMinutes > 120) {
-                        statusBadge = 'bg-secondary';
-                        statusText = 'Inactive';
-                    }
-                    
-                    // Truncate user agent for display
-                    let browserInfo = 'Unknown';
-                    if (session.user_agent) {
-                        const match = session.user_agent.match(/(Chrome|Firefox|Safari|Edge)\/[\d.]+/);
-                        if (match) browserInfo = match[0];
-                    }
-                    
-                    row.innerHTML = `
-                        <td>
-                            <div>${session.user_email}</div>
-                            <small class="text-muted">${browserInfo}</small>
-                        </td>
-                        <td>${session.ip_address || 'Unknown'}</td>
-                        <td>${created.toLocaleString()}</td>
-                        <td>${lastActivity.toLocaleString()}</td>
-                        <td><span class="badge ${statusBadge}">${statusText}</span></td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-danger" 
-                                    onclick="confirmTerminate(${session.id}, '${session.user_email}')">
-                                <i class="bi bi-x-circle"></i> Terminate
-                            </button>
-                        </td>
-                    `;
-                });
-            }
-            
-            // Update stats
-            document.getElementById('active-count').textContent = sessions.length;
-            document.getElementById('unique-users').textContent = uniqueUsers;
-            document.getElementById('idle-count').textContent = idleCount;
-        })
-        .catch(error => {
-            console.error('Error loading sessions:', error);
-            document.getElementById('sessions-loading').style.display = 'none';
-            document.getElementById('sessions-content').innerHTML = 
-                '<div class="alert alert-danger">Failed to load sessions</div>';
-        });
-}
-
-let sessionToTerminate = null;
-
-function confirmTerminate(sessionId, userEmail) {
-    sessionToTerminate = sessionId;
-    document.getElementById('terminate-user').textContent = userEmail;
-    new bootstrap.Modal(document.getElementById('terminateModal')).show();
-}
-
-document.getElementById('confirm-terminate').addEventListener('click', function() {
-    if (sessionToTerminate) {
-        terminateSession(sessionToTerminate);
-    }
-});
-
-function terminateSession(sessionId) {
-    fetch(`/admin/api/sessions/${sessionId}/terminate`, { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('Session terminated successfully', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('terminateModal')).hide();
-                loadSessions();
-            } else {
-                showToast('Failed to terminate session: ' + data.message, 'error');
-            }
-        })
-        .catch(error => {
-            showToast('Error terminating session', 'error');
-        });
-}
-
-function showToast(message, type) {
-    const toast = document.createElement('div');
-    toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} position-fixed top-0 start-50 translate-middle-x mt-3`;
-    toast.style.zIndex = '9999';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
-</script>
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/shared-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin-sessions.js') }}"></script>
 {% endblock %}

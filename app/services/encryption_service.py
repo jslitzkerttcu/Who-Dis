@@ -1,6 +1,12 @@
+"""
+Simplified encryption service without backward compatibility.
+Use this version after migrating existing encrypted values.
+"""
+
 import os
 import base64
 from typing import Optional, Union
+from pathlib import Path
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -9,23 +15,88 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 class EncryptionService:
     """Service for encrypting and decrypting sensitive configuration values"""
 
+    SALT_FILE = ".whodis_salt"
+    SALT_LENGTH = 32  # 256 bits
+
     def __init__(self, passphrase: Optional[str] = None):
         """Initialize encryption service with passphrase from environment or parameter"""
-        self.passphrase = passphrase or os.getenv("CONFIG_ENCRYPTION_KEY")
+        self.passphrase = passphrase or os.getenv("WHODIS_ENCRYPTION_KEY")
         if not self.passphrase:
             raise ValueError(
-                "CONFIG_ENCRYPTION_KEY must be set in environment variables"
+                "WHODIS_ENCRYPTION_KEY must be set in environment variables"
             )
 
+        # Get or generate salt
+        self.salt = self._get_or_create_salt()
+
         # Generate encryption key from passphrase
-        self.fernet = self._create_fernet(self.passphrase)
+        self.fernet = self._create_fernet(self.passphrase, self.salt)
 
-    def _create_fernet(self, passphrase: str) -> Fernet:
+    def _get_salt_file_path(self) -> Path:
+        """Get the path to the salt file"""
+        # For development, prioritize app root directory
+        app_root = Path(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+        # Check if we're in development (no production env var)
+        if os.getenv("WHODIS_PRODUCTION", "").lower() != "true":
+            # In development, always use app root
+            return app_root / self.SALT_FILE
+
+        # In production, try multiple locations
+        locations = []
+
+        # Only add /etc/whodis on Unix-like systems
+        if os.name != "nt":  # Not Windows
+            locations.append(Path("/etc/whodis/salt"))
+
+        # User home directory (works on all platforms)
+        locations.append(Path.home() / ".whodis" / "salt")
+
+        # App root directory as fallback
+        locations.append(app_root / self.SALT_FILE)
+
+        # Return the first writable location
+        for location in locations:
+            try:
+                location.parent.mkdir(parents=True, exist_ok=True)
+                return location
+            except (PermissionError, OSError):
+                continue
+
+        # Fallback to app root
+        return app_root / self.SALT_FILE
+
+    def _get_or_create_salt(self) -> bytes:
+        """Get existing salt or create a new one"""
+        salt_file = self._get_salt_file_path()
+
+        # Try to read existing salt
+        if salt_file.exists():
+            try:
+                with open(salt_file, "rb") as f:
+                    salt = f.read()
+                if len(salt) == self.SALT_LENGTH:
+                    return salt
+            except Exception as e:
+                print(f"Warning: Could not read salt file: {e}")
+
+        # Generate new salt
+        salt = os.urandom(self.SALT_LENGTH)
+
+        # Try to save it
+        try:
+            with open(salt_file, "wb") as f:
+                f.write(salt)
+            # Set restrictive permissions (Unix only)
+            if os.name != "nt":  # Not Windows
+                os.chmod(salt_file, 0o600)
+        except Exception as e:
+            print(f"Warning: Could not save salt file: {e}")
+
+        return salt
+
+    def _create_fernet(self, passphrase: str, salt: bytes) -> Fernet:
         """Create Fernet instance from passphrase using PBKDF2"""
-        # Use a fixed salt for consistent key generation
-        # In production, you might want to store this separately
-        salt = b"whodis-config-salt-2024"
-
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,

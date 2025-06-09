@@ -32,28 +32,36 @@ def check_cache_status():
         print(f"Skills cached: {skills_count}")
         print()
 
-        # Get cache status
-        status = genesys_cache_db.get_cache_status()
-        print(f"Needs refresh: {status.get('needs_refresh', 'Unknown')}")
-        print(f"Refresh period: {status.get('refresh_period_hours', 'Unknown')} hours")
+        # Check cache status
+        needs_refresh = genesys_cache_db.needs_refresh()
+        print(f"Needs refresh: {needs_refresh}")
 
-        if status.get("last_location_update"):
-            print(f"Last location update: {status['last_location_update']}")
-            print(f"Location cache age: {status.get('location_cache_age', 'Unknown')}")
-        else:
-            print("No location cache data found!")
+        # Try to get last update from the database
+        try:
+            latest_location = GenesysLocation.query.order_by(
+                GenesysLocation.updated_at.desc()
+            ).first()
+            if latest_location:
+                print(f"Last location update: {latest_location.updated_at}")
+            else:
+                print("No location cache data found!")
+        except Exception as e:
+            print(f"Error checking cache timestamps: {e}")
 
         print()
 
         # If no locations, try to refresh
         if locations_count == 0:
             print("No locations found in cache. Attempting to refresh...")
-            success = genesys_cache_db.refresh_locations()
-            if success:
-                new_count = GenesysLocation.query.count()
-                print(f"✓ Successfully cached {new_count} locations")
-            else:
-                print("✗ Failed to refresh locations cache")
+            try:
+                results = genesys_cache_db.refresh_all_caches()
+                location_count = results.get("locations", 0)
+                if location_count > 0:
+                    print(f"✓ Successfully cached {location_count} locations")
+                else:
+                    print("✗ Failed to refresh locations cache")
+            except Exception as e:
+                print(f"✗ Error refreshing cache: {e}")
 
         # Show sample locations
         if locations_count > 0:

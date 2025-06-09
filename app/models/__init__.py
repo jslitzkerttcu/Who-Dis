@@ -1,26 +1,42 @@
-# Models package
-from .audit import AuditLog
-from .error import ErrorLog
-from .access import AccessAttempt
-from .genesys import GenesysGroup, GenesysLocation, GenesysSkill
-from .cache import SearchCache
+# Models package with unified consolidated models
+from .unified_log import LogEntry
+from .unified_cache import CacheEntry
+from .external_service import ExternalServiceData
 from .session import UserSession
 from .user import User
-from .api_token import ApiToken
-from .graph_photo import GraphPhoto
 from .user_note import UserNote
 
+# Backward compatibility aliases
+AuditLog = LogEntry
+ErrorLog = LogEntry
+AccessAttempt = LogEntry
+
+# Cache model aliases
+SearchCache = CacheEntry
+ApiToken = CacheEntry
+GraphPhoto = CacheEntry
+
+# External service aliases
+GenesysGroup = ExternalServiceData
+GenesysLocation = ExternalServiceData
+GenesysSkill = ExternalServiceData
+
 __all__ = [
+    # New unified models
+    "LogEntry",
+    "CacheEntry",
+    "ExternalServiceData",
+    "UserSession",
+    "User",
+    "UserNote",
+    # Backward compatibility aliases
     "AuditLog",
     "ErrorLog",
     "AccessAttempt",
+    "SearchCache",
+    "ApiToken",
+    "GraphPhoto",
     "GenesysGroup",
     "GenesysLocation",
     "GenesysSkill",
-    "SearchCache",
-    "UserSession",
-    "User",
-    "ApiToken",
-    "GraphPhoto",
-    "UserNote",
 ]

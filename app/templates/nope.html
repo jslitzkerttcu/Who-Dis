@@ -15,7 +15,7 @@
                 
                 <div class="prophecy-section mb-5">
                     <p class="prophecy text-info">
-                        {{ denial_reason }}
+                        {{ denial_reason|e }}
                     </p>
                 </div>
                 
@@ -28,7 +28,7 @@
                 {% if g.user %}
                 <div class="mt-5 text-muted">
                     <small>
-                        <i class="bi bi-person-fill"></i> Logged in as: {{ g.user }}
+                        <i class="bi bi-person-fill"></i> Logged in as: {{ g.user|e }}
                         {% if g.role %}
                         <span class="badge bg-secondary ms-2">{{ g.role|upper }}</span>
                         {% endif %}

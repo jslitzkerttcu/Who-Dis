@@ -35,7 +35,7 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">&nbsp;</label>
-                        <button class="btn btn-primary w-100" onclick="loadErrors()">
+                        <button class="btn btn-primary w-100" data-action="apply-filters" aria-label="Apply error log filters">
                             <i class="bi bi-search"></i> Apply Filters
                         </button>
                     </div>
@@ -114,96 +114,11 @@
     </div>
 </div>
 
-<script>
-// Load errors on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadErrors();
-});
+{% endblock %}
 
-function loadErrors() {
-    const severity = document.getElementById('severity-filter').value;
-    const hours = document.getElementById('date-filter').value;
-    
-    let url = '/admin/api/error-logs?limit=100';
-    if (severity) url += `&severity=${severity}`;
-    
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('errors-loading').style.display = 'none';
-            document.getElementById('errors-content').style.display = 'block';
-            
-            const tbody = document.getElementById('errors-tbody');
-            tbody.innerHTML = '';
-            
-            if (data.errors.length === 0) {
-                document.getElementById('no-errors').style.display = 'block';
-                tbody.parentElement.parentElement.style.display = 'none';
-            } else {
-                document.getElementById('no-errors').style.display = 'none';
-                tbody.parentElement.parentElement.style.display = 'block';
-                
-                // Filter by time
-                const cutoffTime = new Date();
-                cutoffTime.setHours(cutoffTime.getHours() - parseInt(hours));
-                
-                const filteredErrors = data.errors.filter(error => {
-                    return new Date(error.timestamp) > cutoffTime;
-                });
-                
-                filteredErrors.forEach(error => {
-                    const row = tbody.insertRow();
-                    const timestamp = new Date(error.timestamp);
-                    
-                    // Determine severity badge
-                    let severityBadge = 'bg-danger';
-                    if (error.severity === 'warning') severityBadge = 'bg-warning';
-                    else if (error.severity === 'critical') severityBadge = 'bg-dark';
-                    
-                    row.innerHTML = `
-                        <td>${timestamp.toLocaleString()}</td>
-                        <td><span class="badge ${severityBadge}">${error.error_type || 'Unknown'}</span></td>
-                        <td class="text-truncate" style="max-width: 300px;">${escapeHtml(error.error_message)}</td>
-                        <td>${error.user_email || 'System'}</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary" onclick='showErrorDetail(${JSON.stringify(error)})'>
-                                <i class="bi bi-eye"></i> View
-                            </button>
-                        </td>
-                    `;
-                });
-                
-                if (filteredErrors.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No errors in selected time range</td></tr>';
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error loading error logs:', error);
-            document.getElementById('errors-loading').style.display = 'none';
-            document.getElementById('errors-content').innerHTML = 
-                '<div class="alert alert-danger">Failed to load error logs</div>';
-        });
-}
-
-function showErrorDetail(error) {
-    document.getElementById('modal-timestamp').textContent = new Date(error.timestamp).toLocaleString();
-    document.getElementById('modal-type').textContent = error.error_type || 'Unknown';
-    document.getElementById('modal-user').textContent = error.user_email || 'System';
-    document.getElementById('modal-request').textContent = 
-        error.request_method && error.request_path 
-            ? `${error.request_method} ${error.request_path}` 
-            : 'N/A';
-    document.getElementById('modal-message').textContent = error.error_message;
-    document.getElementById('modal-stack').textContent = error.stack_trace || 'No stack trace available';
-    
-    new bootstrap.Modal(document.getElementById('errorModal')).show();
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-</script>
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/shared-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin-error-logs.js') }}"></script>
 {% endblock %}

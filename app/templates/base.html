@@ -5,74 +5,145 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Who Dis?{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'ttcu-green': '#007c59',
+                        'genesys-orange': '#FF4F1F',
+                        'ttcu-yellow': '#f2c655',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Custom styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Htmx -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
 </head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('home.index') }}">
-                {% if request.endpoint != 'home.index' %}
-                <img src="{{ url_for('static', filename='img/product_image_transparent.png') }}" 
-                     alt="Who Dis?" 
-                     height="100" 
-                     class="d-inline-block align-text-top"
-                     style="margin-top: -25px; margin-bottom: -25px;">
-                {% else %}
-                Who Dis?
-                {% endif %}
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('home.index') }}">Home</a>
-                    </li>
+<body class="bg-gray-50 font-sans min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="bg-gray-900 shadow-lg" x-data="{ open: false }">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="{{ url_for('home.index') }}" class="flex items-center">
+                        {% if request.endpoint != 'home.index' %}
+                        <img src="{{ url_for('static', filename='img/product_image_transparent.png') }}" 
+                             alt="Who Dis?" 
+                             class="h-12 w-auto"
+                             style="filter: brightness(0) invert(1);">
+                        {% else %}
+                        <span class="text-white text-2xl font-bold">Who Dis?</span>
+                        {% endif %}
+                    </a>
+                </div>
+                
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-4">
+                    <a href="{{ url_for('home.index') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
+                        Home
+                    </a>
                     {% if g.user and g.role %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('search.index') }}">Search</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('cli.terminal') }}">
-                            <i class="bi bi-terminal"></i> Terminal
-                        </a>
-                    </li>
+                    <a href="{{ url_for('search.index') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
+                        Search
+                    </a>
                     {% if g.role == 'admin' %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.index') }}">Admin</a>
-                    </li>
+                    <a href="{{ url_for('admin.index') }}" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
+                        Admin
+                    </a>
                     {% endif %}
                     {% endif %}
-                </ul>
+                    
+                    {% if g.user %}
+                    <div class="flex items-center text-gray-300 text-sm">
+                        <i class="fas fa-user-circle mr-2"></i>
+                        <span>{{ g.user|e }}</span>
+                        <span class="ml-2 px-2 py-1 text-xs bg-gray-700 rounded uppercase">{{ g.role|upper }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Mobile menu button -->
+                <div class="md:hidden flex items-center">
+                    <button type="button" 
+                            class="text-gray-400 hover:text-white focus:outline-none focus:text-white"
+                            onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation -->
+        <div id="mobile-menu" class="md:hidden hidden">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <a href="{{ url_for('home.index') }}" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    Home
+                </a>
+                {% if g.user and g.role %}
+                <a href="{{ url_for('search.index') }}" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    Search
+                </a>
+                {% if g.role == 'admin' %}
+                <a href="{{ url_for('admin.index') }}" class="text-gray-300 hover:text-white block px-3 py-2 rounded-md text-base font-medium">
+                    Admin
+                </a>
+                {% endif %}
+                {% endif %}
+                
                 {% if g.user %}
-                <div class="navbar-text ms-3 text-light">
-                    <small>
-                        <i class="bi bi-person-circle"></i> {{ g.user }}
-                        <span class="badge bg-secondary ms-1">{{ g.role|upper }}</span>
-                    </small>
+                <div class="border-t border-gray-700 pt-3">
+                    <div class="flex items-center px-3 py-2 text-gray-300 text-sm">
+                        <i class="fas fa-user-circle mr-2"></i>
+                        <span>{{ g.user|e }}</span>
+                        <span class="ml-2 px-2 py-1 text-xs bg-gray-700 rounded uppercase">{{ g.role|upper }}</span>
+                    </div>
                 </div>
                 {% endif %}
             </div>
         </div>
     </nav>
     
-    <main class="container my-5">
-        {% block content %}{% endblock %}
+    <!-- Main Content -->
+    <main class="flex-grow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {% block content %}{% endblock %}
+        </div>
     </main>
     
-    <footer class="bg-dark text-white text-center py-3 mt-5">
-        <div class="container">
-            <p class="mb-0">&copy; 2025 Who Dis? All rights reserved.</p>
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <p class="text-center text-sm">&copy; 2025 Who Dis? All rights reserved.</p>
         </div>
     </footer>
     
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Application data for JavaScript -->
+    <div id="app-data" 
+         data-user-role="{{ g.role|default('viewer') }}"
+         style="display: none;">
+    </div>
+    
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/security-utils.js') }}?v={{ range(1000, 9999) | random }}"></script>
+    <script src="{{ url_for('static', filename='js/shared-utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-    {% if g.user %}
+    {% if g.user and g.role %}
     <script src="{{ url_for('static', filename='js/session-timeout.js') }}"></script>
     {% endif %}
+    {% block scripts %}{% endblock %}
 </body>
 </html>
