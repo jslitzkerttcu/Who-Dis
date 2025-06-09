@@ -23,17 +23,80 @@ class ApiToken(CacheableModel, JSONDataMixin):
     def __repr__(self):
         return f"<ApiToken {self.service_name}>"
 
-    @property
-    def time_until_expiry(self):
-        """Get time remaining until token expires."""
+    def is_expired(self) -> bool:
+        """
+        Override base class is_expired to provide more robust timezone handling.
+
+        Returns:
+            True if token has expired, False otherwise
+        """
+        import pytz
+
         now = datetime.now(timezone.utc)
         expires_at = self.expires_at
 
-        # Handle timezone-naive vs timezone-aware comparison
+        # Handle timezone-naive datetime which might be in local server time
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        elif now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
+            # Microsoft Graph API tokens might be stored in local server time
+            # Try treating as Central Daylight Time (CDT) since server is in CDT
+            try:
+                cdt = pytz.timezone("US/Central")
+                # Assume it's CDT and convert to UTC
+                expires_at_cdt = cdt.localize(expires_at, is_dst=True).astimezone(
+                    timezone.utc
+                )
+
+                # If treating as CDT makes it a future time, use that interpretation
+                if expires_at_cdt > now:
+                    expires_at = expires_at_cdt
+                else:
+                    # Otherwise treat as UTC (fallback)
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+            except Exception:
+                # Fallback: treat as UTC
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+        else:
+            # Convert to UTC if it's in a different timezone
+            expires_at = expires_at.astimezone(timezone.utc)
+
+        # Add a small buffer (30 seconds) to account for clock skew and processing time
+        buffer = timedelta(seconds=30)
+        return now > (expires_at - buffer)
+
+    @property
+    def time_until_expiry(self):
+        """Get time remaining until token expires."""
+        import pytz
+
+        now = datetime.now(timezone.utc)
+        expires_at = self.expires_at
+
+        # Handle timezone-naive datetime which might be in local server time
+        # Use the same logic as is_expired method for consistency
+        if expires_at.tzinfo is None:
+            # Microsoft Graph API tokens might be stored in local server time
+            # Try treating as Central Daylight Time (CDT) since server is in CDT
+            try:
+                cdt = pytz.timezone("US/Central")
+                # Assume it's CDT and convert to UTC
+                expires_at_cdt = cdt.localize(expires_at, is_dst=True).astimezone(
+                    timezone.utc
+                )
+
+                # If treating as CDT makes it a future time, use that interpretation
+                if expires_at_cdt > now:
+                    expires_at = expires_at_cdt
+                else:
+                    # Otherwise treat as UTC (fallback)
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+            except Exception:
+                # Fallback: treat as UTC
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+        else:
+            # Convert to UTC if it's in a different timezone
+            expires_at = expires_at.astimezone(timezone.utc)
 
         delta = expires_at - now
         return delta if delta.total_seconds() > 0 else timedelta(0)
@@ -41,11 +104,27 @@ class ApiToken(CacheableModel, JSONDataMixin):
     @classmethod
     def get_token(cls, service_name):
         """Get token for a service if it exists and is valid."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         try:
             token = cls.query.filter_by(service_name=service_name).first()
-            if token and not token.is_expired:
-                return token
+            if token:
+                logger.debug(
+                    f"Found token for {service_name}, expires_at: {token.expires_at}, is_expired: {token.is_expired}"
+                )
+                if not token.is_expired:
+                    logger.debug(f"Returning valid token for {service_name}")
+                    return token
+                else:
+                    logger.debug(
+                        f"Token for {service_name} is expired, time_until_expiry: {token.time_until_expiry}"
+                    )
+            else:
+                logger.debug(f"No token found for {service_name}")
         except Exception as e:
+            logger.error(f"Error retrieving token for {service_name}: {e}")
             # Handle case where table doesn't exist
             db.session.rollback()
             raise e
@@ -92,17 +171,36 @@ class ApiToken(CacheableModel, JSONDataMixin):
 
     @classmethod
     def get_all_tokens_status(cls):
-        """Get status of all stored tokens."""
+        """Get status of all stored tokens with detailed debugging information."""
         tokens = cls.query.all()
         status = []
+        now = datetime.now(timezone.utc)
+
         for token in tokens:
+            # Calculate time differences for debugging
+            expires_at = token.expires_at
+            if expires_at.tzinfo is None:
+                expires_at_utc = expires_at.replace(tzinfo=timezone.utc)
+            else:
+                expires_at_utc = expires_at.astimezone(timezone.utc)
+
+            time_diff = expires_at_utc - now
+
             status.append(
                 {
                     "service": token.service_name,
                     "expires_at": token.expires_at.isoformat(),
-                    "is_expired": token.is_expired,
+                    "expires_at_utc": expires_at_utc.isoformat(),
+                    "current_time_utc": now.isoformat(),
+                    "is_expired": token.is_expired(),
                     "time_until_expiry": str(token.time_until_expiry),
-                    "last_refreshed": token.last_refreshed.isoformat(),
+                    "time_diff_seconds": time_diff.total_seconds(),
+                    "last_refreshed": token.last_refreshed.isoformat()
+                    if token.last_refreshed
+                    else None,
+                    "timezone_info": str(token.expires_at.tzinfo)
+                    if token.expires_at.tzinfo
+                    else "naive",
                 }
             )
         return status

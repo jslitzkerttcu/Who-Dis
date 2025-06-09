@@ -275,7 +275,8 @@ class DataWarehouseService(BaseCacheService):
 
     def get_user_data(self, upn: str) -> Optional[Dict[str, Any]]:
         """
-        Get cached user data by UPN.
+        Get cached user data by UPN from PostgreSQL cache.
+        This method does not require SQL Server connectivity.
 
         Args:
             upn: The UPN to look up
@@ -286,14 +287,17 @@ class DataWarehouseService(BaseCacheService):
         try:
             from app.models.data_warehouse import DataWarehouseCache
 
-            user_data = DataWarehouseCache.get_user_data(upn)
-            if user_data:
-                return user_data.to_dict()
+            # Get data directly from PostgreSQL cache
+            cached_record = DataWarehouseCache.get_user_data(upn)
+            if cached_record:
+                # Use the model's get_keystone_info method for formatted data
+                return cached_record.get_keystone_info()
 
+            logger.debug(f"No cached Keystone data found for UPN: {upn}")
             return None
 
         except Exception as e:
-            logger.error(f"Error getting data warehouse user data for {upn}: {str(e)}")
+            logger.error(f"Error getting cached data warehouse user data for {upn}: {str(e)}")
             return None
 
     def get_cache_status(self) -> Dict[str, Any]:

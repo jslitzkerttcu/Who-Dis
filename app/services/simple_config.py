@@ -99,16 +99,8 @@ class SimpleConfig(IConfigurationService):
         # Check database
         try:
             with db.engine.begin() as conn:
-                # Parse key into category and setting_key
-                if "." in key:
-                    category, setting_key = key.split(".", 1)
-                else:
-                    category, setting_key = "general", key
-
                 result = conn.execute(
-                    text(
-                        "SELECT value FROM simple_config WHERE key = :key"
-                    ),
+                    text("SELECT value FROM simple_config WHERE key = :key"),
                     {"key": key},
                 ).first()
 
@@ -135,13 +127,7 @@ class SimpleConfig(IConfigurationService):
         except Exception as e:
             logger.debug(f"Database lookup failed for {key}: {e}")
 
-        # Check environment variable (use uppercase with underscores)
-        env_key = key.upper().replace(".", "_")
-        env_value = os.getenv(env_key)
-        if env_value is not None:
-            self._cache[key] = env_value
-            return env_value
-
+        # Environment variable fallback removed - database is the authoritative source
         # Return default
         self._cache[key] = default
         return default

@@ -3,7 +3,7 @@
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from app.interfaces.log_repository import ILogRepository
-from app.models import AuditLog, ErrorLog
+from app.models import AuditLog, ErrorLog, AccessAttempt
 
 
 class LogRepository(ILogRepository):
@@ -64,12 +64,87 @@ class LogRepository(ILogRepository):
         ip_address: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Any]:
-        """Query log entries with filters."""
-        # Note: This method needs to be implemented to query across multiple log tables
-        # For now, returning empty list
-        # TODO: Implement cross-table log querying
-        return []
+    ) -> List[Dict[str, Any]]:
+        """Query log entries with filters across all log tables."""
+        all_logs = []
+
+        # Query AuditLog table
+        audit_query = AuditLog.query
+        if start_date:
+            audit_query = audit_query.filter(AuditLog.created_at >= start_date)
+        if end_date:
+            audit_query = audit_query.filter(AuditLog.created_at <= end_date)
+        if event_type:
+            audit_query = audit_query.filter(AuditLog.event_type == event_type)
+        if user_email:
+            audit_query = audit_query.filter(
+                AuditLog.user_email.ilike(f"%{user_email}%")
+            )
+        if search_query:
+            audit_query = audit_query.filter(
+                AuditLog.search_query.ilike(f"%{search_query}%")
+            )
+        if ip_address:
+            audit_query = audit_query.filter(
+                AuditLog.ip_address.ilike(f"%{ip_address}%")
+            )
+
+        for log in audit_query.all():
+            log_dict = log.to_dict()
+            log_dict["log_type"] = "audit"
+            all_logs.append(log_dict)
+
+        # Query ErrorLog table (if no specific event_type or event_type is 'error')
+        if not event_type or event_type == "error":
+            error_query = ErrorLog.query
+            if start_date:
+                error_query = error_query.filter(ErrorLog.created_at >= start_date)
+            if end_date:
+                error_query = error_query.filter(ErrorLog.created_at <= end_date)
+            if user_email:
+                error_query = error_query.filter(
+                    ErrorLog.user_email.ilike(f"%{user_email}%")
+                )
+            if ip_address:
+                error_query = error_query.filter(
+                    ErrorLog.ip_address.ilike(f"%{ip_address}%")
+                )
+
+            for log in error_query.all():
+                log_dict = log.to_dict()
+                log_dict["log_type"] = "error"
+                log_dict["event_type"] = "error"  # Add event_type for consistency
+                all_logs.append(log_dict)
+
+        # Query AccessAttempt table (if no specific event_type or event_type is 'access')
+        if not event_type or event_type == "access":
+            access_query = AccessAttempt.query
+            if start_date:
+                access_query = access_query.filter(
+                    AccessAttempt.created_at >= start_date
+                )
+            if end_date:
+                access_query = access_query.filter(AccessAttempt.created_at <= end_date)
+            if user_email:
+                access_query = access_query.filter(
+                    AccessAttempt.user_email.ilike(f"%{user_email}%")
+                )
+            if ip_address:
+                access_query = access_query.filter(
+                    AccessAttempt.ip_address.ilike(f"%{ip_address}%")
+                )
+
+            for log in access_query.all():
+                log_dict = log.to_dict()
+                log_dict["log_type"] = "access"
+                log_dict["event_type"] = "access"  # Add event_type for consistency
+                all_logs.append(log_dict)
+
+        # Sort by timestamp (created_at) descending
+        all_logs.sort(key=lambda x: x.get("created_at", datetime.min), reverse=True)
+
+        # Apply pagination
+        return all_logs[offset : offset + limit]
 
     def count_logs(
         self,
@@ -80,8 +155,68 @@ class LogRepository(ILogRepository):
         search_query: Optional[str] = None,
         ip_address: Optional[str] = None,
     ) -> int:
-        """Count log entries with filters."""
-        # Note: This method needs to be implemented to count across multiple log tables
-        # For now, returning zero
-        # TODO: Implement cross-table log counting
-        return 0
+        """Count log entries with filters across all log tables."""
+        total_count = 0
+
+        # Count AuditLog entries
+        audit_query = AuditLog.query
+        if start_date:
+            audit_query = audit_query.filter(AuditLog.created_at >= start_date)
+        if end_date:
+            audit_query = audit_query.filter(AuditLog.created_at <= end_date)
+        if event_type:
+            audit_query = audit_query.filter(AuditLog.event_type == event_type)
+        if user_email:
+            audit_query = audit_query.filter(
+                AuditLog.user_email.ilike(f"%{user_email}%")
+            )
+        if search_query:
+            audit_query = audit_query.filter(
+                AuditLog.search_query.ilike(f"%{search_query}%")
+            )
+        if ip_address:
+            audit_query = audit_query.filter(
+                AuditLog.ip_address.ilike(f"%{ip_address}%")
+            )
+
+        total_count += audit_query.count()
+
+        # Count ErrorLog entries (if no specific event_type or event_type is 'error')
+        if not event_type or event_type == "error":
+            error_query = ErrorLog.query
+            if start_date:
+                error_query = error_query.filter(ErrorLog.created_at >= start_date)
+            if end_date:
+                error_query = error_query.filter(ErrorLog.created_at <= end_date)
+            if user_email:
+                error_query = error_query.filter(
+                    ErrorLog.user_email.ilike(f"%{user_email}%")
+                )
+            if ip_address:
+                error_query = error_query.filter(
+                    ErrorLog.ip_address.ilike(f"%{ip_address}%")
+                )
+
+            total_count += error_query.count()
+
+        # Count AccessAttempt entries (if no specific event_type or event_type is 'access')
+        if not event_type or event_type == "access":
+            access_query = AccessAttempt.query
+            if start_date:
+                access_query = access_query.filter(
+                    AccessAttempt.created_at >= start_date
+                )
+            if end_date:
+                access_query = access_query.filter(AccessAttempt.created_at <= end_date)
+            if user_email:
+                access_query = access_query.filter(
+                    AccessAttempt.user_email.ilike(f"%{user_email}%")
+                )
+            if ip_address:
+                access_query = access_query.filter(
+                    AccessAttempt.ip_address.ilike(f"%{ip_address}%")
+                )
+
+            total_count += access_query.count()
+
+        return total_count

@@ -1,4 +1,3 @@
-import os
 from typing import Optional, Tuple, List
 
 
@@ -96,35 +95,6 @@ class RoleResolver:
             # Database not available or table doesn't exist yet
             pass
 
-        # Try configuration service (encrypted values)
-        try:
-            from app.services.configuration_service import config_get
-
-            viewers_str = config_get("auth.viewers", "")
-            editors_str = config_get("auth.editors", "")
-            admins_str = config_get("auth.admins", "")
-
-            if viewers_str or editors_str or admins_str:
-                viewers = [
-                    email.strip() for email in viewers_str.split(",") if email.strip()
-                ]
-                editors = [
-                    email.strip() for email in editors_str.split(",") if email.strip()
-                ]
-                admins = [
-                    email.strip() for email in admins_str.split(",") if email.strip()
-                ]
-                return viewers, editors, admins
-        except Exception:
-            pass
-
-        # Fallback to environment variables
-        viewers = os.getenv("VIEWERS", "").split(",")
-        editors = os.getenv("EDITORS", "").split(",")
-        admins = os.getenv("ADMINS", "").split(",")
-
-        viewers = [email.strip() for email in viewers if email.strip()]
-        editors = [email.strip() for email in editors if email.strip()]
-        admins = [email.strip() for email in admins if email.strip()]
-
-        return viewers, editors, admins
+        # Config-based roles have been removed - database is the authoritative source
+        # No fallback - database is required for user authentication
+        return [], [], []

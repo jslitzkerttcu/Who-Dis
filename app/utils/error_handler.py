@@ -60,17 +60,20 @@ def handle_errors(
                 if log_errors:
                     try:
                         from app.models import ErrorLog
+                        from app.utils.ip_utils import format_ip_info
 
                         error_entry = ErrorLog.log_error(
                             user_email=user_email or "system",
                             error_type=type(e).__name__,
                             error_message=str(e),
                             stack_trace=traceback.format_exc(),
-                            endpoint=request.endpoint or f.__name__,
+                            request_path=request.endpoint or f.__name__,
                             request_method=request.method
                             if hasattr(request, "method")
                             else "N/A",
                             request_data=_safe_request_data(),
+                            ip_address=format_ip_info(),
+                            user_agent=request.headers.get("User-Agent"),
                         )
                         error_id = error_entry.id
                     except Exception as log_error:
@@ -82,14 +85,17 @@ def handle_errors(
                         from app.services.audit_service_postgres import (
                             PostgresAuditService,
                         )
+                        from app.utils.ip_utils import format_ip_info
 
                         audit_service = PostgresAuditService()
                         audit_service.log_error(
                             user_email=user_email,
                             error_type=type(e).__name__,
                             error_message=str(e),
-                            endpoint=request.endpoint or f.__name__,
+                            request_path=request.endpoint or f.__name__,
                             stack_trace=traceback.format_exc()[:1000],  # Limit length
+                            ip_address=format_ip_info(),
+                            user_agent=request.headers.get("User-Agent"),
                         )
                     except Exception as audit_error:
                         logger.error(f"Failed to create audit log: {audit_error}")
@@ -216,11 +222,17 @@ def handle_service_errors(
 def _safe_request_data() -> Optional[Dict[str, Any]]:
     """Safely extract request data for error logging."""
     try:
+        from app.utils.ip_utils import get_all_ips
+
+        # Get comprehensive IP information
+        ip_info = get_all_ips()
+
         data = {
             "url": request.url,
             "method": request.method,
             "headers": dict(request.headers),
             "remote_addr": request.remote_addr,
+            "ip_info": ip_info,  # Add detailed IP information
         }
 
         # Remove sensitive headers

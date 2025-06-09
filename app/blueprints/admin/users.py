@@ -8,6 +8,7 @@ from app.middleware.auth import require_role
 from app.database import db
 from app.models import User, UserNote
 from app.services.audit_service_postgres import audit_service
+from app.utils.timezone import format_timestamp
 
 
 @require_role("admin")
@@ -558,7 +559,7 @@ def _render_users_table(users):
     for user in users:
         status_color = "green" if user.is_active else "red"
         status_text = "Active" if user.is_active else "Inactive"
-        created_date = user.created_at.strftime("%Y-%m-%d")
+        created_date = format_timestamp(user.created_at, "%Y-%m-%d")
 
         # Role colors
         role_colors = {"admin": "purple", "editor": "blue", "viewer": "gray"}
@@ -572,20 +573,59 @@ def _render_users_table(users):
 
 
 def _render_user_row(user, status_color, status_text, created_date, role_color):
-    """Render a single user row."""
+    """Render a single user row with enhanced styling and role-based controls."""
+    from flask import g
+
+    # Check current user's permissions
+    current_user_email = g.user if hasattr(g, "user") else None
+    current_user_role = g.role if hasattr(g, "role") else None
+
+    # Determine if current user can edit this user
+    can_edit = (
+        current_user_role == "admin" and current_user_email != user.email
+    )  # Can't edit self
+
+    # Enhanced role badge with icons
+    role_icons = {
+        "admin": "fas fa-crown text-yellow-500",
+        "editor": "fas fa-edit text-blue-500",
+        "viewer": "fas fa-eye text-gray-500",
+    }
+    role_icon = role_icons.get(user.role, "fas fa-user")
+
+    # Enhanced status badge with icons
+    status_icon = "fas fa-check-circle" if user.is_active else "fas fa-times-circle"
+
     return f"""
-    <tr class="hover:bg-gray-50">
+    <tr class="hover:bg-gray-50 transition-all duration-150">
         <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-900">{user.email}</div>
-            <div class="text-sm text-gray-500">ID: {user.id}</div>
+            <div class="flex items-center">
+                <div class="flex-shrink-0 h-8 w-8">
+                    <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                        <i class="fas fa-user text-gray-500 text-sm"></i>
+                    </div>
+                </div>
+                <div class="ml-3">
+                    <div class="text-sm font-medium text-gray-900">{user.email}</div>
+                    <div class="text-sm text-gray-500">ID: {user.id}</div>
+                </div>
+            </div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-{role_color}-100 text-{role_color}-800">
-                {user.role}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{
+        role_color
+    }-100 text-{role_color}-800 transition-all duration-150 hover:bg-{role_color}-200">
+                <i class="{role_icon} mr-1"></i>
+                {user.role.title()}
             </span>
         </td>
         <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-{status_color}-100 text-{status_color}-800">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{
+        status_color
+    }-100 text-{status_color}-800 transition-all duration-150 hover:bg-{
+        status_color
+    }-200">
+                <i class="{status_icon} mr-1"></i>
                 {status_text}
             </span>
         </td>
@@ -595,19 +635,31 @@ def _render_user_row(user, status_color, status_text, created_date, role_color):
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
             {user.created_by or "System"}
         </td>
-        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+            {
+        f'''
             <button onclick="editUser({user.id})" 
-                    class="text-ttcu-green hover:text-green-700 mr-3">
-                <i class="fas fa-edit"></i>
+                    class="inline-flex items-center px-2 py-1 border border-transparent text-sm rounded-md text-ttcu-green hover:text-white hover:bg-ttcu-green transition-all duration-150">
+                <i class="fas fa-edit mr-1"></i>
+                Edit
             </button>
             <button hx-post="/admin/users/toggle/{user.id}"
                     hx-target="#userTableBody"
                     hx-swap="innerHTML"
                     hx-confirm="Are you sure you want to {"deactivate" if user.is_active else "reactivate"} this user?"
-                    class="text-{status_color}-600 hover:text-{status_color}-700">
-                <i class="fas fa-{"ban" if user.is_active else "check-circle"}"></i>
+                    class="inline-flex items-center px-2 py-1 border border-transparent text-sm rounded-md text-{status_color}-600 hover:text-white hover:bg-{status_color}-600 transition-all duration-150">
+                <i class="fas fa-{"ban" if user.is_active else "check-circle"} mr-1"></i>
                 {"Deactivate" if user.is_active else "Reactivate"}
             </button>
+            '''
+        if can_edit
+        else '''
+            <span class="inline-flex items-center px-2 py-1 text-sm text-gray-400">
+                <i class="fas fa-lock mr-1"></i>
+                No access
+            </span>
+            '''
+    }
         </td>
     </tr>
     """

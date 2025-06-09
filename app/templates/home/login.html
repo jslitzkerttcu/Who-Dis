@@ -3,14 +3,17 @@
 {% block title %}Login - Who Dis?{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center">
-    <div class="max-w-md w-full">
-        <div class="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+    <div class="max-w-md w-full animate-fade-in">
+        <div class="bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden backdrop-blur-sm">
             <div class="p-8 text-center">
-                <img src="{{ url_for('static', filename='img/product_image_transparent.png') }}" 
-                     alt="Who Dis?" 
-                     class="h-32 mx-auto mb-6">
-                <h2 class="text-2xl font-bold text-gray-900 mb-6">Session Refresh Required</h2>
+                <div class="relative mb-6">
+                    <img src="{{ url_for('static', filename='img/product_image_transparent.png') }}" 
+                         alt="Who Dis?" 
+                         class="h-32 mx-auto transition-all duration-500 hover:scale-110">
+                    <div class="absolute inset-0 bg-gradient-to-r from-ttcu-green/10 to-ttcu-yellow/10 rounded-lg blur-2xl -z-10 animate-pulse"></div>
+                </div>
+                <h2 class="text-2xl font-bold bg-gradient-to-r from-ttcu-green to-blue-600 bg-clip-text text-transparent mb-6">Session Refresh Required</h2>
                 
                 {% if reason == 'session_expired' %}
                 <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 text-left">
@@ -34,24 +37,35 @@
                         </div>
                     </div>
                 </div>
+                {% elif reason == 'auth_required' %}
+                <div class="bg-orange-50 border-l-4 border-orange-400 p-4 mb-6 text-left">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-lock text-orange-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-orange-700">Authentication is required to access this page.</p>
+                        </div>
+                    </div>
+                </div>
                 {% endif %}
                 
                 <p class="text-gray-600 mb-6">
                     Click below to refresh your Azure AD authentication.
                 </p>
                 
-                <div hx-get="{{ url_for('home.index') }}"
-                     hx-trigger="load delay:2s"
-                     hx-push-url="true">
+                <div {% if reason not in ['session_expired', 'auth_required'] %}hx-get="{{ url_for('home.index') }}" hx-trigger="load delay:2s" hx-push-url="true"{% endif %}>
                     <a href="{{ url_for('home.index') }}" 
-                       class="inline-flex items-center px-6 py-3 bg-ttcu-green hover:bg-green-700 text-white font-medium rounded-lg transition duration-150 ease-in-out">
-                        <i class="fas fa-sync-alt mr-2"></i>
+                       class="group inline-flex items-center px-6 py-3 bg-gradient-to-r from-ttcu-green to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-lg transition-all duration-300 hover:scale-105 hover:shadow-lg">
+                        <i class="fas fa-sync-alt mr-2 group-hover:animate-spin"></i>
                         Refresh Session
                     </a>
                     
+                    {% if reason not in ['session_expired', 'auth_required'] %}
                     <div class="mt-2 text-sm text-gray-500">
                         Redirecting automatically in 2 seconds...
                     </div>
+                    {% endif %}
                 </div>
                 
                 <div class="mt-8 pt-6 border-t border-gray-200">

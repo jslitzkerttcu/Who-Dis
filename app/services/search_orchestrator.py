@@ -50,11 +50,7 @@ class SearchOrchestrator(BaseConfigurableService):
     @property
     def overall_timeout(self) -> int:
         """Get overall search timeout in seconds."""
-        import os
-
-        return int(
-            self._get_config("overall_timeout", os.getenv("search_timeout", "20"))
-        )
+        return int(self._get_config("overall_timeout", "20"))
 
     @property
     def lazy_load_photos(self) -> bool:

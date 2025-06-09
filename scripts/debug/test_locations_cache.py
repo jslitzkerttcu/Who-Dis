@@ -194,9 +194,7 @@ def test_locations_cache():
             return 1
 
         # Get Genesys region
-        region = get_config_value(cursor, "genesys", "region") or os.getenv(
-            "GENESYS_REGION", "mypurecloud.com"
-        )
+        region = get_config_value(cursor, "genesys", "region") or "mypurecloud.com"
         base_url = f"https://api.{region}"
         print(f"Using region: {region}")
 

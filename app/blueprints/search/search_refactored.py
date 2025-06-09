@@ -13,7 +13,6 @@ from app.middleware.auth import require_role
 from app.utils.error_handler import handle_errors
 from app.interfaces.search_service import ISearchService
 import logging
-import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 import base64
 
@@ -25,7 +24,7 @@ search_bp = Blueprint("search", __name__)
 def get_search_timeout():
     """Get search timeout configuration from container."""
     config = current_app.container.get("config")
-    return int(config.get("search.overall_timeout", os.getenv("search_timeout", "20")))
+    return int(config.get("search.overall_timeout", "20"))
 
 
 def get_lazy_load_photos():

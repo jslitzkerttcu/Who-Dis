@@ -137,8 +137,36 @@
         }
     });
     
+    // Handle htmx events for session termination
+    document.body.addEventListener('htmx:responseError', function(evt) {
+        console.error('HTMX Error:', evt.detail);
+        if (evt.detail.target.closest('#terminateModalContent')) {
+            showToast('Error terminating session: ' + evt.detail.xhr.responseText, 'error');
+        }
+    });
+    
+    document.body.addEventListener('htmx:sendError', function(evt) {
+        console.error('HTMX Send Error:', evt.detail);
+        if (evt.detail.target.closest('#terminateModalContent')) {
+            showToast('Network error terminating session', 'error');
+        }
+    });
+    
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        // Debug logging (but skip session termination since it's handled inline)
+        if (!evt.detail.xhr?.responseURL?.includes('/terminate')) {
+            console.log('HTMX afterRequest:', {
+                target: evt.detail.target,
+                targetId: evt.detail.target?.id,
+                url: evt.detail.xhr?.responseURL,
+                successful: evt.detail.successful
+            });
+        }
+    });
+
     // Function to show terminate modal
     function confirmTerminate(sessionId, userEmail) {
+        console.log('Terminating session:', sessionId, 'for user:', userEmail);
         const content = `
             <div class="bg-white rounded-lg">
                 <div class="flex justify-between items-center p-4 border-b">
@@ -159,9 +187,10 @@
                             class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
                         Cancel
                     </button>
-                    <button hx-post="/admin/api/sessions/${sessionId}/terminate"
+                    <button hx-post="/admin/api/sessions/${encodeURIComponent(sessionId)}/terminate"
                             hx-target="#sessions-content"
                             hx-swap="innerHTML"
+                            hx-on::after-request="if(event.detail.successful) { showToast('Session terminated successfully', 'success'); } else { showToast('Failed to terminate session', 'error'); }"
                             onclick="document.getElementById('terminateModal').classList.add('hidden')"
                             class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">
                         <i class="fas fa-times-circle mr-2"></i>

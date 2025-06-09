@@ -155,15 +155,25 @@ class DataWarehouseCache(CacheableModel):
         role_mismatch = None
         role_warning_level = None
 
-        if self.keystone_expected_role and self.live_role:
-            if self.live_role != self.keystone_expected_role:
-                role_mismatch = (
-                    f"Expected: {self.keystone_expected_role}, Actual: {self.live_role}"
-                )
-                role_warning_level = "high"  # Concerning issue
-        elif self.live_role and not self.keystone_expected_role:
-            role_mismatch = f"Role '{self.live_role}' not found in role matching list"
-            role_warning_level = "medium"  # Less urgent
+        if self.live_role:  # User has a live role in Keystone
+            if self.keystone_expected_role:
+                # We have both live role and expected role - check if they match
+                if self.live_role != self.keystone_expected_role:
+                    role_mismatch = f"Live Role '{self.live_role}' does not match Expected Role '{self.keystone_expected_role}' based on job code mapping"
+                    role_warning_level = "high"  # Security concern - wrong permissions
+                else:
+                    # Roles match - this is good!
+                    role_mismatch = f"Live Role '{self.live_role}' correctly matches Expected Role based on job code mapping"
+                    role_warning_level = "success"  # Positive indicator
+            else:
+                # User has live role but their job code has no expected role mapping
+                job_code_text = f" ({self.ukg_job_code})" if self.ukg_job_code else ""
+                role_mismatch = f"Job Code{job_code_text} has no expected role mapping - unable to verify if Live Role '{self.live_role}' assignment is correct"
+                role_warning_level = "medium"  # Audit concern - need to add job code mapping
+        elif self.keystone_expected_role:
+            # User should have a role based on job code but doesn't have one assigned
+            role_mismatch = f"User should have '{self.keystone_expected_role}' role based on job code but has no Live Role assigned"
+            role_warning_level = "high"  # Security concern - missing required access
 
         return {
             "service": "keystone",

@@ -338,26 +338,66 @@ class GenesysCacheDB(BaseCacheService):
         except Exception:
             return None
 
-    def get_cache_status(self) -> Dict[str, int]:
-        """Get cache status with counts."""
+    def get_cache_status(self) -> Dict[str, Any]:
+        """Get cache status with counts and age information."""
         try:
-            groups_count = ExternalServiceData.query.filter_by(
-                service_name="genesys", data_type="group"
-            ).count()
-            skills_count = ExternalServiceData.query.filter_by(
-                service_name="genesys", data_type="skill"
-            ).count()
-            locations_count = ExternalServiceData.query.filter_by(
-                service_name="genesys", data_type="location"
-            ).count()
+            # Use the existing Genesys tables instead of external_service_data
+            from sqlalchemy import text
+            from datetime import timezone
+
+            # Get counts from existing tables
+            groups_count = (
+                db.session.execute(text("SELECT COUNT(*) FROM genesys_groups")).scalar()
+                or 0
+            )
+            skills_count = (
+                db.session.execute(text("SELECT COUNT(*) FROM genesys_skills")).scalar()
+                or 0
+            )
+            locations_count = (
+                db.session.execute(
+                    text("SELECT COUNT(*) FROM genesys_locations")
+                ).scalar()
+                or 0
+            )
+
+            # Get cache age information from groups table
+            result = db.session.execute(
+                text("SELECT MAX(updated_at) FROM genesys_groups")
+            ).scalar()
+
+            cache_age = None
+            needs_refresh = True
+
+            if result:
+                now = datetime.now(timezone.utc)
+                last_update = result
+                if last_update.tzinfo is None:
+                    last_update = last_update.replace(tzinfo=timezone.utc)
+
+                time_diff = now - last_update
+                hours_since_update = time_diff.total_seconds() / 3600
+
+                # Format as HH:MM:SS
+                cache_age = f"{int(hours_since_update):02d}:{int((hours_since_update % 1) * 60):02d}:00"
+                needs_refresh = hours_since_update >= (self.cache_refresh_period / 3600)
 
             return {
-                "groups": groups_count,
-                "skills": skills_count,
-                "locations": locations_count,
+                "groups_cached": groups_count,
+                "skills_cached": skills_count,
+                "locations_cached": locations_count,
+                "group_cache_age": cache_age,
+                "needs_refresh": needs_refresh,
             }
-        except Exception:
-            return {"groups": 0, "skills": 0, "locations": 0}
+        except Exception as e:
+            logger.error(f"Error getting cache status: {e}")
+            return {
+                "groups_cached": 0,
+                "skills_cached": 0,
+                "locations_cached": 0,
+                "group_cache_age": None,
+                "needs_refresh": True,
+            }
 
     def clear(self):
         """Clear all cached data."""

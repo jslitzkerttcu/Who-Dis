@@ -6,6 +6,7 @@ Handles audit log viewing, querying, and metadata retrieval.
 from flask import render_template, jsonify, request
 from app.middleware.auth import require_role
 from datetime import datetime
+from app.utils.timezone import format_timestamp_long
 
 
 @require_role("admin")
@@ -165,7 +166,7 @@ def _render_audit_logs_table(results):
                 )
             else:
                 timestamp = log.get("timestamp", datetime.now())
-            formatted_time = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            formatted_time = format_timestamp_long(timestamp)
         except Exception:
             formatted_time = str(log.get("timestamp", "Unknown"))
 

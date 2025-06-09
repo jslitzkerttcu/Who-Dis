@@ -24,7 +24,15 @@ def configure_logging():
 
 def configure_session(app):
     """Configure Flask session settings."""
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or secrets.token_hex(32)
+    # Get secret key from database configuration, generate if not available
+    from app.services.simple_config import config_get, config_set
+
+    secret_key = config_get("flask.secret_key")
+    if not secret_key:
+        secret_key = secrets.token_hex(32)
+        # Store the generated key in database for consistency
+        config_set("flask.secret_key", secret_key, "system")
+    app.config["SECRET_KEY"] = secret_key
     app.config["SESSION_COOKIE_SECURE"] = False  # Set to True in production with HTTPS
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -78,30 +86,58 @@ def initialize_services(app):
     audit_service.init_app(app)
 
     with app.app_context():
-        # Refresh API tokens
-        from app.services.genesys_service import genesys_service
-        from app.services.graph_service import graph_service
+        # Initialize and refresh API tokens using container if available
+        if hasattr(app, "container"):
+            # Use container-based initialization (preferred)
+            from app.interfaces.token_service import ITokenService
 
-        app.logger.info("Checking and refreshing API tokens at startup...")
+            app.logger.info("Checking and refreshing API tokens at startup...")
 
-        try:
-            if not genesys_service.refresh_token_if_needed():
-                app.logger.warning("Failed to refresh Genesys token at startup")
-        except Exception as e:
-            app.logger.warning(f"Error checking Genesys token: {e}")
+            # Get all token services from container and refresh them
+            token_services = app.container.get_all_by_interface(ITokenService)
+            for service in token_services:
+                try:
+                    service_name = getattr(service, "token_service_name", "unknown")
+                    if service.refresh_token_if_needed():
+                        app.logger.info(f"{service_name} token is valid")
+                    else:
+                        app.logger.warning(
+                            f"Failed to refresh {service_name} token at startup"
+                        )
+                except Exception as e:
+                    app.logger.warning(f"Error checking {service_name} token: {e}")
 
-        try:
-            if not graph_service.refresh_token_if_needed():
-                app.logger.warning("Failed to refresh Graph API token at startup")
-        except Exception as e:
-            app.logger.warning(f"Error checking Graph API token: {e}")
+            # Start background token refresh service with container
+            token_refresh = app.container.get("token_refresh")
+            token_refresh.app = app
+            token_refresh.container = app.container
+            token_refresh.start()
+            app.logger.info("Token refresh background service started with container")
+        else:
+            # Fallback to direct service initialization
+            from app.services.genesys_service import genesys_service
+            from app.services.graph_service import graph_service
 
-        # Start token refresh service
-        from app.services.token_refresh_service import token_refresh_service
+            app.logger.info("Checking and refreshing API tokens at startup...")
 
-        token_refresh_service.init_app(app)
-        token_refresh_service.start()
-        app.logger.info("Token refresh background service started")
+            try:
+                if not genesys_service.refresh_token_if_needed():
+                    app.logger.warning("Failed to refresh Genesys token at startup")
+            except Exception as e:
+                app.logger.warning(f"Error checking Genesys token: {e}")
+
+            try:
+                if not graph_service.refresh_token_if_needed():
+                    app.logger.warning("Failed to refresh Graph API token at startup")
+            except Exception as e:
+                app.logger.warning(f"Error checking Graph API token: {e}")
+
+            # Start token refresh service without container
+            from app.services.token_refresh_service import token_refresh_service
+
+            token_refresh_service.init_app(app)
+            token_refresh_service.start()
+            app.logger.info("Token refresh background service started (legacy mode)")
 
         # Initialize Genesys cache
         try:
@@ -172,12 +208,12 @@ def register_error_handlers(app):
         # Log the error to audit log
         try:
             from app.services.audit_service_postgres import audit_service
+            from app.utils.ip_utils import format_ip_info, get_all_ips
 
             user_email = request.headers.get(
                 "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user
             )
             user_role = getattr(request, "user_role", None)
-            user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
             audit_service.log_error(
                 error_type=type(e).__name__,
@@ -185,7 +221,7 @@ def register_error_handlers(app):
                 stack_trace=traceback.format_exc(),
                 user_email=user_email,
                 user_role=user_role,
-                ip_address=user_ip,
+                ip_address=format_ip_info(),
                 request_path=request.path,
                 request_method=request.method,
                 user_agent=request.headers.get("User-Agent"),
@@ -193,6 +229,7 @@ def register_error_handlers(app):
                     "url": request.url,
                     "args": dict(request.args),
                     "form": dict(request.form) if request.form else None,
+                    "ip_info": get_all_ips(),
                 },
             )
         except Exception as log_error:
@@ -225,6 +262,11 @@ def create_app():
 
     # Initialize database - fail fast if it doesn't work
     initialize_database(app)
+
+    # Initialize dependency injection container
+    from app.container import inject_dependencies
+
+    inject_dependencies(app)
 
     # Load configuration from database
     try:

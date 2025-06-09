@@ -194,6 +194,8 @@ def api_configuration():
                         "FLASK_PORT": "port",
                         "FLASK_DEBUG": "debug",
                         "SECRET_KEY": "secret_key",
+                        # App keys
+                        "APP_TIMEZONE": "timezone",
                         # Auth keys
                         "AUTH_REQUIRED": "required",
                         # Search keys
@@ -306,7 +308,6 @@ def api_configuration():
 def test_ldap_connection():
     """Test LDAP connection with current configuration."""
     from app.services.ldap_service import test_connection
-    from .config_helpers import render_test_result
 
     try:
         result = test_connection()
@@ -317,7 +318,8 @@ def test_ldap_connection():
                 if result
                 else "LDAP connection failed. Please check your configuration."
             )
-            return render_test_result(result, message)
+            toast_type = "success" if result else "error"
+            return f'<script>showToast("{message}", "{toast_type}");</script>'
 
         return jsonify(
             {
@@ -327,7 +329,7 @@ def test_ldap_connection():
         )
     except Exception as e:
         if request.headers.get("HX-Request"):
-            return render_test_result(False, f"LDAP connection error: {str(e)}")
+            return f'<script>showToast("LDAP connection error: {str(e)}", "error");</script>'
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -335,7 +337,6 @@ def test_ldap_connection():
 def test_graph_connection():
     """Test Microsoft Graph API connection."""
     from app.services.graph_service import graph_service
-    from .config_helpers import render_test_result
 
     try:
         # Try to get token
@@ -347,17 +348,20 @@ def test_graph_connection():
                 if result
                 else "Microsoft Graph connection failed. Please check your configuration."
             )
-            return render_test_result(result, message)
-        
+            toast_type = "success" if result else "error"
+            return f'<script>showToast("{message}", "{toast_type}");</script>'
+
         return jsonify(
             {
                 "success": result,
-                "message": "Connection successful" if result else "Failed to obtain access token",
+                "message": "Connection successful"
+                if result
+                else "Failed to obtain access token",
             }
         )
     except Exception as e:
         if request.headers.get("HX-Request"):
-            return render_test_result(False, f"Microsoft Graph connection error: {str(e)}")
+            return f'<script>showToast("Microsoft Graph connection error: {str(e)}", "error");</script>'
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -365,7 +369,6 @@ def test_graph_connection():
 def test_genesys_connection():
     """Test Genesys Cloud API connection."""
     from app.services.genesys_service import genesys_service
-    from .config_helpers import render_test_result
 
     try:
         # Try to get token
@@ -377,17 +380,20 @@ def test_genesys_connection():
                 if result
                 else "Genesys Cloud connection failed. Please check your configuration."
             )
-            return render_test_result(result, message)
-        
+            toast_type = "success" if result else "error"
+            return f'<script>showToast("{message}", "{toast_type}");</script>'
+
         return jsonify(
             {
                 "success": result,
-                "message": "Connection successful" if result else "Failed to obtain access token",
+                "message": "Connection successful"
+                if result
+                else "Failed to obtain access token",
             }
         )
     except Exception as e:
         if request.headers.get("HX-Request"):
-            return render_test_result(False, f"Genesys Cloud connection error: {str(e)}")
+            return f'<script>showToast("Genesys Cloud connection error: {str(e)}", "error");</script>'
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -395,7 +401,6 @@ def test_genesys_connection():
 def test_data_warehouse_connection():
     """Test data warehouse connection."""
     from app.services.data_warehouse_service import data_warehouse_service
-    from .config_helpers import render_test_result
 
     try:
         result = data_warehouse_service.test_connection()
@@ -406,8 +411,9 @@ def test_data_warehouse_connection():
                 if result
                 else "Data Warehouse connection failed. Please check your configuration."
             )
-            return render_test_result(result, message)
-        
+            toast_type = "success" if result else "error"
+            return f'<script>showToast("{message}", "{toast_type}");</script>'
+
         return jsonify(
             {
                 "success": result,
@@ -416,7 +422,7 @@ def test_data_warehouse_connection():
         )
     except Exception as e:
         if request.headers.get("HX-Request"):
-            return render_test_result(False, f"Data Warehouse connection error: {str(e)}")
+            return f'<script>showToast("Data Warehouse connection error: {str(e)}", "error");</script>'
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -426,11 +432,11 @@ def test_data_warehouse_connection():
 def _render_config_section(section):
     """Render a configuration section as HTML for Htmx."""
     from .config_helpers import (
-        render_app_config, 
+        render_app_config,
         render_ldap_config,
         render_graph_config,
         render_genesys_config,
-        render_data_warehouse_config
+        render_data_warehouse_config,
     )
 
     if section == "app":

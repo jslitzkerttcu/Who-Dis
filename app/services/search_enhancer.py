@@ -49,11 +49,12 @@ class SearchEnhancer:
             enhanced_results["keystone_multiple"] = False
             return enhanced_results
 
-        # Get data warehouse data
+        # Get data warehouse data from PostgreSQL cache
         try:
             keystone_data = data_warehouse_service.get_user_data(upn)
             if keystone_data:
-                enhanced_results["keystone"] = self._format_keystone_data(keystone_data)
+                # Data is already formatted by the model's get_keystone_info method
+                enhanced_results["keystone"] = keystone_data
                 enhanced_results["keystone_error"] = None
             else:
                 enhanced_results["keystone"] = None
@@ -64,7 +65,7 @@ class SearchEnhancer:
         except Exception as e:
             logger.error(f"Error getting Keystone data for {upn}: {str(e)}")
             enhanced_results["keystone"] = None
-            enhanced_results["keystone_error"] = "Error retrieving Keystone data"
+            enhanced_results["keystone_error"] = "Error retrieving Keystone data from cache"
             enhanced_results["keystone_multiple"] = False
 
         return enhanced_results

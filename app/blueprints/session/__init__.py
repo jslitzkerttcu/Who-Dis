@@ -8,52 +8,12 @@ from app.utils.error_handler import handle_errors
 session_bp = Blueprint("session", __name__)
 
 
-@session_bp.route("/session/check_timeout")
+@session_bp.route("/check_timeout")
 @handle_errors
 def check_timeout():
-    """Check session timeout status and return modal if needed."""
-    from app.middleware.auth import authenticate
-
-    if not authenticate():
-        return ""  # Return empty if not authenticated
-
-    # Get session ID from Flask session
-    session_id = session.get("session_id")
-    if not session_id:
-        return ""  # Return empty if no session
-
-    # Get session from database
-    user_session = UserSession.query.get(session_id)
-    if not user_session or not user_session.is_active:
-        return ""  # Return empty if session invalid
-
-    # Check if session is expired
-    if user_session.is_expired():
-        user_session.deactivate()
-        session.clear()
-        # Return expired session modal
-        return _render_session_expired_modal()
-
-    # Get configuration
-    warning_minutes = int(config_get("session.warning_minutes", 2))
-
-    # Calculate time until expiration
-    now = datetime.now(timezone.utc)
-    expires_at = user_session.expires_at
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    time_until_expiry = (expires_at - now).total_seconds()
-    minutes_until_expiry = time_until_expiry / 60
-
-    # Check if we should show warning
-    should_show_warning = minutes_until_expiry <= warning_minutes
-
-    if should_show_warning and not user_session.warning_shown:
-        user_session.mark_warning_shown()
-        # Return warning modal
-        return _render_session_warning_modal(minutes_until_expiry)
-
-    # No modal needed
+    """Legacy endpoint - now returns empty to avoid authentication loops."""
+    # This endpoint was causing authentication loops when called via HTMX
+    # Session management is now handled client-side via HTMX error events
     return ""
 
 

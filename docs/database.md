@@ -161,7 +161,7 @@ Sensitive values are encrypted using Fernet symmetric encryption (from the `cryp
 ### What's Stored in Database
 
 **Encrypted Values** (stored in `encrypted_value` column):
-- User access lists (auth.viewers, auth.editors, auth.admins)
+- ~~User access lists (auth.viewers, auth.editors, auth.admins)~~ **DEPRECATED** - Use `users` table instead
 - Flask secret key (flask.secret_key)
 - LDAP credentials (ldap.bind_dn, ldap.bind_password)
 - Genesys credentials (genesys.client_id, genesys.client_secret)

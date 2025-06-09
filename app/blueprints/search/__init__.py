@@ -12,9 +12,10 @@ from app.interfaces.configuration_service import IConfigurationService
 from app.services.search_orchestrator import SearchOrchestrator
 from app.services.result_merger import ResultMerger
 import logging
-import os
 from typing import Optional, Dict, Any
 import base64
+from app.utils.timezone import format_timestamp
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +30,7 @@ def get_search_timeout() -> int:
     """Get search timeout configuration lazily"""
     if "timeout" not in _config_cache:
         config_service: IConfigurationService = current_app.container.get("config")
-        timeout_value = int(
-            config_service.get(
-                "search.overall_timeout", os.getenv("search_timeout", "20")
-            )
-        )
+        timeout_value = int(config_service.get("search.overall_timeout", "20"))
         _config_cache["timeout"] = timeout_value
     return int(_config_cache["timeout"])
 
@@ -750,13 +747,11 @@ def _render_multiple_results(results, search_term):
 def _render_unified_profile(results):
     """Render unified user profile."""
     # This is a simplified version - you would expand this to show all user details
-    azure_data = (
-        results.get("azureAD", {}).get("results") if results.get("azureAD") else None
-    )
+    azure_data = results.get("azureAD")
     genesys_data = results.get("genesys")
     keystone_data = results.get("keystone")
 
-    html = '<div class="grid md:grid-cols-2 gap-6">'
+    html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">'
 
     # Azure AD Card
     if azure_data:
@@ -768,79 +763,205 @@ def _render_unified_profile(results):
 
     html += "</div>"
 
-    # Keystone Card (full width)
-    if keystone_data:
-        html += _render_keystone_card(keystone_data)
+    # Keystone Card (full width) - show even if there's an error
+    keystone_error = results.get("keystone_error")
+    if keystone_data or keystone_error:
+        html += _render_keystone_card(keystone_data, keystone_error)
 
     return html
 
 
 def _render_azure_ad_card(user_data):
-    """Render Azure AD user card."""
+    """Render Azure AD user card with comprehensive information."""
     # Extract user details
     display_name = user_data.get("displayName", "Unknown User")
     email = user_data.get("mail", "No email")
-    job_title = user_data.get("jobTitle", "No title")
+    # Title can come from LDAP (title) or Graph (mapped to title from jobTitle)
+    job_title = user_data.get("title") or user_data.get("jobTitle", "No title")
     department = user_data.get("department", "No department")
     manager = user_data.get("manager", "No manager")
+    manager_email = user_data.get("managerEmail")
 
-    # Account status
-    enabled = user_data.get("accountEnabled", True)
-    locked = user_data.get("accountLocked", False)
+    # Account status from LDAP data
+    enabled = user_data.get("enabled", True)
+    locked = user_data.get("locked", False)
 
     html = """
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
         <div class="bg-ttcu-green text-white px-6 py-4">
             <h3 class="text-xl font-semibold flex items-center">
-                <i class="fas fa-microsoft mr-3"></i>
+                <i class="fas fa-cloud mr-3"></i>
                 Azure AD / Office 365
             </h3>
         </div>
         <div class="p-6">
     """
 
-    # User photo and basic info
+    # User photo and basic info - always prioritize Graph photo over LDAP
+    photo_url = "/static/img/user-placeholder.svg"
+    
+    # First priority: Graph photo (either direct data or via Graph ID for lazy loading)
+    if user_data.get("graphId"):
+        # Use Graph service for photo
+        photo_url = f"/search/photo/{user_data['graphId']}"
+        if user_data.get("userPrincipalName"):
+            photo_url += f"?upn={user_data['userPrincipalName']}"
+    elif user_data.get("thumbnailPhoto") and user_data["thumbnailPhoto"].startswith("data:"):
+        # Direct base64 photo data (from Graph)
+        photo_url = user_data["thumbnailPhoto"]
+
     html += f"""
         <div class="flex items-start mb-6">
-            <img src="/static/img/user-placeholder.svg" 
-                 class="w-24 h-24 rounded-full bg-gray-200 mr-4"
+            <img src="{photo_url}" 
+                 class="w-24 h-24 rounded-full bg-gray-200 mr-4 object-cover"
                  alt="User photo">
             <div class="flex-1">
                 <h4 class="text-xl font-semibold text-gray-900">{display_name}</h4>
                 <p class="text-gray-600">{email}</p>
-                <p class="text-sm text-gray-500">{job_title} - {department}</p>
+                <p class="text-sm text-gray-500">{job_title}</p>
+                <p class="text-sm text-gray-500">{department}</p>
+                {f'<p class="text-sm text-gray-500">{user_data.get("officeLocation")}</p>' if user_data.get("officeLocation") else ""}
     """
 
-    # Status badges
-    if enabled and not locked:
-        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2">'
-        html += '<i class="fas fa-check-circle mr-1"></i>Active</span>'
+    # Enhanced status badges
+    html += '<div class="flex flex-wrap gap-2 mt-2">'
+
+    # Account enabled/disabled status
+    if enabled:
+        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">'
+        html += '<i class="fas fa-check-circle mr-1"></i>AD Enabled</span>'
     else:
-        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-2">'
-        html += '<i class="fas fa-times-circle mr-1"></i>'
-        html += "Disabled" if not enabled else "Locked"
-        html += "</span>"
+        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">'
+        html += '<i class="fas fa-times-circle mr-1"></i>AD Disabled</span>'
+    
+    # Account locked/unlocked status
+    if locked:
+        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-1">'
+        html += '<i class="fas fa-lock mr-1"></i>Account Locked</span>'
+    else:
+        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-1">'
+        html += '<i class="fas fa-unlock mr-1"></i>Account Unlocked</span>'
+
+    # User type badges
+    phone_numbers = user_data.get("phoneNumbers", {})
+    has_teams = (
+        any("teams" in str(k).lower() for k in phone_numbers.keys())
+        if phone_numbers
+        else False
+    )
+    has_genesys = (
+        any("genesys" in str(k).lower() for k in phone_numbers.keys())
+        if phone_numbers
+        else False
+    )
+
+    if has_teams:
+        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">'
+        html += '<i class="fas fa-users mr-1"></i>Teams User</span>'
+
+    if has_genesys:
+        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">'
+        html += '<i class="fas fa-headset mr-1"></i>Genesys User</span>'
+
+    html += "</div></div></div>"
+
+    # Core Identity Section
+    html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">'
+    html += "<div>"
+    html += '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+    html += '<i class="fas fa-id-card mr-2"></i>Core Identity</h6>'
+    html += '<div class="space-y-2 text-sm">'
+
+    # Username and UPN
+    if user_data.get("sAMAccountName"):
+        html += f'<div><span class="font-medium">Username:</span> {user_data["sAMAccountName"]}'
+        html += ' <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">AD</span></div>'
+
+    if user_data.get("userPrincipalName") and user_data["userPrincipalName"] != email:
+        html += f'<div><span class="font-medium">UPN:</span> {user_data["userPrincipalName"]}</div>'
+
+    # Employee ID
+    if user_data.get("employeeID"):
+        html += f'<div><span class="font-medium">Employee ID:</span> {user_data["employeeID"]}</div>'
+
+    # Manager
+    if manager and manager != "No manager":
+        html += f'<div><span class="font-medium">Manager:</span> {manager}'
+        if manager_email:
+            html += f' <span class="text-gray-500">({manager_email})</span>'
+        html += "</div>"
 
     html += "</div></div>"
 
-    # Additional details
-    html += '<div class="space-y-3 text-sm">'
-    html += f"<div><strong>Manager:</strong> {manager}</div>"
+    # Contact Information Section
+    html += "<div>"
+    html += '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+    html += '<i class="fas fa-phone mr-2"></i>Contact Information</h6>'
+    html += '<div class="space-y-2 text-sm">'
 
-    # Phone numbers
-    phones = []
-    if user_data.get("telephoneNumber"):
-        phones.append(f"{user_data['telephoneNumber']} (Office)")
-    if user_data.get("mobile"):
-        phones.append(f"{user_data['mobile']} (Mobile)")
-    if phones:
-        html += f"<div><strong>Phone:</strong> {', '.join(phones)}</div>"
+    # Phone numbers with improved formatting
+    if phone_numbers:
+        for phone_type, number in phone_numbers.items():
+            if number:
+                formatted_number = _format_phone_number(number)
+                badge_html = _get_phone_badge(phone_type)
+                label = _get_phone_label(phone_type)
+                html += f'<div><span class="font-medium">{label}:</span> {formatted_number} {badge_html}</div>'
 
-    # Location
-    if user_data.get("officeLocation"):
-        html += f"<div><strong>Office:</strong> {user_data['officeLocation']}</div>"
+    # Extension
+    if user_data.get("extension"):
+        html += (
+            f'<div><span class="font-medium">Extension:</span> {user_data["extension"]}'
+        )
+        html += ' <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Legacy</span></div>'
 
-    html += "</div>"
+    html += "</div></div></div>"
+
+    # Address Section
+    address = user_data.get("address")
+    if address and any(address.values() if isinstance(address, dict) else []):
+        html += '<div class="mt-6">'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
+        html += '<i class="fas fa-map-marker-alt mr-2"></i>Address</h6>'
+        html += '<div class="text-sm text-gray-600">'
+        if isinstance(address, dict):
+            if address.get("street"):
+                html += f"{address['street']}<br>"
+            if address.get("city") or address.get("state") or address.get("postalCode"):
+                parts = [
+                    address.get("city"),
+                    address.get("state"),
+                    address.get("postalCode"),
+                ]
+                html += f"{', '.join(filter(None, parts))}<br>"
+            if address.get("country"):
+                html += address["country"]
+        html += "</div></div>"
+
+    # Important Dates Section
+    dates = []
+    if user_data.get("createdDateTime"):
+        dates.append(("Account Created", user_data["createdDateTime"]))
+    if user_data.get("employeeHireDate"):
+        dates.append(("Hire Date", user_data["employeeHireDate"]))
+    if user_data.get("pwdLastSet"):
+        dates.append(("Password Changed", user_data["pwdLastSet"]))
+    if user_data.get("pwdExpires"):
+        dates.append(("Password Expires", user_data["pwdExpires"]))
+
+    if dates:
+        html += '<div class="mt-6">'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
+        html += '<i class="fas fa-calendar-alt mr-2"></i>Important Dates</h6>'
+        html += '<div class="space-y-1 text-sm">'
+        for label, date_value in dates:
+            formatted_date = _format_date_with_relative(date_value, label)
+            html += f"<div>{formatted_date}</div>"
+        html += "</div></div>"
 
     # Admin notes section
     if email and email != "No email":
@@ -861,12 +982,20 @@ def _render_azure_ad_card(user_data):
 
 
 def _render_genesys_card(user_data):
-    """Render Genesys user card."""
+    """Render Genesys user card with comprehensive information."""
     # Extract user details
     name = user_data.get("name", "Unknown User")
     email = user_data.get("email", "No email")
     username = user_data.get("username", "No username")
-    division = user_data.get("division", {}).get("name", "No division")
+
+    # Handle division as either string or dict
+    division_data = user_data.get("division", "No division")
+    if isinstance(division_data, dict):
+        division = division_data.get("name", "No division")
+    elif isinstance(division_data, str):
+        division = division_data
+    else:
+        division = "No division"
 
     html = """
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
@@ -879,86 +1008,388 @@ def _render_genesys_card(user_data):
         <div class="p-6">
     """
 
-    # Basic info
+    # Basic info with status
     html += f"""
         <div class="mb-6">
             <h4 class="text-xl font-semibold text-gray-900">{name}</h4>
             <p class="text-gray-600">{email}</p>
             <p class="text-sm text-gray-500">Username: {username}</p>
             <p class="text-sm text-gray-500">Division: {division}</p>
-        </div>
     """
 
-    # Skills
+    # Status badges
+    state = user_data.get("state")
+    presence = user_data.get("presence")
+
+    html += '<div class="flex flex-wrap gap-2 mt-2">'
+    if state:
+        if state.lower() == "active":
+            html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">'
+            html += '<i class="fas fa-check-circle mr-1"></i>Active</span>'
+        else:
+            html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">'
+            html += f'<i class="fas fa-times-circle mr-1"></i>{state}</span>'
+
+    if presence:
+        html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">'
+        html += f'<i class="fas fa-circle mr-1"></i>{presence}</span>'
+
+    html += "</div></div>"
+
+    # Contact Information Section
+    phone_numbers = user_data.get("phoneNumbers", {})
+    if phone_numbers:
+        html += '<div class="mb-6">'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
+        html += '<i class="fas fa-phone mr-2"></i>Contact Information</h6>'
+        html += '<div class="space-y-2 text-sm">'
+
+        for phone_type, number in phone_numbers.items():
+            if number:
+                formatted_number = _format_phone_number(number)
+                label = _get_phone_label(phone_type)
+                html += (
+                    f'<div><span class="font-medium">{label}:</span> {formatted_number}'
+                )
+                html += ' <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Genesys</span></div>'
+
+        html += "</div></div>"
+
+    # Last Login
+    last_login = user_data.get("dateLastLogin")
+    if last_login:
+        html += '<div class="mb-6">'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
+        html += '<i class="fas fa-clock mr-2"></i>Activity</h6>'
+        html += '<div class="text-sm">'
+        formatted_date = _format_date_with_relative(last_login, "Last Login")
+        html += f"<div>{formatted_date}</div>"
+        html += "</div></div>"
+
+    # Skills with enhanced display
     skills = user_data.get("skills", [])
     if skills:
         html += '<div class="mb-4">'
-        html += '<h5 class="text-sm font-medium text-gray-900 mb-2">Skills</h5>'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
+        html += f'<i class="fas fa-star mr-2 text-yellow-500"></i>Skills ({len(skills)})</h6>'
         html += '<div class="flex flex-wrap gap-2">'
-        for skill in skills:
-            html += f'<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">{skill["name"]}</span>'
+
+        # Show first 8 skills, then collapse others
+        for i, skill in enumerate(skills[:8]):
+            skill_name = skill.get("name", skill) if isinstance(skill, dict) else skill
+            html += f'<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full transition-all duration-150 hover:bg-blue-200">{skill_name}</span>'
+
+        if len(skills) > 8:
+            html += '<button class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200" onclick="toggleSkills(this)">'
+            html += f"+{len(skills) - 8} more</button>"
+            html += '<div class="hidden w-full mt-2">'
+            for skill in skills[8:]:
+                skill_name = (
+                    skill.get("name", skill) if isinstance(skill, dict) else skill
+                )
+                html += f'<span class="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full mr-2 mb-2">{skill_name}</span>'
+            html += "</div>"
+
         html += "</div></div>"
 
-    # Queues
+    # Queues with enhanced display
     queues = user_data.get("queues", [])
     if queues:
         html += '<div class="mb-4">'
-        html += '<h5 class="text-sm font-medium text-gray-900 mb-2">Queues</h5>'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
+        html += f'<i class="fas fa-users mr-2 text-green-500"></i>Queues ({len(queues)})</h6>'
         html += '<div class="flex flex-wrap gap-2">'
-        for queue in queues[:5]:  # Limit to first 5
-            html += f'<span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">{queue["name"]}</span>'
+
+        # Show first 5 queues
+        for queue in queues[:5]:
+            queue_name = queue.get("name", queue) if isinstance(queue, dict) else queue
+            html += f'<span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full transition-all duration-150 hover:bg-green-200">{queue_name}</span>'
+
         if len(queues) > 5:
-            html += f'<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">+{len(queues) - 5} more</span>'
+            html += '<button class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200" onclick="toggleQueues(this)">'
+            html += f"+{len(queues) - 5} more</button>"
+            html += '<div class="hidden w-full mt-2">'
+            for queue in queues[5:]:
+                queue_name = (
+                    queue.get("name", queue) if isinstance(queue, dict) else queue
+                )
+                html += f'<span class="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full mr-2 mb-2">{queue_name}</span>'
+            html += "</div>"
+
         html += "</div></div>"
 
-    # Groups
+    # Locations
+    locations = user_data.get("locations", [])
+    if locations:
+        html += '<div class="mb-4">'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
+        html += f'<i class="fas fa-map-marker-alt mr-2 text-purple-500"></i>Locations ({len(locations)})</h6>'
+        html += '<div class="flex flex-wrap gap-2">'
+
+        for location in locations:
+            location_name = (
+                location.get("name", location)
+                if isinstance(location, dict)
+                else location
+            )
+            html += f'<span class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">{location_name}</span>'
+
+        html += "</div></div>"
+
+    # Groups with enhanced display
     groups = user_data.get("groups", [])
     if groups:
-        html += "<div>"
-        html += '<h5 class="text-sm font-medium text-gray-900 mb-2">Groups</h5>'
+        html += '<div class="mb-4">'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
+        html += f'<i class="fas fa-layer-group mr-2 text-indigo-500"></i>Groups ({len(groups)})</h6>'
         html += '<div class="flex flex-wrap gap-2">'
-        for group in groups[:3]:  # Limit to first 3
-            html += f'<span class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">{group["name"]}</span>'
+
+        # Show first 3 groups
+        for group in groups[:3]:
+            group_name = group.get("name", group) if isinstance(group, dict) else group
+            html += f'<span class="px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded-full">{group_name}</span>'
+
         if len(groups) > 3:
-            html += f'<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">+{len(groups) - 3} more</span>'
+            html += '<button class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full hover:bg-gray-200" onclick="toggleGroups(this)">'
+            html += f"+{len(groups) - 3} more</button>"
+            html += '<div class="hidden w-full mt-2">'
+            for group in groups[3:]:
+                group_name = (
+                    group.get("name", group) if isinstance(group, dict) else group
+                )
+                html += f'<span class="inline-block px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded-full mr-2 mb-2">{group_name}</span>'
+            html += "</div>"
+
         html += "</div></div>"
+
+    # Add JavaScript for toggle functionality
+    html += """
+    <script>
+    function toggleSkills(button) {
+        const hiddenDiv = button.nextElementSibling;
+        if (hiddenDiv.classList.contains('hidden')) {
+            hiddenDiv.classList.remove('hidden');
+            button.textContent = 'Show less';
+        } else {
+            hiddenDiv.classList.add('hidden');
+            const count = button.textContent.match(/\\d+/)[0];
+            button.textContent = `+${count} more`;
+        }
+    }
+    function toggleQueues(button) {
+        const hiddenDiv = button.nextElementSibling;
+        if (hiddenDiv.classList.contains('hidden')) {
+            hiddenDiv.classList.remove('hidden');
+            button.textContent = 'Show less';
+        } else {
+            hiddenDiv.classList.add('hidden');
+            const count = button.textContent.match(/\\d+/)[0];
+            button.textContent = `+${count} more`;
+        }
+    }
+    function toggleGroups(button) {
+        const hiddenDiv = button.nextElementSibling;
+        if (hiddenDiv.classList.contains('hidden')) {
+            hiddenDiv.classList.remove('hidden');
+            button.textContent = 'Show less';
+        } else {
+            hiddenDiv.classList.add('hidden');
+            const count = button.textContent.match(/\\d+/)[0];
+            button.textContent = `+${count} more`;
+        }
+    }
+    </script>
+    """
 
     html += "</div></div>"
     return html
 
 
-def _render_keystone_card(keystone_data):
-    """Render Keystone data card."""
+def _render_keystone_card(keystone_data, keystone_error=None):
+    """Render Keystone data card with error handling."""
     html = """
     <div class="bg-white rounded-lg shadow-md overflow-hidden mt-6">
         <div class="bg-gray-800 text-white px-6 py-4">
             <h3 class="text-xl font-semibold flex items-center">
                 <i class="fas fa-database mr-3"></i>
-                Keystone Data
+                Keystone Data Warehouse
             </h3>
         </div>
         <div class="p-6">
     """
 
-    # Role information
-    if keystone_data.get("role_mismatch"):
-        html += """
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-yellow-700">
-                        Role mismatch detected between systems
-                    </p>
+    # Handle errors first
+    if keystone_error:
+        if "pyodbc not available" in str(keystone_error) or "Error loading Keystone data" in str(keystone_error):
+            html += """
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-blue-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-blue-800">Data Warehouse Integration</h4>
+                        <p class="text-sm text-blue-700 mt-1">
+                            The Keystone data warehouse integration is currently unavailable. 
+                            This service provides additional member information from internal systems.
+                        </p>
+                        <p class="text-xs text-blue-600 mt-2">
+                            Status: Service requires SQL Server connectivity (pyodbc driver not available)
+                        </p>
+                    </div>
                 </div>
             </div>
-        </div>
-        """
+            """
+        else:
+            html += f"""
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-yellow-800">Data Warehouse Error</h4>
+                        <p class="text-sm text-yellow-700 mt-1">{keystone_error}</p>
+                    </div>
+                </div>
+            </div>
+            """
+    
+    # Show data if available
+    if keystone_data:
+        # Role status indicator
+        if keystone_data.get("role_mismatch"):
+            warning_level = keystone_data.get("role_warning_level", "medium")
+            
+            if warning_level == "success":
+                # Positive indicator for matching roles
+                html += f"""
+                <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-green-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h4 class="text-sm font-medium text-green-800">Role Assignment Verified</h4>
+                            <p class="text-sm text-green-700 mt-1">
+                                {keystone_data['role_mismatch']}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                """
+            else:
+                # Warning/error indicators for issues
+                warning_color = "red" if warning_level == "high" else "yellow"
+                warning_title = "Security Alert: Role Assignment Issue" if warning_level == "high" else "Audit Alert: Role Mapping Issue"
+                html += f"""
+                <div class="bg-{warning_color}-50 border-l-4 border-{warning_color}-400 p-4 mb-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle text-{warning_color}-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h4 class="text-sm font-medium text-{warning_color}-800">{warning_title}</h4>
+                            <p class="text-sm text-{warning_color}-700 mt-1">
+                                {keystone_data['role_mismatch']}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                """
 
-    # Additional Keystone data would be rendered here
-    html += '<p class="text-gray-600">Additional member data from Keystone system</p>'
+        # Display Keystone data in organized sections
+        html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-6">'
+        
+        # Keystone Identity Section
+        html += '<div>'
+        html += '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        html += '<i class="fas fa-id-badge mr-2"></i>Keystone Identity</h6>'
+        html += '<div class="space-y-2 text-sm">'
+        
+        if keystone_data.get("user_serial"):
+            html += f'<div><span class="font-medium">User Serial:</span> {keystone_data["user_serial"]}</div>'
+        
+        if keystone_data.get("upn"):
+            html += f'<div><span class="font-medium">UPN:</span> {keystone_data["upn"]}</div>'
+        
+        if keystone_data.get("ukg_job_code"):
+            html += f'<div><span class="font-medium">UKG Job Code:</span> {keystone_data["ukg_job_code"]}</div>'
+        
+        html += '</div></div>'
+        
+        # Role Information Section
+        html += '<div>'
+        html += '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        html += '<i class="fas fa-user-tag mr-2"></i>Role Information</h6>'
+        html += '<div class="space-y-2 text-sm">'
+        
+        if keystone_data.get("live_role"):
+            warning_level = keystone_data.get("role_warning_level")
+            if warning_level == "success":
+                role_class = "text-green-600"  # Green for matching roles
+                role_icon = '<i class="fas fa-check-circle mr-1"></i>'
+            elif warning_level == "high":
+                role_class = "text-red-600"  # Red for mismatches/missing roles
+                role_icon = '<i class="fas fa-exclamation-triangle mr-1"></i>'
+            elif warning_level == "medium":
+                role_class = "text-yellow-600"  # Yellow for unmapped job codes
+                role_icon = '<i class="fas fa-question-circle mr-1"></i>'
+            else:
+                role_class = "text-gray-600"  # Default
+                role_icon = ""
+            
+            html += f'<div><span class="font-medium">Live Role:</span> <span class="{role_class}">{role_icon}{keystone_data["live_role"]}</span></div>'
+        
+        if keystone_data.get("test_role"):
+            html += f'<div><span class="font-medium">Test Role:</span> {keystone_data["test_role"]}</div>'
+        
+        if keystone_data.get("expected_role"):
+            html += f'<div><span class="font-medium">Expected Role:</span> {keystone_data["expected_role"]}</div>'
+        
+        html += '</div></div></div>'
+        
+        # Account Status Section
+        html += '<div class="mt-6">'
+        html += '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        html += '<i class="fas fa-shield-alt mr-2"></i>Account Status</h6>'
+        html += '<div class="space-y-2 text-sm">'
+        
+        if keystone_data.get("lock_status"):
+            lock_class = "text-red-600" if keystone_data.get("login_locked") else "text-green-600"
+            lock_icon = "fa-lock" if keystone_data.get("login_locked") else "fa-unlock"
+            html += f'<div><span class="font-medium">Keystone Login Lock Status:</span> <span class="{lock_class}"><i class="fas {lock_icon} mr-1"></i>{keystone_data["lock_status"]}</span></div>'
+        
+        if keystone_data.get("last_login_formatted"):
+            html += f'<div><span class="font-medium">Keystone Last Login:</span> {keystone_data["last_login_formatted"]}</div>'
+        
+        if keystone_data.get("last_cached"):
+            formatted_cached = _format_date_with_relative(keystone_data["last_cached"], "Data Cached")
+            html += f'<div>{formatted_cached}</div>'
+        
+        html += '</div></div>'
+    else:
+        # No data available
+        if not keystone_error:
+            html += """
+            <div class="text-center py-4">
+                <i class="fas fa-database text-gray-400 text-3xl mb-2"></i>
+                <p class="text-gray-500">No Keystone data found for this user</p>
+                <p class="text-xs text-gray-400 mt-1">Additional member information would appear here when available</p>
+            </div>
+            """
 
     html += "</div></div>"
     return html
@@ -1048,74 +1479,234 @@ def _render_user_preview(email, azure_ad_result, genesys_data):
 
 def _render_notes_empty(email):
     """Render empty notes section."""
-    return f"""
-    <div class="space-y-2">
-        <p class="text-sm text-gray-500">No notes yet</p>
+    from flask import g
+
+    # Check if user can add notes (editor or admin)
+    can_edit = hasattr(g, "role") and g.role in ["editor", "admin"]
+
+    html = '<div class="space-y-2">'
+    html += '<p class="text-sm text-gray-500">No notes yet</p>'
+
+    if can_edit:
+        html += f"""
         <button hx-get="/search/notes/new?email={email}"
                 hx-target="#noteModalContent"
                 hx-swap="innerHTML"
-                class="text-sm text-blue-600 hover:text-blue-800">
+                class="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-150">
             <i class="fas fa-plus-circle mr-1"></i>Add Note
         </button>
-    </div>
-    """
+        """
+
+    html += "</div>"
+    return html
 
 
 def _render_notes_list(notes, email):
     """Render notes list."""
+    from flask import g
+
+    # Check if user can add notes (editor or admin)
+    can_edit = hasattr(g, "role") and g.role in ["editor", "admin"]
+
     html = '<div class="space-y-2">'
 
     for note in notes:
         html += _render_single_note(note, email)
 
-    html += f"""
-    <button hx-get="/search/notes/new?email={email}"
-            hx-target="#noteModal"
-            hx-swap="innerHTML"
-            class="text-sm text-blue-600 hover:text-blue-800 mt-2">
-        <i class="fas fa-plus-circle mr-1"></i>Add Note
-    </button>
-    </div>
-    """
+    if can_edit:
+        html += f"""
+        <button hx-get="/search/notes/new?email={email}"
+                hx-target="#noteModal"
+                hx-swap="innerHTML"
+                class="text-sm text-blue-600 hover:text-blue-800 mt-2 transition-colors duration-150">
+            <i class="fas fa-plus-circle mr-1"></i>Add Note
+        </button>
+        """
 
+    html += "</div>"
     return html
 
 
 def _render_single_note(note, email):
     """Render a single note card."""
+    from flask import g
+
+    # Check if user can edit notes (editor or admin)
+    can_edit = hasattr(g, "role") and g.role in ["editor", "admin"]
+
     # Format dates
-    created_date = note.created_at.strftime("%m/%d/%Y") if note.created_at else ""
-    updated_date = note.updated_at.strftime("%m/%d/%Y") if note.updated_at else ""
+    created_date = (
+        format_timestamp(note.created_at, "%m/%d/%Y") if note.created_at else ""
+    )
+    updated_date = (
+        format_timestamp(note.updated_at, "%m/%d/%Y") if note.updated_at else ""
+    )
 
     date_info = f"Created {created_date} by {note.created_by or 'Unknown'}"
     if updated_date and updated_date != created_date:
         date_info += f" • Updated {updated_date}"
 
-    return f'''
-    <div class="bg-gray-50 p-3 rounded-md note-card" data-note-id="{note.id}">
+    html = f'''
+    <div class="bg-gray-50 p-3 rounded-md note-card transition-all duration-150 hover:bg-gray-100" data-note-id="{note.id}">
         <div class="flex justify-between items-start">
             <div class="flex-1">
                 <p class="text-sm text-gray-700 whitespace-pre-wrap">{note.note}</p>
                 <p class="text-xs text-gray-500 mt-1">{date_info}</p>
             </div>
+    '''
+
+    if can_edit:
+        html += f"""
             <div class="ml-2 space-x-1">
                 <button hx-get="/search/notes/{note.id}/edit"
                         hx-target=".note-card[data-note-id='{note.id}']"
                         hx-swap="outerHTML"
-                        class="text-blue-600 hover:text-blue-800 text-sm">
+                        class="text-blue-600 hover:text-blue-800 text-sm transition-colors duration-150">
                     <i class="fas fa-edit"></i>
                 </button>
                 <button hx-delete="/search/api/notes/{note.id}"
                         hx-confirm="Are you sure you want to delete this note?"
                         hx-target=".note-card[data-note-id='{note.id}']"
                         hx-swap="outerHTML"
-                        class="text-red-600 hover:text-red-800 text-sm">
+                        class="text-red-600 hover:text-red-800 text-sm transition-colors duration-150">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
+        """
+
+    html += """
         </div>
     </div>
-    '''
+    """
+
+    return html
+
+
+def _format_phone_number(phone):
+    """Format phone numbers consistently."""
+    if not phone:
+        return phone
+
+    import re
+
+    # Remove all non-digits
+    cleaned = re.sub(r"\D", "", str(phone))
+
+    # If it's a 4-digit extension, leave it as is
+    if len(cleaned) == 4:
+        return cleaned
+
+    # Handle 10-digit numbers (add US country code)
+    if len(cleaned) == 10:
+        return f"+1 {cleaned[:3]}-{cleaned[3:6]}-{cleaned[6:]}"
+
+    # Handle 11-digit numbers starting with 1
+    if len(cleaned) == 11 and cleaned.startswith("1"):
+        return f"+1 {cleaned[1:4]}-{cleaned[4:7]}-{cleaned[7:]}"
+
+    # Return original if we can't format it
+    return phone
+
+
+def _get_phone_label(phone_type):
+    """Get display label for phone type."""
+    type_map = {
+        "mobile": "Cell Phone",
+        "business": "Business",
+        "teams": "Office",
+        "teams_did": "DID",  # Simplified since we have source badges
+        "genesys_did": "DID",  # Simplified since we have source badges
+        "genesys_ext": "Ext",
+        "genesys": "Office",
+    }
+    return type_map.get(phone_type, phone_type.replace("_", " ").title())
+
+
+def _get_phone_badge(phone_type):
+    """Get badge HTML for phone type."""
+    if "teams" in phone_type.lower():
+        return '<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Teams</span>'
+    elif "genesys" in phone_type.lower():
+        return '<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Genesys</span>'
+    elif phone_type in ["mobile", "business"]:
+        return '<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">AD</span>'
+    return ""
+
+
+def _format_date_with_relative(date_value, label):
+    """Format date with relative time information."""
+    if not date_value:
+        return f"<span class='font-medium'>{label}:</span> <span class='text-gray-500'>-</span>"
+
+    try:
+        # Parse the date
+        if isinstance(date_value, str):
+            # Try to parse ISO format
+            if "T" in date_value:
+                date_obj = datetime.fromisoformat(date_value.replace("Z", "+00:00"))
+            else:
+                date_obj = datetime.fromisoformat(date_value)
+        elif isinstance(date_value, datetime):
+            date_obj = date_value
+        else:
+            return f"<span class='font-medium'>{label}:</span> <span class='text-gray-500'>{date_value}</span>"
+
+        # Ensure timezone awareness
+        if date_obj.tzinfo is None:
+            date_obj = date_obj.replace(tzinfo=timezone.utc)
+
+        # Format date as M/D/YYYY
+        date_str = f"{date_obj.month}/{date_obj.day}/{date_obj.year}"
+
+        # Format time in 24-hour format without seconds
+        time_str = f"{date_obj.hour:02d}:{date_obj.minute:02d}"
+
+        # Calculate relative time
+        now = datetime.now(timezone.utc)
+        days_diff = (date_obj - now).days
+        abs_days = abs(days_diff)
+
+        # Calculate years, months, and remaining days
+        years = abs_days // 365
+        months = (abs_days % 365) // 30
+        days = abs_days % 30
+
+        # Build relative string
+        parts = []
+        if years > 0:
+            parts.append(f"{years}Yr")
+            if months > 0:
+                parts.append(f"{months}Mo")
+        elif months > 0:
+            parts.append(f"{months}Mo")
+            if days > 0 and months < 3:
+                parts.append(f"{days}d")
+        elif abs_days > 0:
+            parts.append(f"{abs_days}d")
+
+        # Format based on past or future
+        if days_diff < 0:
+            relative = parts[0] + " ago" if parts else "Today"
+        elif days_diff == 0:
+            relative = "Today"
+        else:
+            relative = "in " + " ".join(parts)
+            # Add warning classes for expiration
+            if "expires" in label.lower():
+                if days_diff < 7:
+                    relative = (
+                        f'<span class="text-red-600 font-medium">{relative}</span>'
+                    )
+                elif days_diff < 30:
+                    relative = (
+                        f'<span class="text-yellow-600 font-medium">{relative}</span>'
+                    )
+
+        return f"<span class='font-medium'>{label}:</span> {date_str} {time_str} <span class='text-gray-500'>({relative})</span>"
+
+    except Exception as e:
+        logger.warning(f"Error formatting date {date_value}: {str(e)}")
+        return f"<span class='font-medium'>{label}:</span> <span class='text-gray-500'>{date_value}</span>"
 
 
 @search_bp.route("/notes/new")

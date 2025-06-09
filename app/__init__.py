@@ -8,10 +8,16 @@ from app.container import inject_dependencies
 def create_app():
     app = Flask(__name__)
 
-    # Generate a secure random key if none is provided
+    # Get secret key from database configuration, generate if not available
     import secrets
+    from app.services.simple_config import config_get, config_set
 
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or secrets.token_hex(32)
+    secret_key = config_get("flask.secret_key")
+    if not secret_key:
+        secret_key = secrets.token_hex(32)
+        # Store the generated key in database for consistency
+        config_set("flask.secret_key", secret_key, "system")
+    app.config["SECRET_KEY"] = secret_key
 
     # Configure logging
     logging.basicConfig(
@@ -144,11 +150,13 @@ def create_app():
     from app.blueprints.search import search_bp
     from app.blueprints.admin import admin_bp
     from app.blueprints.session import session_bp
+    from app.blueprints.utilities import utilities
 
     app.register_blueprint(home_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(session_bp)
+    app.register_blueprint(utilities, url_prefix="/utilities")
 
     # Global error handlers
     @app.errorhandler(Exception)
@@ -156,12 +164,12 @@ def create_app():
         # Log the error to audit log
         try:
             from app.services.audit_service_postgres import audit_service
+            from app.utils.ip_utils import format_ip_info, get_all_ips
 
             user_email = request.headers.get(
                 "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user
             )
             user_role = getattr(request, "user_role", None)
-            user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
             audit_service.log_error(
                 error_type=type(e).__name__,
@@ -169,7 +177,7 @@ def create_app():
                 stack_trace=traceback.format_exc(),
                 user_email=user_email,
                 user_role=user_role,
-                ip_address=user_ip,
+                ip_address=format_ip_info(),
                 request_path=request.path,
                 request_method=request.method,
                 user_agent=request.headers.get("User-Agent"),
@@ -177,6 +185,7 @@ def create_app():
                     "url": request.url,
                     "args": dict(request.args),
                     "form": dict(request.form) if request.form else None,
+                    "ip_info": get_all_ips(),
                 },
             )
         except Exception as log_error:

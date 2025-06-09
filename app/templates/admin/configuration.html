@@ -10,7 +10,7 @@
             Configuration Management
         </h1>
         <a href="{{ url_for('admin.index') }}" 
-           class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition duration-150 ease-in-out flex items-center">
+           class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-all duration-150 hover:scale-105 hover:shadow-md flex items-center">
             <i class="fas fa-arrow-left mr-2"></i>
             Back to Admin
         </a>
@@ -46,12 +46,12 @@
     <div class="tab-content">
         <!-- Application Tab -->
         <div id="app-tab-content" class="tab-pane active">
-            <div class="bg-white rounded-lg shadow-md border border-gray-200">
-                <div class="bg-ttcu-green text-white px-6 py-4 rounded-t-lg">
-                    <h5 class="text-lg font-semibold flex items-center">
+            <div class="bg-white rounded-2xl shadow-md border border-gray-200">
+                <div class="bg-ttcu-green text-white px-6 py-4 rounded-t-2xl">
+                    <h2 class="text-xl font-semibold text-white flex items-center">
                         <i class="fas fa-cog mr-2"></i>
                         Application Settings
-                    </h5>
+                    </h2>
                 </div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=app" 
                      hx-trigger="load" 
@@ -68,15 +68,15 @@
 
         <!-- LDAP Tab -->
         <div id="ldap-tab-content" class="tab-pane hidden">
-            <div class="bg-white rounded-lg shadow-md border border-gray-200">
-                <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
-                    <h5 class="text-lg font-semibold flex items-center">
+            <div class="bg-white rounded-2xl shadow-md border border-gray-200">
+                <div class="bg-green-600 text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
+                    <h2 class="text-xl font-semibold text-white flex items-center">
                         <i class="fas fa-network-wired mr-2"></i>
                         LDAP Configuration
-                    </h5>
+                    </h2>
                     <button class="px-4 py-2 bg-green-500 hover:bg-green-400 text-white text-sm rounded-md transition duration-150"
                             hx-post="{{ url_for('admin.test_ldap_connection') }}"
-                            hx-target="#ldap-header-test-result"
+                            hx-target="#ldap-toast-target"
                             hx-indicator="#ldap-header-test-spinner">
                         <i class="fas fa-plug mr-1"></i>
                         Test Connection
@@ -84,8 +84,8 @@
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </button>
+                    <div id="ldap-toast-target" style="display: none;"></div>
                 </div>
-                <div id="ldap-header-test-result"></div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=ldap" 
                      hx-trigger="load" 
                      hx-swap="innerHTML">
@@ -101,15 +101,15 @@
 
         <!-- Azure AD Tab -->
         <div id="azure-tab-content" class="tab-pane hidden">
-            <div class="bg-white rounded-lg shadow-md border border-gray-200">
-                <div class="bg-blue-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
-                    <h5 class="text-lg font-semibold flex items-center">
+            <div class="bg-white rounded-2xl shadow-md border border-gray-200">
+                <div class="bg-blue-600 text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
+                    <h2 class="text-xl font-semibold text-white flex items-center">
                         <i class="fab fa-microsoft mr-2"></i>
                         Azure AD / Microsoft Graph Configuration
-                    </h5>
+                    </h2>
                     <button class="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white text-sm rounded-md transition duration-150"
                             hx-post="{{ url_for('admin.test_graph_connection') }}"
-                            hx-target="#graph-header-test-result"
+                            hx-target="#graph-toast-target"
                             hx-indicator="#graph-header-test-spinner">
                         <i class="fas fa-plug mr-1"></i>
                         Test Connection
@@ -117,8 +117,8 @@
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </button>
+                    <div id="graph-toast-target" style="display: none;"></div>
                 </div>
-                <div id="graph-header-test-result"></div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=graph" 
                      hx-trigger="load" 
                      hx-swap="innerHTML">
@@ -134,15 +134,15 @@
 
         <!-- Genesys Tab -->
         <div id="genesys-tab-content" class="tab-pane hidden">
-            <div class="bg-white rounded-lg shadow-md border border-gray-200">
-                <div class="bg-genesys-orange text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
-                    <h5 class="text-lg font-semibold flex items-center">
+            <div class="bg-white rounded-2xl shadow-md border border-gray-200">
+                <div class="bg-genesys-orange text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
+                    <h2 class="text-xl font-semibold text-white flex items-center">
                         <i class="fas fa-headset mr-2"></i>
                         Genesys Cloud Configuration
-                    </h5>
+                    </h2>
                     <button class="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white text-sm rounded-md transition duration-150"
                             hx-post="{{ url_for('admin.test_genesys_connection') }}"
-                            hx-target="#genesys-header-test-result"
+                            hx-target="#genesys-toast-target"
                             hx-indicator="#genesys-header-test-spinner">
                         <i class="fas fa-plug mr-1"></i>
                         Test Connection
@@ -150,8 +150,8 @@
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </button>
+                    <div id="genesys-toast-target" style="display: none;"></div>
                 </div>
-                <div id="genesys-header-test-result"></div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=genesys" 
                      hx-trigger="load" 
                      hx-swap="innerHTML">
@@ -167,15 +167,15 @@
 
         <!-- Data Warehouse Tab -->
         <div id="data-warehouse-tab-content" class="tab-pane hidden">
-            <div class="bg-white rounded-lg shadow-md border border-gray-200">
-                <div class="bg-purple-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
-                    <h5 class="text-lg font-semibold flex items-center">
+            <div class="bg-white rounded-2xl shadow-md border border-gray-200">
+                <div class="bg-purple-600 text-white px-6 py-4 rounded-t-2xl flex justify-between items-center">
+                    <h2 class="text-xl font-semibold text-white flex items-center">
                         <i class="fas fa-database mr-2"></i>
                         Data Warehouse Configuration
-                    </h5>
+                    </h2>
                     <button class="px-4 py-2 bg-purple-500 hover:bg-purple-400 text-white text-sm rounded-md transition duration-150"
                             hx-post="{{ url_for('admin.test_data_warehouse_connection') }}"
-                            hx-target="#dw-header-test-result"
+                            hx-target="#dw-toast-target"
                             hx-indicator="#dw-header-test-spinner">
                         <i class="fas fa-plug mr-1"></i>
                         Test Connection
@@ -183,8 +183,8 @@
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </button>
+                    <div id="dw-toast-target" style="display: none;"></div>
                 </div>
-                <div id="dw-header-test-result"></div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=data_warehouse" 
                      hx-trigger="load" 
                      hx-swap="innerHTML">
@@ -202,11 +202,11 @@
 
 <style>
     .tab-button {
-        @apply whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-150 cursor-pointer;
-        @apply border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300;
+        @apply whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-all duration-150 cursor-pointer;
+        @apply border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:scale-105;
     }
     .tab-button.active {
-        @apply border-ttcu-green text-ttcu-green;
+        @apply border-ttcu-green text-ttcu-green transform scale-105;
     }
     .tab-pane {
         display: none;

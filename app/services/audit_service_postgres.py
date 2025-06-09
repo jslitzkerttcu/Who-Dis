@@ -112,7 +112,12 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
     ):
         """Log configuration changes (backward compatibility alias)."""
         try:
-            AuditLog.log_config(user_email, config_key, old_value, new_value, **kwargs)
+            # Add old_value and new_value to kwargs for the actual method
+            kwargs["old_value"] = old_value
+            kwargs["new_value"] = new_value
+            AuditLog.log_config_change(
+                user_email, "config_change", config_key, **kwargs
+            )
         except Exception as e:
             logger.error(f"Failed to log config: {e}")
 

@@ -102,7 +102,18 @@ def auth_required(f):
         if not authenticate():
             if not hasattr(g, "user") or g.user is None:
                 log_access_denied()  # Log unauthenticated access
-                # Redirect to login page for unauthenticated users
+
+                # Check if this is an HTMX request
+                if request.headers.get("HX-Request"):
+                    # For HTMX requests, return a 401 response that triggers a full page reload
+                    from flask import make_response
+
+                    response = make_response("Authentication required", 401)
+                    # Tell HTMX to redirect to login page
+                    response.headers["HX-Redirect"] = "/login?reason=session_expired"
+                    return response
+
+                # Redirect to login page for regular requests
                 from flask import redirect, url_for
 
                 return redirect(url_for("home.login", reason="auth_required"))
@@ -126,7 +137,20 @@ def require_role(minimum_role):
             if not authenticate():
                 if not hasattr(g, "user") or g.user is None:
                     log_access_denied()  # Log unauthenticated access
-                    # Redirect to login page for unauthenticated users
+
+                    # Check if this is an HTMX request
+                    if request.headers.get("HX-Request"):
+                        # For HTMX requests, return a 401 response that triggers a full page reload
+                        from flask import make_response
+
+                        response = make_response("Authentication required", 401)
+                        # Tell HTMX to redirect to login page
+                        response.headers["HX-Redirect"] = (
+                            "/login?reason=session_expired"
+                        )
+                        return response
+
+                    # Redirect to login page for regular requests
                     from flask import redirect, url_for
 
                     return redirect(url_for("home.login", reason="auth_required"))

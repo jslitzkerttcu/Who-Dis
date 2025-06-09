@@ -34,23 +34,23 @@ class CacheRepository(ICacheRepository):
     ) -> None:
         """Cache data with optional expiration."""
         from datetime import timedelta
-        
+
         # Default expiration if not provided
         if expires_at is None:
             expires_at = datetime.now() + timedelta(hours=1)
-            
+
         # Use SearchCache for general data caching
         cache = SearchCache.query.filter_by(
             search_query=cache_key, search_type="general"
         ).first()
-        
+
         if cache:
             cache.update(result_data=data, expires_at=expires_at)
         else:
             cache = SearchCache(
                 search_query=cache_key,
-                search_type="general", 
+                search_type="general",
                 result_data=data,
-                expires_at=expires_at
+                expires_at=expires_at,
             )
             cache.save()

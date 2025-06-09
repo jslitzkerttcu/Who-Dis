@@ -43,6 +43,28 @@ black .
 ### Testing
 No test framework is currently configured. When implementing tests, add pytest to requirements.txt.
 
+### Dependencies
+Key dependencies in requirements.txt:
+```
+Flask==3.0.0                 # Web framework
+Flask-SQLAlchemy==3.1.1      # Database ORM
+psycopg2-binary==2.9.10      # PostgreSQL adapter
+requests==2.31.0             # HTTP client for API integrations
+msal==1.24.1                 # Microsoft Graph authentication
+ldap3==2.9.1                 # LDAP/Active Directory integration
+cryptography==42.0.5         # Encryption for sensitive data
+pytz==2024.1                 # Timezone handling for token expiration
+tabulate==0.9.0              # Table formatting for CLI tools
+pyodbc==5.2.0                # SQL Server connectivity for data warehouse
+ruff                         # Python linting
+mypy                         # Type checking
+```
+
+Frontend dependencies are delivered via CDN:
+- **HTMX**: Dynamic content updates and AJAX interactions
+- **Tailwind CSS**: Utility-first CSS framework for styling
+- **FontAwesome**: Icon library for visual elements
+
 ### Database Management
 ```bash
 # Check configuration status
@@ -67,7 +89,7 @@ python scripts/test_locations_cache.py
 ## Architecture
 
 ### Application Structure
-WhoDis is a Flask-based identity lookup service with PostgreSQL backend and integrated search across multiple identity providers:
+WhoDis is a Flask-based identity lookup service with PostgreSQL backend and integrated search across multiple identity providers using a modern hybrid server-side + HTMX architecture:
 
 - **`app/__init__.py`**: Application factory that initializes Flask, database, configuration service, and registers blueprints
 - **`app/database.py`**: Database configuration and connection management
@@ -118,6 +140,39 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
     - `genesys_cache_db.py`: PostgreSQL caching for Genesys groups, skills, locations
     - `token_refresh_service.py`: Background service for automatic API token renewal
 
+### Frontend Architecture
+WhoDis uses a hybrid server-side rendering approach that combines traditional Jinja2 templating with modern interactive elements:
+
+#### **Tech Stack**
+- **Jinja2 Templates**: Server-side templating for initial page structure and SEO-friendly content
+- **HTMX**: Dynamic content updates and AJAX interactions without complex JavaScript frameworks
+- **Tailwind CSS**: Utility-first CSS framework for responsive, modern styling
+- **FontAwesome**: Icon library for visual hierarchy
+- **Vanilla JavaScript**: Minimal client-side code for enhanced functionality
+
+#### **Architecture Benefits**
+- **Progressive Enhancement**: Works without JavaScript, enhanced with HTMX for better UX
+- **Server-Side Rendering**: SEO-friendly, fast initial loads, no large JS bundles
+- **Dynamic Updates**: HTMX enables SPA-like interactions without full page refreshes
+- **Simple Debugging**: Server returns HTML fragments, not complex JSON APIs
+- **Mobile-First Design**: Tailwind CSS provides responsive, touch-friendly interfaces
+
+#### **File Structure**
+- **`app/templates/`**: Jinja2 templates for page structure
+  - `base.html`: Base template with Tailwind CSS and HTMX integration
+  - `admin/`: Admin interface templates with modern card-based layouts
+  - `search/`: Search interface with real-time result updates
+- **`app/static/`**: Static assets
+  - `js/`: Vanilla JavaScript with HTMX helpers and event handlers
+  - `css/`: Minimal custom CSS alongside Tailwind utilities
+  - `img/`: Application icons and branding assets
+
+#### **Interaction Pattern**
+1. **Initial Load**: Jinja2 renders complete HTML page with Tailwind styling
+2. **Dynamic Updates**: HTMX makes requests that return HTML fragments
+3. **Real-time Features**: Server-sent HTML updates via HTMX triggers
+4. **Progressive Enhancement**: Core functionality works without JavaScript
+
 ### Database Architecture
 - **PostgreSQL 12+** for all data persistence
 - **Connection pooling** via SQLAlchemy
@@ -151,18 +206,43 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 - **Result Caching**: Search results cached in PostgreSQL with expiration
 
 ### UI/UX Features
+WhoDis features a modern, responsive interface built with Tailwind CSS and enhanced with HTMX for seamless interactions:
+
+#### **Search Interface**
 - **Two-Column Layout**: Azure AD (LDAP + Graph) and Genesys Cloud results side-by-side
-- **Modern Search Bar**: Rounded pill-style search with shadow effects
+- **Modern Search Bar**: Rounded pill-style search with shadow effects and real-time results
 - **Status Indicators**: Visual badges for account status (Enabled/Disabled, Locked/Not Locked)
 - **Phone Number Formatting**: Consistent +1 XXX-XXX-XXXX format with service tags
 - **Date Formatting**: Clean M/D/YYYY format with 24-hour time and smart relative dates (e.g., "6Yr 8Mo ago")
 - **Profile Photos**: Fetched from Microsoft Graph API with lazy loading and placeholder
 - **Collapsible Groups**: AD and Genesys groups shown in expandable sections
+
+#### **Admin Interface**
+- **Modern Dashboard**: Card-based layout with real-time statistics and controls
+- **Cache Management**: Interactive cards showing API token status with hover tooltips, cache statistics with refresh controls
+- **User Management**: Clean table interface with role-based access controls
+- **Configuration Editor**: Form-based config management with validation
+- **Audit Log Viewer**: Searchable, filterable log interface with detail modals
+
+#### **Mobile-First Design**
+- **Responsive Grid**: Adaptive layouts (1 column mobile, 2 tablet, 3+ desktop)
+- **Touch-Friendly**: Proper button sizing and spacing for mobile devices
+- **Progressive Enhancement**: Core functionality works without JavaScript
+- **Fast Loading**: Minimal JavaScript bundle, server-side rendering
+
+#### **Visual Design**
 - **Custom Branding**: TTCU colors (#007c59 for Azure AD, #FF4F1F for Genesys, #f2c655 for buttons)
-- **Admin Dashboard**: User management, configuration editor, and audit log viewer
+- **Icon System**: FontAwesome icons for visual hierarchy and recognition
+- **Color Coding**: Consistent status colors (green=good, yellow=warning, red=error)
+- **Smooth Animations**: HTMX-powered transitions without complex JavaScript
+
+#### **Interactive Features**
 - **Session Timeout Warning**: Modal with countdown timer and extension option
+- **Real-time Updates**: HTMX enables dynamic content updates without page refreshes
+- **Hover Tooltips**: Contextual information on token expiration and status details
+- **Confirmation Dialogs**: Prevent accidental destructive actions
 - **User Notes**: Admin ability to add internal notes about users
-- **Login Page**: Dedicated login route with SSO support
+- **Live Search**: Results update as you type with debounced requests
 
 ### API Integrations
 
@@ -205,13 +285,31 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 - **JavaScript Client**: Handles client-side tracking and warning display
 
 ### Key Implementation Notes
+
+#### **Backend Services**
 - All services implement timeout handling to prevent hanging searches
 - Graph API uses beta endpoints for additional fields
 - Phone numbers from different sources are tagged (Genesys/Teams)
 - Password fields prioritize LDAP data over Graph data
 - Smart date calculations handle years, months, and days with abbreviations
-- Custom CSS for modern rounded search bar and consistent button styling
 - Memoryview/buffer objects from PostgreSQL BYTEA properly handled for encryption
+- API token expiration includes timezone-aware handling for Central Daylight Time
+
+#### **Frontend Architecture**
+- **Hybrid Rendering**: Server-side Jinja2 templates enhanced with HTMX for dynamic updates
+- **Progressive Enhancement**: Core functionality works without JavaScript, enhanced with HTMX
+- **Mobile-First**: Tailwind CSS provides responsive design with touch-friendly interfaces
+- **Performance**: Minimal JavaScript bundle (~10KB HTMX), fast server-side rendering
+- **SEO-Friendly**: Complete HTML content served on initial load for search engine indexing
+- **Debug-Friendly**: Server returns HTML fragments, making debugging straightforward
+
+#### **UI/UX Patterns**
+- **Card-Based Layouts**: Modern admin interface with interactive cache management cards
+- **Real-Time Updates**: HTMX enables seamless content updates without page refreshes
+- **Hover Tooltips**: Native browser tooltips show token expiration times and status details
+- **Confirmation Dialogs**: JavaScript confirms prevent accidental destructive actions
+- **Color-Coded Status**: Consistent visual indicators (green=good, yellow=warning, red=error)
+- **Responsive Grids**: Adaptive layouts that stack on mobile, expand on desktop
 
 ### Audit Logging
 - **Database**: PostgreSQL-based audit logging with comprehensive tracking

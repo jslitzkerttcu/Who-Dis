@@ -159,9 +159,11 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
         # Use base class method to normalize search terms
         search_variations = self._normalize_search_term(search_term)
 
+        all_results = []
+
         for search_query in search_variations:
             try:
-                # Try direct user lookup by userPrincipalName
+                # Try direct user lookup by userPrincipalName or email first
                 if "@" in search_query:
                     user_url = f"{self.graph_base_url}/users/{search_query}"
                     response = self._make_request("GET", user_url, token)
@@ -170,60 +172,98 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                         user = self._handle_response(response)
                         return self._process_user_data(user, include_photo)
 
-                # Search using filter - check if search contains a space (likely a full name)
-                if " " in search_query:
-                    # For full names, search in displayName
-                    filter_query = f"contains(displayName,'{search_query}')"
-                else:
-                    # For single terms, use startswith for better performance
-                    filter_query = (
-                        f"startswith(userPrincipalName,'{search_query}') or "
-                        f"startswith(displayName,'{search_query}') or "
-                        f"startswith(mail,'{search_query}') or "
-                        f"contains(displayName,'{search_query}')"
+                    # Also try as mail filter for exact match
+                    mail_filter = f"mail eq '{search_query}'"
+                    select_fields = self._get_select_fields()
+
+                    search_url = f"{self.graph_base_url}/users"
+                    params = {
+                        "$filter": mail_filter,
+                        "$select": ",".join(select_fields),
+                    }
+
+                    response = self._make_request(
+                        "GET", search_url, token, params=params
                     )
+                    if response.status_code == 200:
+                        data = self._handle_response(response)
+                        users = data.get("value", [])
+                        if users:
+                            return self._process_user_data(users[0], include_photo)
 
-                select_fields = [
-                    "id",
-                    "userPrincipalName",
-                    "displayName",
-                    "mail",
-                    "givenName",
-                    "surname",
-                    "jobTitle",
-                    "department",
-                    "officeLocation",
-                    "mobilePhone",
-                    "businessPhones",
-                    "employeeId",
-                    "manager",
-                    "accountEnabled",
-                    "createdDateTime",
-                    "lastPasswordChangeDateTime",
-                    "employeeHireDate",
-                    "employeeType",
-                    "userType",
-                ]
+                # Search using filter - only use startswith as contains is not supported
+                filter_query = (
+                    f"startswith(userPrincipalName,'{search_query}') or "
+                    f"startswith(displayName,'{search_query}') or "
+                    f"startswith(mail,'{search_query}')"
+                )
 
+                select_fields = self._get_select_fields()
                 search_url = f"{self.graph_base_url}/users"
                 params = {"$filter": filter_query, "$select": ",".join(select_fields)}
 
                 response = self._make_request("GET", search_url, token, params=params)
-                data = self._handle_response(response)
-                users = data.get("value", [])
 
-                if users:
-                    user = users[0]
-                    return self._process_user_data(user, include_photo)
+                if response.status_code == 200:
+                    data = self._handle_response(response)
+                    users = data.get("value", [])
+
+                    # Add to results if found
+                    all_results.extend(users)
 
             except (TimeoutError, ConnectionError):
                 # Base class already handles these with proper error messages
                 raise
             except Exception as e:
                 logger.error(f"Error searching Graph API: {str(e)}")
-                raise
+                # Continue with other search variations instead of raising
+                continue
+
+        # Remove duplicates by user ID
+        if all_results:
+            unique_users = {}
+            for user in all_results:
+                user_id = user.get("id")
+                if user_id and user_id not in unique_users:
+                    unique_users[user_id] = user
+
+            unique_results = list(unique_users.values())
+
+            if len(unique_results) == 1:
+                return self._process_user_data(unique_results[0], include_photo)
+            elif len(unique_results) > 1:
+                # Return multiple results format
+                return {
+                    "multiple_results": True,
+                    "results": unique_results[:10],  # Limit to 10 results
+                    "total": len(unique_results),
+                }
 
         return None
+
+    def _get_select_fields(self) -> list:
+        """Get the list of fields to select from Graph API."""
+        return [
+            "id",
+            "userPrincipalName",
+            "displayName",
+            "mail",
+            "givenName",
+            "surname",
+            "jobTitle",
+            "department",
+            "officeLocation",
+            "mobilePhone",
+            "businessPhones",
+            "employeeId",
+            "manager",
+            "accountEnabled",
+            "createdDateTime",
+            "lastPasswordChangeDateTime",
+            "employeeHireDate",
+            "employeeType",
+            "userType",
+        ]
 
     def get_user_by_id(
         self, user_id: str, include_photo: bool = True
@@ -265,9 +305,10 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                     from flask import current_app
 
                     if current_app:
-                        cached_photo = GraphPhoto.get_photo(user.get("id"))
-                        if cached_photo:
-                            photo_data = cached_photo.photo_data
+                        with get_db() as db:
+                            cached_photo = GraphPhoto.get_photo(db, user.get("id"))
+                            if cached_photo:
+                                photo_data = cached_photo.photo_data
                 except Exception:
                     pass
 
@@ -350,7 +391,10 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                         from flask import current_app
 
                         if current_app:
-                            GraphPhoto.upsert_photo(user_id, photo_data)
+                            with get_db() as db:
+                                GraphPhoto.upsert_photo(
+                                    db, user_id, photo_data.encode()
+                                )
                     except Exception as e:
                         logger.debug(f"Could not cache photo: {e}")
 

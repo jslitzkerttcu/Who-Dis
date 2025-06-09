@@ -284,6 +284,9 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
                 "displayName": user.get("name"),
                 "title": user.get("title"),
                 "department": user.get("department"),
+                "division": user.get("division", {}).get("name")
+                if user.get("division")
+                else None,
                 "state": user.get("state"),
                 "presence": user.get("presence", {})
                 .get("presenceDefinition", {})
@@ -474,6 +477,105 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
             logger.error(f"Error extracting phone numbers: {str(e)}")
 
         return phone_numbers
+
+    def get_blocked_numbers(self) -> Optional[Dict[str, Any]]:
+        """Get all blocked numbers from Genesys data table."""
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get access token")
+            return None
+
+        try:
+            response = self._make_request(
+                "GET",
+                f"{self.base_url}/api/v2/flows/datatables/7245e8ec-cb5b-4634-91e4-46ace0c1c0d2/rows",
+                token,
+                params={"pageSize": "400", "showbrief": "false"},
+            )
+
+            data = self._handle_response(response)
+            logger.info(f"Retrieved {len(data.get('entities', []))} blocked numbers")
+            return data
+
+        except Exception as e:
+            logger.error(f"Error getting blocked numbers: {str(e)}")
+            return None
+
+    def add_blocked_number(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Add a new blocked number to Genesys data table."""
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get access token")
+            return None
+
+        try:
+            response = self._make_request(
+                "POST",
+                f"{self.base_url}/api/v2/flows/datatables/7245e8ec-cb5b-4634-91e4-46ace0c1c0d2/rows",
+                token,
+                json=data,
+            )
+
+            result = self._handle_response(response)
+            logger.info(f"Added blocked number: {data.get('key')}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error adding blocked number: {str(e)}")
+            return None
+
+    def update_blocked_number(
+        self, ani: str, data: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Update an existing blocked number in Genesys data table."""
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get access token")
+            return None
+
+        try:
+            response = self._make_request(
+                "PUT",
+                f"{self.base_url}/api/v2/flows/datatables/7245e8ec-cb5b-4634-91e4-46ace0c1c0d2/rows/{ani}",
+                token,
+                json=data,
+            )
+
+            result = self._handle_response(response)
+            logger.info(f"Updated blocked number: {ani} -> {data.get('key')}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error updating blocked number: {str(e)}")
+            return None
+
+    def delete_blocked_number(self, ani: str) -> Optional[bool]:
+        """Delete a blocked number from Genesys data table."""
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get access token")
+            return None
+
+        try:
+            response = self._make_request(
+                "DELETE",
+                f"{self.base_url}/api/v2/flows/datatables/7245e8ec-cb5b-4634-91e4-46ace0c1c0d2/rows/{ani}",
+                token,
+            )
+
+            # DELETE typically returns 204 No Content on success
+            if response.status_code in [204, 200]:
+                logger.info(f"Deleted blocked number: {ani}")
+                return True
+            else:
+                logger.error(
+                    f"Failed to delete blocked number, status: {response.status_code}"
+                )
+                return None
+
+        except Exception as e:
+            logger.error(f"Error deleting blocked number: {str(e)}")
+            return None
 
 
 genesys_service = GenesysCloudService()

@@ -164,17 +164,17 @@ class ResultMerger(BaseConfigurableService):
         self, merged: Dict[str, Any], graph_data: Dict[str, Any], include_photo: bool
     ) -> None:
         """Merge profile photo data from Graph."""
-        if include_photo and graph_data.get("photoUrl"):
-            logger.info("Setting thumbnailPhoto from Graph photoUrl")
-            merged["thumbnailPhoto"] = graph_data["photoUrl"]
+        if include_photo and graph_data.get("photo"):
+            logger.info("Setting thumbnailPhoto from Graph photo data")
+            merged["thumbnailPhoto"] = graph_data["photo"]
         elif not include_photo and graph_data.get("hasPhoto"):
             # Photo exists but wasn't fetched (lazy loading)
             logger.info("Photo exists but not loaded (lazy loading enabled)")
             merged["hasPhotoCached"] = True
         else:
-            logger.info("No photoUrl in Graph data")
+            logger.info("No photo data from Graph")
 
-        # Graph ID for photo lookups
+        # Always include Graph ID for photo lookups (for lazy loading)
         if graph_data.get("id"):
             merged["graphId"] = graph_data["id"]
 

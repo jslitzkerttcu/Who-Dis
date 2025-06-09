@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Genesys Blocked Numbers - Who Dis?{% endblock %}
+
+{% block content %}
+<div class="container mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+                    <i class="fas fa-ban text-genesys-orange mr-3"></i>
+                    Genesys Blocked Numbers
+                </h1>
+                <p class="text-gray-600 mt-2">Manage blocked numbers in the Genesys Cloud data table</p>
+            </div>
+            {% if g.role in ['editor', 'admin'] %}
+            <button id="add-number-btn" 
+                    class="bg-ttcu-yellow hover:bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-md transition-colors duration-200 flex items-center">
+                <i class="fas fa-plus mr-2"></i>Add Blocked Number
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="text-center py-8">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-genesys-orange"></div>
+        <p class="text-gray-600 mt-2">Loading blocked numbers...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-state" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
+            <span class="text-red-700" id="error-message"></span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content" class="hidden">
+        <!-- Statistics -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="bg-red-100 p-3 rounded-full">
+                        <i class="fas fa-ban text-red-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-600 text-sm">Total Blocked</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-count">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="bg-blue-100 p-3 rounded-full">
+                        <i class="fas fa-filter text-blue-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-600 text-sm">Filtered Results</p>
+                        <p class="text-2xl font-bold text-gray-900" id="filtered-count">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="bg-green-100 p-3 rounded-full">
+                        <i class="fas fa-sync text-green-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-600 text-sm">Last Updated</p>
+                        <p class="text-sm font-medium text-gray-900" id="last-updated">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filter -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <label for="search-input" class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                    <input type="text" 
+                           id="search-input" 
+                           placeholder="Search by ANI or reason..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-genesys-orange focus:border-transparent">
+                </div>
+                <div class="flex items-end">
+                    <button id="refresh-btn" 
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors duration-200 flex items-center">
+                        <i class="fas fa-sync mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ANI (Phone Number)
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Reason Blocked
+                            </th>
+                            {% if g.role in ['editor', 'admin'] %}
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                            </th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody id="blocked-numbers-table" class="bg-white divide-y divide-gray-200">
+                        <!-- Table rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden text-center py-12">
+                <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No blocked numbers found</h3>
+                <p class="text-gray-500">Try adjusting your search criteria or add a new blocked number.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="number-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900" id="modal-title">Add Blocked Number</h3>
+        </div>
+        <form id="number-form" class="px-6 py-4">
+            <div class="mb-4">
+                <label for="ani-input" class="block text-sm font-medium text-gray-700 mb-2">
+                    ANI (11 digits)
+                </label>
+                <input type="text" 
+                       id="ani-input" 
+                       maxlength="11" 
+                       placeholder="15551234567" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-genesys-orange focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">Enter exactly 11 digits (e.g., 15551234567)</p>
+            </div>
+            <div class="mb-6">
+                <label for="reason-input" class="block text-sm font-medium text-gray-700 mb-2">
+                    Reason Blocked
+                </label>
+                <textarea id="reason-input" 
+                          rows="3" 
+                          maxlength="200" 
+                          placeholder="Enter reason for blocking this number..." 
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-genesys-orange focus:border-transparent"></textarea>
+                <p class="text-xs text-gray-500 mt-1">
+                    <span id="char-count">0</span>/200 characters
+                </p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" 
+                        id="cancel-btn" 
+                        class="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors duration-200">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        id="save-btn" 
+                        class="px-4 py-2 bg-genesys-orange hover:bg-orange-600 text-white rounded-md transition-colors duration-200">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div id="delete-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Confirm Deletion</h3>
+        </div>
+        <div class="px-6 py-4">
+            <p class="text-gray-700">Are you sure you want to delete this blocked number?</p>
+            <div class="mt-4 p-3 bg-gray-50 rounded-md">
+                <p class="font-medium">ANI: <span id="delete-ani"></span></p>
+                <p class="text-sm text-gray-600 mt-1">Reason: <span id="delete-reason"></span></p>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button type="button" 
+                    id="cancel-delete-btn" 
+                    class="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors duration-200">
+                Cancel
+            </button>
+            <button type="button" 
+                    id="confirm-delete-btn" 
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors duration-200">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Make global variables available to JavaScript
+    window.g = {
+        user: {{ g.user|tojson|safe }},
+        role: {{ g.role|tojson|safe }}
+    };
+</script>
+<script src="{{ url_for('static', filename='js/blocked-numbers.js') }}"></script>
+{% endblock %}

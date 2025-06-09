@@ -39,6 +39,10 @@ class ErrorLog(AuditableModel):
     @classmethod
     def log_error(cls, error_type, error_message, **kwargs):
         """Log an error"""
+        # Ensure error_message is not None to satisfy NOT NULL constraint
+        if error_message is None:
+            error_message = f"Unknown error of type: {error_type}"
+
         log = cls(
             error_type=error_type,
             message=error_message,  # Use base class field
