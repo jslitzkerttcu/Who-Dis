@@ -59,9 +59,9 @@ def handle_errors(
                 # Log to database if enabled
                 if log_errors:
                     try:
-                        from app.models.unified_log import LogEntry
+                        from app.models import ErrorLog
 
-                        error_entry = LogEntry.log_error(
+                        error_entry = ErrorLog.log_error(
                             user_email=user_email or "system",
                             error_type=type(e).__name__,
                             error_message=str(e),
@@ -188,9 +188,9 @@ def handle_service_errors(
 
                 # Log to database
                 try:
-                    from app.models.unified_log import LogEntry
+                    from app.models import ErrorLog
 
-                    LogEntry.log_error(
+                    ErrorLog.log_error(
                         user_email="system",
                         error_type=type(e).__name__,
                         error_message=str(e),

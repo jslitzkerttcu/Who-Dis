@@ -1,79 +1,83 @@
 {% extends "base.html" %}
 
-{% block title %}Active Sessions - Who Dis?{% endblock %}
+{% block title %}Active Sessions - Admin Panel{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-10 mx-auto">
-        <h1 class="mb-4 text-center"><i class="bi bi-people"></i> Active Sessions</h1>
+<div class="max-w-7xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+            <i class="fas fa-users mr-3"></i>
+            Active Sessions
+        </h1>
+        <a href="{{ url_for('admin.index') }}" 
+           class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition duration-150 ease-in-out flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Back to Admin
+        </a>
+    </div>
 
-        <div class="alert alert-info shadow-sm" role="alert">
-            <p class="mb-0">Monitor active user sessions and terminate suspicious activity. With great power comes great responsibility!</p>
-        </div>
-
-        <!-- Session Stats -->
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="card text-center border-success">
-                    <div class="card-body">
-                        <h2 class="text-success" id="active-count">0</h2>
-                        <p class="mb-0">Active Sessions</p>
-                    </div>
-                </div>
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
             </div>
-            <div class="col-md-4">
-                <div class="card text-center border-info">
-                    <div class="card-body">
-                        <h2 class="text-info" id="unique-users">0</h2>
-                        <p class="mb-0">Unique Users</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card text-center border-warning">
-                    <div class="card-body">
-                        <h2 class="text-warning" id="idle-count">0</h2>
-                        <p class="mb-0">Idle Sessions (&gt;30m)</p>
-                    </div>
-                </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    Monitor active user sessions and terminate suspicious activity. With great power comes great responsibility!
+                </p>
             </div>
         </div>
+    </div>
 
-        <!-- Session List -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Active User Sessions</h5>
-                <button class="btn btn-sm btn-outline-primary" data-action="refresh-sessions" aria-label="Refresh sessions">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
-                </button>
+    <!-- Session Stats -->
+    <div class="grid md:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white rounded-lg shadow-md border border-green-200">
+            <div class="p-6 text-center"
+                 hx-get="{{ url_for('admin.session_stats') }}"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
             </div>
-            <div class="card-body">
-                <div id="sessions-loading" class="text-center">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-                <div id="sessions-content" style="display: none;">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>User</th>
-                                    <th>IP Address</th>
-                                    <th>Started</th>
-                                    <th>Last Activity</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="sessions-tbody">
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="no-sessions" class="text-center text-muted py-4" style="display: none;">
-                        <i class="bi bi-person-x display-4"></i>
-                        <p class="mt-2">No active sessions found.</p>
-                    </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md border border-blue-200">
+            <div class="p-6 text-center">
+                <div class="text-5xl font-bold text-blue-600 mb-2" id="unique-users">-</div>
+                <p class="text-sm text-gray-600">Unique Users</p>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md border border-yellow-200">
+            <div class="p-6 text-center">
+                <div class="text-5xl font-bold text-yellow-600 mb-2" id="idle-count">-</div>
+                <p class="text-sm text-gray-600">Idle Sessions (&gt;30m)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session List -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200">
+        <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
+            <h5 class="text-lg font-semibold flex items-center">
+                <i class="fas fa-user-check mr-2"></i>
+                Active User Sessions
+            </h5>
+            <button hx-get="{{ url_for('admin.api_sessions') }}"
+                    hx-target="#sessions-content"
+                    hx-swap="innerHTML"
+                    class="text-white hover:text-gray-200 transition duration-150">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+        
+        <div id="sessions-content"
+             hx-get="{{ url_for('admin.api_sessions') }}"
+             hx-trigger="load, every 30s"
+             hx-swap="innerHTML">
+            <div class="text-center py-8">
+                <div class="inline-flex items-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mr-3"></div>
+                    <span class="text-gray-600">Loading active sessions...</span>
                 </div>
             </div>
         </div>
@@ -81,32 +85,97 @@
 </div>
 
 <!-- Terminate Confirmation Modal -->
-<div class="modal fade" id="terminateModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirm Session Termination</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to terminate this session?</p>
-                <p class="mb-0"><strong>User:</strong> <span id="terminate-user"></span></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="confirm-terminate">
-                    <i class="bi bi-x-circle"></i> Terminate Session
-                </button>
-            </div>
+<div id="terminateModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <div id="terminateModalContent">
+            <!-- Modal content will be loaded here via Htmx -->
         </div>
     </div>
 </div>
 
-{% endblock %}
+<style>
+    .htmx-indicator {
+        display: none;
+    }
+    .htmx-request .htmx-indicator {
+        display: inline-block;
+    }
+    .htmx-request.htmx-indicator {
+        display: inline-block;
+    }
+</style>
 
-{% block scripts %}
-{{ super() }}
-<script src="{{ url_for('static', filename='js/shared-utils.js') }}"></script>
-<script src="{{ url_for('static', filename='js/admin-utils.js') }}"></script>
-<script src="{{ url_for('static', filename='js/admin-sessions.js') }}"></script>
+<script>
+    // Handle modal closing
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'terminateModal') {
+            e.target.classList.add('hidden');
+        }
+    });
+    
+    // Update unique users and idle count when sessions are loaded
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'sessions-content') {
+            // Count unique users
+            const emails = new Set();
+            let idleCount = 0;
+            const now = new Date();
+            
+            evt.detail.target.querySelectorAll('tr[data-session]').forEach(row => {
+                const email = row.dataset.userEmail;
+                if (email) emails.add(email);
+                
+                // Check if idle (last activity > 30 minutes ago)
+                const lastActivity = new Date(row.dataset.lastActivity);
+                if ((now - lastActivity) > 30 * 60 * 1000) {
+                    idleCount++;
+                }
+            });
+            
+            document.getElementById('unique-users').textContent = emails.size;
+            document.getElementById('idle-count').textContent = idleCount;
+        }
+    });
+    
+    // Function to show terminate modal
+    function confirmTerminate(sessionId, userEmail) {
+        const content = `
+            <div class="bg-white rounded-lg">
+                <div class="flex justify-between items-center p-4 border-b">
+                    <h3 class="text-lg font-semibold text-gray-900">Confirm Session Termination</h3>
+                    <button onclick="document.getElementById('terminateModal').classList.add('hidden')"
+                            class="text-gray-400 hover:text-gray-500">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="p-4">
+                    <p class="mb-4">Are you sure you want to terminate this session?</p>
+                    <p class="text-sm text-gray-600">
+                        <strong>User:</strong> ${userEmail}
+                    </p>
+                </div>
+                <div class="flex justify-end space-x-2 p-4 border-t">
+                    <button onclick="document.getElementById('terminateModal').classList.add('hidden')"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                        Cancel
+                    </button>
+                    <button hx-post="/admin/api/sessions/${sessionId}/terminate"
+                            hx-target="#sessions-content"
+                            hx-swap="innerHTML"
+                            onclick="document.getElementById('terminateModal').classList.add('hidden')"
+                            class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">
+                        <i class="fas fa-times-circle mr-2"></i>
+                        Terminate Session
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('terminateModalContent').innerHTML = content;
+        document.getElementById('terminateModal').classList.remove('hidden');
+        
+        // Re-process the new content with htmx
+        htmx.process(document.getElementById('terminateModalContent'));
+    }
+</script>
 {% endblock %}

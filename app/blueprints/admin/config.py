@@ -3,7 +3,7 @@ Configuration management functionality for admin blueprint.
 Handles configuration viewing, updating, and service connection testing.
 """
 
-from flask import render_template, jsonify, request, current_app, make_response
+from flask import render_template, jsonify, request, current_app
 from app.middleware.auth import require_role
 import logging
 
@@ -24,8 +24,8 @@ def api_configuration():
 
     if request.method == "GET":
         # Check if this is an Htmx request for a specific section
-        section = request.args.get('section')
-        if request.headers.get('HX-Request') and section:
+        section = request.args.get("section")
+        if request.headers.get("HX-Request") and section:
             return _render_config_section(section)
         # Get all configuration values grouped by category
         config_data = {
@@ -40,17 +40,25 @@ def api_configuration():
                 "AUTH_BASIC_ENABLED": config_get("auth.basic_enabled", "False"),
                 "AUTH_BASIC_USERNAME": config_get("auth.basic_username", ""),
                 "AUTH_BASIC_PASSWORD": config_get("auth.basic_password", ""),
-                "SESSION_TIMEOUT_MINUTES": config_get("auth.session_timeout_minutes", "15"),
+                "SESSION_TIMEOUT_MINUTES": config_get(
+                    "auth.session_timeout_minutes", "15"
+                ),
             },
             "search": {
                 "SEARCH_TIMEOUT": config_get("search.timeout", "20"),
                 "SEARCH_OVERALL_TIMEOUT": config_get("search.overall_timeout", "20"),
-                "CACHE_EXPIRATION_HOURS": config_get("search.cache_expiration_hours", "24"),
-                "SEARCH_LAZY_LOAD_PHOTOS": config_get("search.lazy_load_photos", "true"),
+                "CACHE_EXPIRATION_HOURS": config_get(
+                    "search.cache_expiration_hours", "24"
+                ),
+                "SEARCH_LAZY_LOAD_PHOTOS": config_get(
+                    "search.lazy_load_photos", "true"
+                ),
             },
             "audit": {
                 "AUDIT_RETENTION_DAYS": config_get("audit.retention_days", "90"),
-                "AUDIT_LOG_RETENTION_DAYS": config_get("audit.log_retention_days", "90"),
+                "AUDIT_LOG_RETENTION_DAYS": config_get(
+                    "audit.log_retention_days", "90"
+                ),
             },
             "ldap": {
                 "LDAP_HOST": config_get("ldap.host", ""),
@@ -62,7 +70,9 @@ def api_configuration():
                 "LDAP_BASE_DN": config_get("ldap.base_dn", ""),
                 "LDAP_USER_SEARCH_BASE": config_get("ldap.user_search_base", ""),
                 "LDAP_CONNECT_TIMEOUT": config_get("ldap.connect_timeout", "5"),
-                "LDAP_CONNECTION_TIMEOUT": config_get("ldap.connection_timeout", "5"),  # Alias
+                "LDAP_CONNECTION_TIMEOUT": config_get(
+                    "ldap.connection_timeout", "5"
+                ),  # Alias
                 "LDAP_OPERATION_TIMEOUT": config_get("ldap.operation_timeout", "10"),
             },
             "graph": {
@@ -76,19 +86,31 @@ def api_configuration():
                 "GENESYS_CLIENT_SECRET": config_get("genesys.client_secret", ""),
                 "GENESYS_REGION": config_get("genesys.region", "mypurecloud.com"),
                 "GENESYS_API_TIMEOUT": config_get("genesys.api_timeout", "15"),
-                "GENESYS_CACHE_REFRESH_HOURS": config_get("genesys.cache_refresh_hours", "6"),
+                "GENESYS_CACHE_REFRESH_HOURS": config_get(
+                    "genesys.cache_refresh_hours", "6"
+                ),
             },
             "data_warehouse": {
                 "DATA_WAREHOUSE_SERVER": config_get("data_warehouse.server", ""),
-                "DATA_WAREHOUSE_DATABASE": config_get("data_warehouse.database", "CUFX"),
+                "DATA_WAREHOUSE_DATABASE": config_get(
+                    "data_warehouse.database", "CUFX"
+                ),
                 "DATA_WAREHOUSE_CLIENT_ID": config_get("data_warehouse.client_id", ""),
-                "DATA_WAREHOUSE_CLIENT_SECRET": config_get("data_warehouse.client_secret", ""),
-                "DATA_WAREHOUSE_CONNECTION_TIMEOUT": config_get("data_warehouse.connection_timeout", "30"),
-                "DATA_WAREHOUSE_QUERY_TIMEOUT": config_get("data_warehouse.query_timeout", "60"),
-                "DATA_WAREHOUSE_CACHE_REFRESH_HOURS": config_get("data_warehouse.cache_refresh_hours", "6.0"),
+                "DATA_WAREHOUSE_CLIENT_SECRET": config_get(
+                    "data_warehouse.client_secret", ""
+                ),
+                "DATA_WAREHOUSE_CONNECTION_TIMEOUT": config_get(
+                    "data_warehouse.connection_timeout", "30"
+                ),
+                "DATA_WAREHOUSE_QUERY_TIMEOUT": config_get(
+                    "data_warehouse.query_timeout", "60"
+                ),
+                "DATA_WAREHOUSE_CACHE_REFRESH_HOURS": config_get(
+                    "data_warehouse.cache_refresh_hours", "6.0"
+                ),
             },
         }
-        
+
         # Identify encrypted fields and mask their values
         encrypted_fields = []
         for category, settings in config_data.items():
@@ -98,18 +120,22 @@ def api_configuration():
                 # Ensure value is a string, not bytes
                 if isinstance(value, bytes):
                     try:
-                        value = value.decode('utf-8')
+                        value = value.decode("utf-8")
                         config_data[category][key] = value
                     except UnicodeDecodeError:
                         config_data[category][key] = ""
-                
+
                 full_key = f"{category}.{key}"
                 # Check if this should be encrypted based on naming
-                is_sensitive_field = any(suffix in key.lower() for suffix in ['secret', 'password'])
+                is_sensitive_field = any(
+                    suffix in key.lower() for suffix in ["secret", "password"]
+                )
                 # Special case: API keys ending with '_key' but not 'client_id' or 'tenant_id'
-                if key.lower().endswith('_key') and not any(exclude in key.lower() for exclude in ['encryption_key']):
+                if key.lower().endswith("_key") and not any(
+                    exclude in key.lower() for exclude in ["encryption_key"]
+                ):
                     is_sensitive_field = True
-                
+
                 # Only mask if it's actually a sensitive field
                 # Don't mask just because it has encrypted content - that might be a mistake
                 if is_sensitive_field:
@@ -117,11 +143,15 @@ def api_configuration():
                     # Mask the value
                     config_data[category][key] = "••••••••"
                 # If value looks encrypted but field isn't sensitive, it might be a mistake
-                elif isinstance(value, str) and value.startswith('gAAAAAB') and len(value) > 50:
+                elif (
+                    isinstance(value, str)
+                    and value.startswith("gAAAAAB")
+                    and len(value) > 50
+                ):
                     # This is likely an error - non-sensitive field with encrypted value
                     # Show empty string to indicate it needs to be re-entered
                     config_data[category][key] = ""
-        
+
         response_data = config_data.copy()
         response_data["encrypted_fields"] = encrypted_fields
         return jsonify(response_data)
@@ -130,16 +160,20 @@ def api_configuration():
         try:
             current_app.logger.info("=== Configuration POST request ===")
             current_app.logger.info(f"Request JSON: {request.json}")
-            
+
             updates = request.json.get("updates", {})
             current_app.logger.info(f"Updates extracted: {updates}")
-            
+
             # Get config service from container
             try:
                 config_service = current_app.container.get("config")
-                current_app.logger.info(f"Config service available: {config_service is not None}")
+                current_app.logger.info(
+                    f"Config service available: {config_service is not None}"
+                )
             except Exception as e:
-                current_app.logger.error(f"Failed to get config service from container: {e}")
+                current_app.logger.error(
+                    f"Failed to get config service from container: {e}"
+                )
                 config_service = None
 
             if not config_service:
@@ -156,7 +190,7 @@ def api_configuration():
                 current_app.logger.info(f"Processing category: {category}")
                 for key, value in settings.items():
                     current_app.logger.info(f"Processing key: {key} = {value}")
-                    
+
                     # Map uppercase keys back to lowercase configuration keys
                     key_mapping = {
                         # Flask keys
@@ -211,14 +245,14 @@ def api_configuration():
                         "DATA_WAREHOUSE_QUERY_TIMEOUT": "query_timeout",
                         "DATA_WAREHOUSE_CACHE_REFRESH_HOURS": "cache_refresh_hours",
                     }
-                    
+
                     # Apply key mapping
                     key = key_mapping.get(key, key.lower())
 
                     config_key = f"{category}.{key}"
                     old_value = config_get(config_key, "")
                     current_app.logger.info(f"Old value for {config_key}: {old_value}")
-                    
+
                     if str(old_value) != str(value):
                         # Get the admin email for updated_by
                         admin_email = request.headers.get(
@@ -227,7 +261,9 @@ def api_configuration():
                         )
                         current_app.logger.info(f"Setting {config_key} = {value}")
                         result = config_set(config_key, value, admin_email)
-                        current_app.logger.info(f"Set result for {config_key}: {result}")
+                        current_app.logger.info(
+                            f"Set result for {config_key}: {result}"
+                        )
                         changes.append(
                             {
                                 "category": category,
@@ -252,8 +288,8 @@ def api_configuration():
                     audit_service.log_config_change(
                         user_email=admin_email,
                         config_key=f"{change['category']}.{change['key']}",
-                        old_value=str(change['old_value']),
-                        new_value=str(change['new_value']),
+                        old_value=str(change["old_value"]),
+                        new_value=str(change["new_value"]),
                         user_role=admin_role,
                         ip_address=user_ip,
                         user_agent=request.headers.get("User-Agent"),
@@ -278,9 +314,19 @@ def api_configuration():
 def test_ldap_connection():
     """Test LDAP connection with current configuration."""
     from app.services.ldap_service import test_connection
+    from .config_helpers import render_test_result
 
     try:
         result = test_connection()
+        # Check if this is an Htmx request
+        if request.headers.get("HX-Request"):
+            message = (
+                "LDAP connection successful!"
+                if result
+                else "LDAP connection failed. Please check your configuration."
+            )
+            return render_test_result(result, message)
+
         return jsonify(
             {
                 "success": result,
@@ -288,6 +334,8 @@ def test_ldap_connection():
             }
         )
     except Exception as e:
+        if request.headers.get("HX-Request"):
+            return render_test_result(False, f"LDAP connection error: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -295,14 +343,29 @@ def test_ldap_connection():
 def test_graph_connection():
     """Test Microsoft Graph API connection."""
     from app.services.graph_service import graph_service
+    from .config_helpers import render_test_result
 
     try:
         # Try to get token
-        if graph_service.refresh_token_if_needed():
-            return jsonify({"success": True, "message": "Connection successful"})
-        else:
-            return jsonify({"success": False, "error": "Failed to obtain access token"})
+        result = graph_service.refresh_token_if_needed()
+        # Check if this is an Htmx request
+        if request.headers.get("HX-Request"):
+            message = (
+                "Microsoft Graph connection successful!"
+                if result
+                else "Microsoft Graph connection failed. Please check your configuration."
+            )
+            return render_test_result(result, message)
+        
+        return jsonify(
+            {
+                "success": result,
+                "message": "Connection successful" if result else "Failed to obtain access token",
+            }
+        )
     except Exception as e:
+        if request.headers.get("HX-Request"):
+            return render_test_result(False, f"Microsoft Graph connection error: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -310,14 +373,29 @@ def test_graph_connection():
 def test_genesys_connection():
     """Test Genesys Cloud API connection."""
     from app.services.genesys_service import genesys_service
+    from .config_helpers import render_test_result
 
     try:
         # Try to get token
-        if genesys_service.refresh_token_if_needed():
-            return jsonify({"success": True, "message": "Connection successful"})
-        else:
-            return jsonify({"success": False, "error": "Failed to obtain access token"})
+        result = genesys_service.refresh_token_if_needed()
+        # Check if this is an Htmx request
+        if request.headers.get("HX-Request"):
+            message = (
+                "Genesys Cloud connection successful!"
+                if result
+                else "Genesys Cloud connection failed. Please check your configuration."
+            )
+            return render_test_result(result, message)
+        
+        return jsonify(
+            {
+                "success": result,
+                "message": "Connection successful" if result else "Failed to obtain access token",
+            }
+        )
     except Exception as e:
+        if request.headers.get("HX-Request"):
+            return render_test_result(False, f"Genesys Cloud connection error: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
 
 
@@ -325,9 +403,19 @@ def test_genesys_connection():
 def test_data_warehouse_connection():
     """Test data warehouse connection."""
     from app.services.data_warehouse_service import data_warehouse_service
+    from .config_helpers import render_test_result
 
     try:
         result = data_warehouse_service.test_connection()
+        # Check if this is an Htmx request
+        if request.headers.get("HX-Request"):
+            message = (
+                "Data Warehouse connection successful!"
+                if result
+                else "Data Warehouse connection failed. Please check your configuration."
+            )
+            return render_test_result(result, message)
+        
         return jsonify(
             {
                 "success": result,
@@ -335,4 +423,33 @@ def test_data_warehouse_connection():
             }
         )
     except Exception as e:
+        if request.headers.get("HX-Request"):
+            return render_test_result(False, f"Data Warehouse connection error: {str(e)}")
         return jsonify({"success": False, "error": str(e)})
+
+
+# ===== Htmx Helper Functions =====
+
+
+def _render_config_section(section):
+    """Render a configuration section as HTML for Htmx."""
+    from .config_helpers import (
+        render_app_config, 
+        render_ldap_config,
+        render_graph_config,
+        render_genesys_config,
+        render_data_warehouse_config
+    )
+
+    if section == "app":
+        return render_app_config()
+    elif section == "ldap":
+        return render_ldap_config()
+    elif section == "graph":
+        return render_graph_config()
+    elif section == "genesys":
+        return render_genesys_config()
+    elif section == "data_warehouse":
+        return render_data_warehouse_config()
+    else:
+        return '<div class="text-red-600">Invalid section</div>', 400

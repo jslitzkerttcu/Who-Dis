@@ -75,17 +75,17 @@
                         LDAP Configuration
                     </h5>
                     <button class="px-4 py-2 bg-green-500 hover:bg-green-400 text-white text-sm rounded-md transition duration-150"
-                            hx-get="{{ url_for('admin.test_ldap_connection') }}"
-                            hx-target="#ldap-test-result"
-                            hx-indicator="#ldap-test-spinner">
+                            hx-post="{{ url_for('admin.test_ldap_connection') }}"
+                            hx-target="#ldap-header-test-result"
+                            hx-indicator="#ldap-header-test-spinner">
                         <i class="fas fa-plug mr-1"></i>
                         Test Connection
-                        <span id="ldap-test-spinner" class="htmx-indicator ml-2">
+                        <span id="ldap-header-test-spinner" class="htmx-indicator ml-2">
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </button>
                 </div>
-                <div id="ldap-test-result" class="hidden"></div>
+                <div id="ldap-header-test-result"></div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=ldap" 
                      hx-trigger="load" 
                      hx-swap="innerHTML">
@@ -108,17 +108,17 @@
                         Azure AD / Microsoft Graph Configuration
                     </h5>
                     <button class="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white text-sm rounded-md transition duration-150"
-                            hx-get="{{ url_for('admin.test_graph_connection') }}"
-                            hx-target="#graph-test-result"
-                            hx-indicator="#graph-test-spinner">
+                            hx-post="{{ url_for('admin.test_graph_connection') }}"
+                            hx-target="#graph-header-test-result"
+                            hx-indicator="#graph-header-test-spinner">
                         <i class="fas fa-plug mr-1"></i>
                         Test Connection
-                        <span id="graph-test-spinner" class="htmx-indicator ml-2">
+                        <span id="graph-header-test-spinner" class="htmx-indicator ml-2">
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </button>
                 </div>
-                <div id="graph-test-result" class="hidden"></div>
+                <div id="graph-header-test-result"></div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=graph" 
                      hx-trigger="load" 
                      hx-swap="innerHTML">
@@ -141,17 +141,17 @@
                         Genesys Cloud Configuration
                     </h5>
                     <button class="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white text-sm rounded-md transition duration-150"
-                            hx-get="{{ url_for('admin.test_genesys_connection') }}"
-                            hx-target="#genesys-test-result"
-                            hx-indicator="#genesys-test-spinner">
+                            hx-post="{{ url_for('admin.test_genesys_connection') }}"
+                            hx-target="#genesys-header-test-result"
+                            hx-indicator="#genesys-header-test-spinner">
                         <i class="fas fa-plug mr-1"></i>
                         Test Connection
-                        <span id="genesys-test-spinner" class="htmx-indicator ml-2">
+                        <span id="genesys-header-test-spinner" class="htmx-indicator ml-2">
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </button>
                 </div>
-                <div id="genesys-test-result" class="hidden"></div>
+                <div id="genesys-header-test-result"></div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=genesys" 
                      hx-trigger="load" 
                      hx-swap="innerHTML">
@@ -174,17 +174,17 @@
                         Data Warehouse Configuration
                     </h5>
                     <button class="px-4 py-2 bg-purple-500 hover:bg-purple-400 text-white text-sm rounded-md transition duration-150"
-                            hx-get="{{ url_for('admin.test_data_warehouse_connection') }}"
-                            hx-target="#dw-test-result"
-                            hx-indicator="#dw-test-spinner">
+                            hx-post="{{ url_for('admin.test_data_warehouse_connection') }}"
+                            hx-target="#dw-header-test-result"
+                            hx-indicator="#dw-header-test-spinner">
                         <i class="fas fa-plug mr-1"></i>
                         Test Connection
-                        <span id="dw-test-spinner" class="htmx-indicator ml-2">
+                        <span id="dw-header-test-spinner" class="htmx-indicator ml-2">
                             <i class="fas fa-spinner fa-spin"></i>
                         </span>
                     </button>
                 </div>
-                <div id="dw-test-result" class="hidden"></div>
+                <div id="dw-header-test-result"></div>
                 <div class="p-6" hx-get="{{ url_for('admin.api_configuration') }}?section=data_warehouse" 
                      hx-trigger="load" 
                      hx-swap="innerHTML">

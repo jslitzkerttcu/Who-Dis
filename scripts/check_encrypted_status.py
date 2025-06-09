@@ -10,11 +10,12 @@ from dotenv import load_dotenv
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+
 def main():
     """Check encrypted status of configuration values."""
     # Load .env file
     load_dotenv()
-    
+
     # Connect to database
     try:
         conn = psycopg2.connect(
@@ -28,10 +29,10 @@ def main():
     except Exception as e:
         print(f"❌ Database connection failed: {e}")
         sys.exit(1)
-    
+
     print("Configuration Storage Analysis")
     print("=" * 80)
-    
+
     # Check specific fields
     problem_fields = [
         ("ldap", "bind_dn"),
@@ -39,17 +40,20 @@ def main():
         ("graph", "tenant_id"),
         ("graph", "client_id"),
     ]
-    
+
     print("\nChecking problem fields:")
     print("-" * 40)
-    
+
     for category, key in problem_fields:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT setting_value, encrypted_value, is_sensitive
             FROM configuration
             WHERE category = %s AND setting_key = %s
-        """, (category, key))
-        
+        """,
+            (category, key),
+        )
+
         result = cursor.fetchone()
         if result:
             setting_value, encrypted_value, is_sensitive = result
@@ -63,7 +67,7 @@ def main():
                 print(f"  Encrypted value starts with: {str(encrypted_value)[:20]}...")
         else:
             print(f"\n{category}.{key}: NOT FOUND IN DATABASE")
-    
+
     # Show all encrypted fields
     print("\n\nAll fields with encrypted values:")
     print("-" * 40)
@@ -73,11 +77,12 @@ def main():
         WHERE encrypted_value IS NOT NULL
         ORDER BY category, setting_key
     """)
-    
+
     for category, key, is_sensitive in cursor.fetchall():
         print(f"  {category}.{key} (sensitive={is_sensitive})")
-    
+
     conn.close()
+
 
 if __name__ == "__main__":
     main()

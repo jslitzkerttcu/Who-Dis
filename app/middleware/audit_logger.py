@@ -24,24 +24,8 @@ class AuditLogger:
         # Log to audit database
         try:
             from app.services.audit_service_postgres import audit_service
-            from app.models.unified_log import LogEntry
 
-            # Log access attempt using unified logging
-            LogEntry.log_access_denied(
-                user_email=email_display
-                if email_display and email_display != "unauthenticated"
-                else "",
-                target_resource=request_path,
-                reason="Insufficient permissions"
-                if user_email
-                else "Not authenticated",
-                ip_address=client_ip,
-                user_agent=request.headers.get("User-Agent"),
-                request_path=request_path,
-                request_method=request.method,
-            )
-
-            # Also log to audit log
+            # Log access denial
             audit_service.log_access(
                 user_email=email_display,
                 action="access_denied",

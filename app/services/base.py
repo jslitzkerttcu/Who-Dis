@@ -53,7 +53,7 @@ class BaseConfigurableService:
     def _clear_config_cache(self):
         """Clear the configuration cache to force reload."""
         self._config_cache.clear()
-        
+
     def _load_config(self):
         """Load configuration - can be overridden by subclasses."""
         # Base implementation does nothing - subclasses can override
@@ -343,7 +343,7 @@ class BaseTokenService(BaseAPIService):
 
 class BaseSearchService(BaseConfigurableService):
     """Base class for services with user search functionality."""
-    
+
     def __init__(self, config_prefix: str):
         """Initialize search service with configuration prefix."""
         super().__init__(config_prefix)

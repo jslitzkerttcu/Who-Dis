@@ -33,7 +33,7 @@ class LDAPService(BaseSearchService, ISearchService):
         value = self._get_config("use_ssl", False)
         if isinstance(value, bool):
             return value
-        return str(value).lower() in ('true', '1', 'yes', 'on')
+        return str(value).lower() in ("true", "1", "yes", "on")
 
     @property
     def bind_dn(self):

@@ -195,10 +195,14 @@ class BaseModel(db.Model, SerializableMixin):  # type: ignore
             commit: Whether to commit the transaction immediately. Default True.
                     Set to False to batch multiple operations in a single transaction.
         """
-        db.session.add(self)
-        if commit:
-            db.session.commit()
-        return self
+        try:
+            db.session.add(self)
+            if commit:
+                db.session.commit()
+            return self
+        except Exception:
+            db.session.rollback()
+            raise
 
     def delete(self, commit=True):
         """Delete the current instance.

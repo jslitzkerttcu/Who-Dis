@@ -43,12 +43,14 @@ class SimpleConfig(IConfigurationService):
                 logger.error(f"Failed to initialize Fernet: {e}")
                 self._fernet = None
         else:
-            logger.warning("WHODIS_ENCRYPTION_KEY not found in environment - encrypted configuration values will not be decrypted")
+            logger.warning(
+                "WHODIS_ENCRYPTION_KEY not found in environment - encrypted configuration values will not be decrypted"
+            )
 
     def _should_encrypt(self, key: str) -> bool:
         """Determine if a key should be encrypted based on naming convention."""
         # Extract just the field name from full key like "category.field"
-        field_name = key.split('.')[-1] if '.' in key else key
+        field_name = key.split(".")[-1] if "." in key else key
         sensitive_suffixes = ("_password", "_secret", "_key", "_token", "_credential")
         return any(field_name.lower().endswith(suffix) for suffix in sensitive_suffixes)
 
@@ -61,7 +63,9 @@ class SimpleConfig(IConfigurationService):
     def _decrypt(self, value: str) -> str:
         """Decrypt a value if it appears to be encrypted."""
         if not self._fernet:
-            logger.warning("No Fernet instance available for decryption - returning value as-is")
+            logger.warning(
+                "No Fernet instance available for decryption - returning value as-is"
+            )
             return value
 
         if not value:
@@ -101,29 +105,39 @@ class SimpleConfig(IConfigurationService):
                     category, setting_key = key.split(".", 1)
                 else:
                     category, setting_key = "general", key
-                
+
                 result = conn.execute(
-                    text("SELECT setting_value, encrypted_value FROM configuration WHERE category = :category AND setting_key = :setting_key"),
+                    text(
+                        "SELECT setting_value, encrypted_value FROM configuration WHERE category = :category AND setting_key = :setting_key"
+                    ),
                     {"category": category, "setting_key": setting_key},
                 ).first()
 
                 if result:
                     setting_value, encrypted_value = result
-                    
+
                     # Use encrypted_value if available, otherwise setting_value
                     if encrypted_value:
                         try:
                             # Handle memoryview objects from PostgreSQL BYTEA columns
-                            if hasattr(encrypted_value, 'tobytes'):
-                                encrypted_str = encrypted_value.tobytes().decode('utf-8')
+                            if hasattr(encrypted_value, "tobytes"):
+                                encrypted_str = encrypted_value.tobytes().decode(
+                                    "utf-8"
+                                )
                             else:
                                 encrypted_str = str(encrypted_value)
                             value = self._decrypt(encrypted_str)
-                            
+
                             # If decryption returned empty string due to key mismatch
                             # and this field shouldn't be encrypted, use plain value
-                            if value == "" and not self._should_encrypt(key) and setting_value:
-                                logger.warning(f"Using plain value for {key} due to decryption failure")
+                            if (
+                                value == ""
+                                and not self._should_encrypt(key)
+                                and setting_value
+                            ):
+                                logger.warning(
+                                    f"Using plain value for {key} due to decryption failure"
+                                )
                                 value = setting_value
                             # Debug logging for encrypted values
                             elif self._should_encrypt(key):
@@ -133,7 +147,7 @@ class SimpleConfig(IConfigurationService):
                             value = setting_value
                     else:
                         value = setting_value
-                    
+
                     self._cache[key] = value
                     return value
         except Exception as e:
@@ -167,7 +181,7 @@ class SimpleConfig(IConfigurationService):
 
                 # Determine if we should encrypt
                 should_encrypt = self._should_encrypt(key)
-                
+
                 if should_encrypt:
                     encrypted_value = self._encrypt(str_value)
                     setting_value = None
@@ -226,32 +240,42 @@ class SimpleConfig(IConfigurationService):
                 from sqlalchemy import text
 
                 results = conn.execute(
-                    text("SELECT category, setting_key, setting_value, encrypted_value FROM configuration ORDER BY category, setting_key")
+                    text(
+                        "SELECT category, setting_key, setting_value, encrypted_value FROM configuration ORDER BY category, setting_key"
+                    )
                 )
                 for category, setting_key, setting_value, encrypted_value in results:
                     key = f"{category}.{setting_key}"
-                    
+
                     # Use encrypted_value if available, otherwise setting_value
                     if encrypted_value:
                         try:
                             # Handle memoryview objects from PostgreSQL BYTEA columns
-                            if hasattr(encrypted_value, 'tobytes'):
-                                encrypted_str = encrypted_value.tobytes().decode('utf-8')
+                            if hasattr(encrypted_value, "tobytes"):
+                                encrypted_str = encrypted_value.tobytes().decode(
+                                    "utf-8"
+                                )
                             else:
                                 encrypted_str = str(encrypted_value)
                             value = self._decrypt(encrypted_str)
-                            
+
                             # If decryption returned empty string due to key mismatch
                             # and this field shouldn't be encrypted, use plain value
-                            if value == "" and not self._should_encrypt(key) and setting_value:
-                                logger.warning(f"Using plain value for {key} due to decryption failure")
+                            if (
+                                value == ""
+                                and not self._should_encrypt(key)
+                                and setting_value
+                            ):
+                                logger.warning(
+                                    f"Using plain value for {key} due to decryption failure"
+                                )
                                 value = setting_value
                         except Exception as e:
                             logger.warning(f"Failed to decrypt {key}: {e}")
                             value = setting_value
                     else:
                         value = setting_value
-                    
+
                     configs[key] = value
             return configs
         except Exception as e:
@@ -271,8 +295,10 @@ class SimpleConfig(IConfigurationService):
                     category, setting_key = "general", key
 
                 conn.execute(
-                    text("DELETE FROM configuration WHERE category = :category AND setting_key = :setting_key"), 
-                    {"category": category, "setting_key": setting_key}
+                    text(
+                        "DELETE FROM configuration WHERE category = :category AND setting_key = :setting_key"
+                    ),
+                    {"category": category, "setting_key": setting_key},
                 )
 
             # Remove from cache

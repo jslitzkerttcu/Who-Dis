@@ -71,6 +71,19 @@ def database_health():
             pool_usage = "N/A"
             max_connections = "N/A"
 
+        # Check if this is an Htmx request
+        if request.headers.get("HX-Request"):
+            return _render_database_health(
+                {
+                    "status": db_status,
+                    "database_type": "PostgreSQL" if is_postgres else "SQLite",
+                    "database_size": db_size,
+                    "active_connections": active_connections,
+                    "pool_usage": pool_usage,
+                    "max_connections": max_connections,
+                }
+            )
+
         return jsonify(
             {
                 "status": db_status,
@@ -82,6 +95,17 @@ def database_health():
             }
         )
     except Exception as e:
+        if request.headers.get("HX-Request"):
+            return _render_database_health(
+                {
+                    "status": "unhealthy",
+                    "error": str(e),
+                    "database_size": "--",
+                    "active_connections": 0,
+                    "pool_usage": "--",
+                }
+            )
+
         return jsonify(
             {
                 "status": "unhealthy",
@@ -215,6 +239,10 @@ def database_tables():
             # Sort by row count descending
             tables.sort(key=lambda x: x["row_count"], reverse=True)
 
+        # Check if this is an Htmx request
+        if request.headers.get("HX-Request"):
+            return _render_table_statistics(tables)
+
         return jsonify({"tables": tables})
     except Exception as e:
         # Log the full error for debugging
@@ -253,6 +281,10 @@ def database_tables():
 @require_role("admin")
 def error_stats():
     """Get error log statistics."""
+    # Check if this is an Htmx request
+    if request.headers.get("HX-Request"):
+        return _render_error_stats()
+
     from app.models import ErrorLog
 
     try:
@@ -274,6 +306,10 @@ def error_stats():
 @require_role("admin")
 def session_stats():
     """Get active session statistics."""
+    # Check if this is an Htmx request
+    if request.headers.get("HX-Request"):
+        return _render_session_stats()
+
     from app.models import UserSession
 
     try:
@@ -286,6 +322,212 @@ def session_stats():
         return jsonify({"active_sessions": active_sessions})
     except Exception as e:
         return jsonify({"active_sessions": 0, "error": str(e)})
+
+
+@require_role("admin")
+def cache_status():
+    """Get cache status for all caches."""
+    # Check if this is an Htmx request
+    if request.headers.get("HX-Request"):
+        return _render_cache_status()
+
+    # JSON response for non-Htmx requests
+    from app.models import SearchCache, ApiToken
+    from app.services.genesys_cache_db import get_cache_status
+
+    try:
+        search_cache_count = SearchCache.query.count()
+        tokens = ApiToken.get_all_tokens_status()
+        genesys_cache = get_cache_status()
+
+        return jsonify(
+            {
+                "search_cache_count": search_cache_count,
+                "tokens": tokens,
+                "genesys_cache": genesys_cache,
+            }
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@require_role("admin")
+def refresh_cache(cache_type):
+    """Refresh a specific cache."""
+    from app.services.genesys_cache_db import refresh_all_caches
+    from app.services.audit_service_postgres import audit_service
+
+    try:
+        if cache_type == "genesys":
+            result = refresh_all_caches()
+
+            # Log action
+            admin_email = request.headers.get(
+                "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+            )
+            admin_role = getattr(request, "user_role", None)
+            user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+            audit_service.log_admin_action(
+                user_email=admin_email,
+                action="refresh_cache",
+                target=f"cache:{cache_type}",
+                user_role=admin_role,
+                ip_address=user_ip,
+                user_agent=request.headers.get("User-Agent"),
+                success=True,
+                details=result,
+            )
+
+            # Check if this is an Htmx request
+            if request.headers.get("HX-Request"):
+                return f"""
+                <div class="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-green-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-green-700">
+                                Genesys cache refreshed successfully!
+                                Cached {result.get("groups", {}).get("cached", 0)} groups,
+                                {result.get("skills", {}).get("cached", 0)} skills,
+                                {result.get("locations", {}).get("cached", 0)} locations.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                """
+
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Cache refreshed successfully",
+                    "results": result,
+                }
+            )
+        else:
+            return jsonify(
+                {"success": False, "message": f"Unknown cache type: {cache_type}"}
+            ), 400
+
+    except Exception as e:
+        if request.headers.get("HX-Request"):
+            return f"""
+            <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-times-circle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-red-700">Failed to refresh cache: {str(e)}</p>
+                    </div>
+                </div>
+            </div>
+            """
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@require_role("admin")
+def clear_all_caches():
+    """Clear all caches."""
+    from app.models import (
+        SearchCache,
+        GenesysGroup,
+        GenesysLocation,
+        GenesysSkill,
+        GraphPhoto,
+    )
+    from app.services.audit_service_postgres import audit_service
+
+    try:
+        # Clear search cache
+        search_deleted = SearchCache.query.delete()
+
+        # Clear Genesys caches
+        groups_deleted = GenesysGroup.query.delete()
+        locations_deleted = GenesysLocation.query.delete()
+        skills_deleted = GenesysSkill.query.delete()
+
+        # Clear Graph photos
+        photos_deleted = GraphPhoto.query.delete()
+
+        db.session.commit()
+
+        # Log action
+        admin_email = request.headers.get(
+            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+        )
+        admin_role = getattr(request, "user_role", None)
+        user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+        audit_service.log_admin_action(
+            user_email=admin_email,
+            action="clear_caches",
+            target="all_caches",
+            user_role=admin_role,
+            ip_address=user_ip,
+            user_agent=request.headers.get("User-Agent"),
+            success=True,
+            details={
+                "search_cache": search_deleted,
+                "genesys_groups": groups_deleted,
+                "genesys_locations": locations_deleted,
+                "genesys_skills": skills_deleted,
+                "graph_photos": photos_deleted,
+            },
+        )
+
+        # Check if this is an Htmx request
+        if request.headers.get("HX-Request"):
+            return f"""
+            <div class="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-check-circle text-green-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-green-700">
+                            All caches cleared successfully!
+                            Deleted {search_deleted} search entries,
+                            {groups_deleted + locations_deleted + skills_deleted} Genesys entries,
+                            and {photos_deleted} cached photos.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            """
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "All caches cleared successfully",
+                "deleted": {
+                    "search_cache": search_deleted,
+                    "genesys_groups": groups_deleted,
+                    "genesys_locations": locations_deleted,
+                    "genesys_skills": skills_deleted,
+                    "graph_photos": photos_deleted,
+                },
+            }
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        if request.headers.get("HX-Request"):
+            return f"""
+            <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-times-circle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-red-700">Failed to clear caches: {str(e)}</p>
+                    </div>
+                </div>
+            </div>
+            """
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 @require_role("admin")
@@ -333,8 +575,36 @@ def optimize_database():
             details={"operation": "analyze_tables"},
         )
 
+        # Check if this is an Htmx request
+        if request.headers.get("HX-Request"):
+            return """
+            <div class="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-check-circle text-green-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-green-700">Database optimization completed successfully! Tables have been analyzed for optimal query performance.</p>
+                    </div>
+                </div>
+            </div>
+            """
+
         return jsonify({"success": True, "message": "Database optimization completed"})
     except Exception as e:
+        if request.headers.get("HX-Request"):
+            return f"""
+            <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-times-circle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-red-700">Failed to optimize database: {str(e)}</p>
+                    </div>
+                </div>
+            </div>
+            """
         return jsonify({"success": False, "message": str(e)})
 
 
@@ -412,22 +682,45 @@ def error_logs():
 def api_error_logs():
     """API endpoint for querying error logs."""
     from app.models import ErrorLog
+    from datetime import datetime, timedelta
 
     # Get query parameters
     limit = int(request.args.get("limit", 50))
     offset = int(request.args.get("offset", 0))
     severity = request.args.get("severity")
+    hours = int(request.args.get("hours", 24))
+    search = request.args.get("search", "")
 
     query = ErrorLog.query
 
+    # Apply filters
     if severity:
         query = query.filter_by(severity=severity)
+
+    # Time filter
+    cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+    query = query.filter(ErrorLog.timestamp > cutoff_time)
+
+    # Search filter
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                ErrorLog.error_message.ilike(search_pattern),
+                ErrorLog.error_type.ilike(search_pattern),
+                ErrorLog.request_path.ilike(search_pattern),
+            )
+        )
 
     # Get total count
     total = query.count()
 
     # Get paginated results
     errors = query.order_by(ErrorLog.timestamp.desc()).offset(offset).limit(limit).all()
+
+    # Check if this is an Htmx request
+    if request.headers.get("HX-Request"):
+        return _render_error_logs(errors, total)
 
     results = []
     for error in errors:
@@ -446,6 +739,18 @@ def api_error_logs():
         )
 
     return jsonify({"total": total, "errors": results})
+
+
+@require_role("admin")
+def api_error_detail(error_id):
+    """Get error detail for modal display."""
+    from app.models import ErrorLog
+
+    error = ErrorLog.query.get(error_id)
+    if not error:
+        return '<div class="p-4 text-red-600">Error not found</div>', 404
+
+    return _render_error_detail(error)
 
 
 @require_role("admin")
@@ -468,6 +773,10 @@ def api_sessions():
         .order_by(UserSession.last_activity.desc())
         .all()
     )
+
+    # Check if this is an Htmx request
+    if request.headers.get("HX-Request"):
+        return _render_sessions_table(active_sessions)
 
     sessions = []
     for session in active_sessions:
@@ -515,6 +824,11 @@ def terminate_session(session_id):
         success=True,
         details={"terminated_user": session.user_email},
     )
+
+    # Check if this is an Htmx request
+    if request.headers.get("HX-Request"):
+        # Return updated sessions list
+        return api_sessions()
 
     return jsonify({"success": True, "message": "Session terminated"})
 
@@ -585,3 +899,474 @@ def refresh_token(service_name):
 
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+# ===== Htmx Helper Functions =====
+
+
+def _render_database_health(data):
+    """Render database health stats as HTML for Htmx."""
+    status_icon = "check-circle" if data["status"] == "healthy" else "times-circle"
+    status_color = "green" if data["status"] == "healthy" else "red"
+
+    return f"""
+    <div class="grid md:grid-cols-4 gap-4">
+        <div class="text-center">
+            <div class="text-3xl text-{status_color}-600 mb-2">
+                <i class="fas fa-{status_icon}"></i>
+            </div>
+            <h3 class="font-semibold text-gray-700">Status</h3>
+            <p class="text-gray-900">{data["status"].capitalize()}</p>
+            <p class="text-sm text-gray-500">{data.get("database_type", "Unknown")}</p>
+        </div>
+        
+        <div class="text-center">
+            <div class="text-3xl text-blue-600 mb-2">
+                <i class="fas fa-hdd"></i>
+            </div>
+            <h3 class="font-semibold text-gray-700">Database Size</h3>
+            <p class="text-gray-900">{data["database_size"]}</p>
+        </div>
+        
+        <div class="text-center">
+            <div class="text-3xl text-purple-600 mb-2">
+                <i class="fas fa-link"></i>
+            </div>
+            <h3 class="font-semibold text-gray-700">Active Connections</h3>
+            <p class="text-gray-900">{data["active_connections"]}</p>
+        </div>
+        
+        <div class="text-center">
+            <div class="text-3xl text-orange-600 mb-2">
+                <i class="fas fa-chart-bar"></i>
+            </div>
+            <h3 class="font-semibold text-gray-700">Pool Usage</h3>
+            <p class="text-gray-900">{data["pool_usage"]}</p>
+        </div>
+    </div>
+    """
+
+
+def _render_table_statistics(tables):
+    """Render table statistics as HTML for Htmx."""
+    if not tables:
+        return """
+        <div class="text-center py-8 text-gray-500">
+            No tables found
+        </div>
+        """
+
+    html = """
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Table Name</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Row Count</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+    """
+
+    for table in tables:
+        row_count = table["row_count"]
+        if isinstance(row_count, int):
+            row_count = f"{row_count:,}"
+
+        html += f"""
+        <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <i class="fas fa-table mr-2 text-gray-400"></i>
+                {table["name"]}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row_count}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{table["size"]}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{table.get("last_activity", "N/A")}</td>
+        </tr>
+        """
+
+    html += """
+        </tbody>
+    </table>
+    """
+
+    return html
+
+
+def _render_cache_status():
+    """Render cache status as HTML for Htmx."""
+    from app.models import SearchCache, ApiToken
+    from app.services.genesys_cache_db import get_cache_status
+
+    try:
+        # Get search cache count
+        search_cache_count = SearchCache.query.count()
+
+        # Get API token statuses
+        tokens = ApiToken.get_all_tokens_status()
+        genesys_token = next((t for t in tokens if t["service"] == "genesys"), None)
+        graph_token = next(
+            (t for t in tokens if t["service"] == "microsoft_graph"), None
+        )
+
+        # Get Genesys cache status
+        genesys_cache = get_cache_status()
+
+        html = f"""
+        <div class="space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Search Cache:</span>
+                <span class="text-sm font-medium text-gray-900">{search_cache_count} entries</span>
+            </div>
+        """
+
+        # Genesys token status
+        if genesys_token:
+            status_color = "red" if genesys_token["is_expired"] else "green"
+            status_text = "Expired" if genesys_token["is_expired"] else "Valid"
+            html += f"""
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Genesys Token:</span>
+                <span class="px-2 py-1 text-xs rounded-full bg-{status_color}-100 text-{status_color}-800">{status_text}</span>
+            </div>
+            """
+
+        # Graph token status
+        if graph_token:
+            status_color = "red" if graph_token["is_expired"] else "green"
+            status_text = "Expired" if graph_token["is_expired"] else "Valid"
+            html += f"""
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Graph API Token:</span>
+                <span class="px-2 py-1 text-xs rounded-full bg-{status_color}-100 text-{status_color}-800">{status_text}</span>
+            </div>
+            """
+
+        html += '<hr class="my-2 border-gray-200">'
+
+        # Genesys cache details
+        if genesys_cache:
+            html += f"""
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Genesys Groups:</span>
+                <span class="text-sm font-medium text-blue-600">{genesys_cache.get("groups_cached", 0)}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600">Genesys Locations:</span>
+                <span class="text-sm font-medium text-blue-600">{genesys_cache.get("locations_cached", 0)}</span>
+            </div>
+            """
+
+            if genesys_cache.get("group_cache_age"):
+                age = _format_cache_age(genesys_cache["group_cache_age"])
+                refresh_badge = ""
+                if genesys_cache.get("needs_refresh"):
+                    refresh_badge = '<span class="ml-2 px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Refresh Needed</span>'
+                html += f"""
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-gray-600">Cache Age:</span>
+                    <span class="text-sm text-gray-500">{age}{refresh_badge}</span>
+                </div>
+                """
+
+        html += "</div>"
+        return html
+
+    except Exception as e:
+        return f'<div class="text-red-600 text-sm">Error loading cache status: {str(e)}</div>'
+
+
+def _format_cache_age(age_string):
+    """Format cache age string."""
+    import re
+
+    match = re.match(r"(\d+):(\d+):(\d+)", age_string)
+    if match:
+        hours = int(match.group(1))
+        minutes = int(match.group(2))
+
+        if hours > 0:
+            return f"{hours}h {minutes}m ago"
+        elif minutes > 0:
+            return f"{minutes}m ago"
+        else:
+            return "Just refreshed"
+    return age_string
+
+
+def _render_session_stats():
+    """Render session statistics as HTML for Htmx."""
+    from app.models import UserSession
+
+    try:
+        # Active sessions (activity in last 30 minutes)
+        active_sessions = UserSession.query.filter(
+            UserSession.last_activity > datetime.utcnow() - timedelta(minutes=30),
+            UserSession.is_active.is_(True),
+        ).count()
+
+        return f"""
+        <div class="text-center">
+            <div class="text-5xl font-bold text-green-600 mb-2">{active_sessions}</div>
+            <p class="text-sm text-gray-600">Active Users</p>
+        </div>
+        """
+    except Exception as e:
+        return f'<div class="text-red-600 text-sm">Error: {str(e)}</div>'
+
+
+def _render_error_stats():
+    """Render error statistics as HTML for Htmx."""
+    from app.models import ErrorLog
+
+    try:
+        # Recent errors (last hour)
+        recent_errors = ErrorLog.query.filter(
+            ErrorLog.timestamp > datetime.utcnow() - timedelta(hours=1)
+        ).count()
+
+        # Last 24 hours
+        errors_24h = ErrorLog.query.filter(
+            ErrorLog.timestamp > datetime.utcnow() - timedelta(days=1)
+        ).count()
+
+        recent_color = "red" if recent_errors > 0 else "green"
+        daily_color = (
+            "yellow" if errors_24h > 10 else "green" if errors_24h > 0 else "gray"
+        )
+
+        return f"""
+        <div class="flex justify-between items-center">
+            <div>
+                <span class="text-sm text-gray-600">Recent Errors:</span>
+                <span class="ml-2 px-2 py-1 text-xs rounded-full bg-{recent_color}-100 text-{recent_color}-800">{recent_errors}</span>
+            </div>
+            <div>
+                <span class="text-sm text-gray-600">Last 24h:</span>
+                <span class="ml-2 px-2 py-1 text-xs rounded-full bg-{daily_color}-100 text-{daily_color}-800">{errors_24h}</span>
+            </div>
+        </div>
+        """
+    except Exception as e:
+        return f'<div class="text-red-600 text-sm">Error: {str(e)}</div>'
+
+
+def _render_error_logs(errors, total):
+    """Render error logs table as HTML for Htmx."""
+    if not errors:
+        return """
+        <div class="text-center py-8 text-gray-500">
+            <i class="fas fa-smile text-5xl mb-3"></i>
+            <p class="text-lg">No errors found. Everything's running smoothly!</p>
+        </div>
+        """
+
+    html = """
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Severity</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error Type</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+    """
+
+    for error in errors:
+        # Format timestamp
+        timestamp = error.timestamp.strftime("%m/%d %H:%M:%S")
+
+        # Severity colors
+        severity_colors = {"critical": "red", "error": "orange", "warning": "yellow"}
+        severity_color = severity_colors.get(error.severity, "gray")
+
+        # Truncate message
+        message = error.error_message or ""
+        if len(message) > 80:
+            message = message[:77] + "..."
+
+        html += f"""
+        <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{timestamp}</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-{severity_color}-100 text-{severity_color}-800">
+                    {error.severity or "error"}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">{error.error_type or "Unknown"}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 max-w-md truncate" title="{error.error_message or ""}">{message}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{error.user_email or "System"}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                <button onclick="viewErrorDetails({error.id})" 
+                        class="text-blue-600 hover:text-blue-900">
+                    <i class="fas fa-eye"></i> View
+                </button>
+            </td>
+        </tr>
+        """
+
+    html += f"""
+            </tbody>
+        </table>
+    </div>
+    <div class="px-6 py-3 bg-gray-50 border-t border-gray-200">
+        <p class="text-sm text-gray-700">
+            Showing <span class="font-medium">{len(errors)}</span> of <span class="font-medium">{total}</span> errors
+        </p>
+    </div>
+    """
+
+    return html
+
+
+def _render_error_detail(error):
+    """Render error detail modal content."""
+    # Format timestamps
+    timestamp = error.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    # Format request info
+    request_info = f"{error.request_method or 'N/A'} {error.request_path or 'N/A'}"
+
+    return f"""
+    <div class="bg-white rounded-lg">
+        <div class="flex justify-between items-center p-4 border-b">
+            <h3 class="text-lg font-semibold text-gray-900">Error Details</h3>
+            <button onclick="document.getElementById('errorDetailModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-500">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-4 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Timestamp</label>
+                <p class="mt-1 text-sm text-gray-900">{timestamp}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Error Type</label>
+                <p class="mt-1 text-sm font-mono text-gray-900">{error.error_type or "Unknown"}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">User</label>
+                <p class="mt-1 text-sm text-gray-900">{error.user_email or "System"}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Request</label>
+                <p class="mt-1 text-sm font-mono text-gray-900">{request_info}</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Message</label>
+                <div class="mt-1 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p class="text-sm text-red-800">{error.error_message or "No message provided"}</p>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Stack Trace</label>
+                <pre class="mt-1 p-3 bg-gray-900 text-gray-100 rounded-md overflow-x-auto text-xs">{error.stack_trace or "No stack trace available"}</pre>
+            </div>
+        </div>
+    </div>
+    """
+
+
+def _render_sessions_table(sessions):
+    """Render sessions table as HTML for Htmx."""
+    if not sessions:
+        return """
+        <div class="text-center py-8 text-gray-500">
+            <i class="fas fa-user-x text-5xl mb-3"></i>
+            <p class="text-lg">No active sessions found.</p>
+        </div>
+        """
+
+    html = """
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+    """
+
+    now = datetime.utcnow()
+
+    for session in sessions:
+        # Format timestamps
+        created = session.created_at.strftime("%m/%d %H:%M")
+        last_activity = session.last_activity.strftime("%m/%d %H:%M")
+
+        # Calculate time since last activity
+        idle_time = now - session.last_activity
+        idle_minutes = int(idle_time.total_seconds() / 60)
+
+        # Determine status
+        if idle_minutes > 30:
+            status_color = "yellow"
+            status_text = f"Idle ({idle_minutes}m)"
+        else:
+            status_color = "green"
+            status_text = "Active"
+
+        # Parse user agent for browser info
+        user_agent = session.user_agent or "Unknown"
+        if "Chrome" in user_agent:
+            browser = "Chrome"
+        elif "Firefox" in user_agent:
+            browser = "Firefox"
+        elif "Safari" in user_agent:
+            browser = "Safari"
+        elif "Edge" in user_agent:
+            browser = "Edge"
+        else:
+            browser = "Other"
+
+        html += f"""
+        <tr class="hover:bg-gray-50" 
+            data-session="true" 
+            data-user-email="{session.user_email}"
+            data-last-activity="{session.last_activity.isoformat()}">
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">{session.user_email}</div>
+                <div class="text-sm text-gray-500">Browser: {browser}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{session.ip_address or "Unknown"}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{created}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{last_activity}</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-{status_color}-100 text-{status_color}-800">
+                    {status_text}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                <button onclick="confirmTerminate({session.id}, '{session.user_email}')" 
+                        class="text-red-600 hover:text-red-900">
+                    <i class="fas fa-times-circle"></i> Terminate
+                </button>
+            </td>
+        </tr>
+        """
+
+    html += """
+            </tbody>
+        </table>
+    </div>
+    """
+
+    return html

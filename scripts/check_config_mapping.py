@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def check_config_mapping():
     """Check that all configuration keys map correctly."""
-    
+
     # Configuration keys from the GET method (display)
     display_keys = {
         "flask": {
@@ -65,7 +65,7 @@ def check_config_mapping():
             "DATA_WAREHOUSE_CACHE_REFRESH_HOURS": "cache_refresh_hours",
         },
     }
-    
+
     # Key mapping from POST method (save)
     post_key_mapping = {
         # Flask keys
@@ -112,17 +112,17 @@ def check_config_mapping():
         "DATA_WAREHOUSE_QUERY_TIMEOUT": "query_timeout",
         "DATA_WAREHOUSE_CACHE_REFRESH_HOURS": "cache_refresh_hours",
     }
-    
+
     print("Configuration Key Mapping Check")
     print("=" * 80)
     print()
-    
+
     # Check each category
     all_good = True
     for category, keys in display_keys.items():
         print(f"\n{category.upper()} Configuration:")
         print("-" * 40)
-        
+
         for display_key, db_key in keys.items():
             # Check if POST mapping exists
             if display_key in post_key_mapping:
@@ -132,25 +132,27 @@ def check_config_mapping():
                 else:
                     status = "✗"
                     all_good = False
-                    print(f"  ERROR: {display_key} maps to '{db_key}' in GET but '{post_db_key}' in POST")
+                    print(
+                        f"  ERROR: {display_key} maps to '{db_key}' in GET but '{post_db_key}' in POST"
+                    )
             else:
                 status = "✗"
                 all_good = False
                 print(f"  ERROR: {display_key} missing from POST key mapping")
-            
+
             print(f"  {status} {display_key} → {category}.{db_key}")
-            
+
             # Special cases
             if display_key == "GENESYS_CACHE_REFRESH_HOURS":
-                print(f"    Special: Value is converted from hours to seconds")
-    
+                print("    Special: Value is converted from hours to seconds")
+
     print()
     print("=" * 80)
     if all_good:
         print("✅ All configuration keys map correctly!")
     else:
         print("❌ Configuration key mapping errors found!")
-    
+
     # Check for keys in POST mapping but not in display
     print("\nChecking for orphaned POST mappings...")
     orphaned = []
@@ -162,7 +164,7 @@ def check_config_mapping():
                 break
         if not found:
             orphaned.append(post_key)
-    
+
     if orphaned:
         print("❌ Keys in POST mapping but not in display:")
         for key in orphaned:

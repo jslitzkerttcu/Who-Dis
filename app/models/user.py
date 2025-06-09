@@ -57,7 +57,9 @@ class User(BaseModel, TimestampMixin):
         return cls.query.filter_by(is_active=True).order_by(cls.email).all()
 
     @classmethod
-    def update_user_role(cls, email: str, new_role: str, updated_by: str) -> Optional["User"]:
+    def update_user_role(
+        cls, email: str, new_role: str, updated_by: str
+    ) -> Optional["User"]:
         """Update user role."""
         user = cls.get_by_email(email)
         if user:

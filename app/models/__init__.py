@@ -1,35 +1,19 @@
-# Models package with unified consolidated models
-from .unified_log import LogEntry
-from .unified_cache import CacheEntry
-from .external_service import ExternalServiceData
+# Models package - using actual separate models until migration is complete
+from .audit import AuditLog
+from .error import ErrorLog
+from .access import AccessAttempt
+from .cache import SearchCache
+from .api_token import ApiToken
+from .graph_photo import GraphPhoto
+from .genesys import GenesysGroup, GenesysLocation, GenesysSkill
 from .session import UserSession
 from .user import User
 from .user_note import UserNote
-
-# Backward compatibility aliases
-AuditLog = LogEntry
-ErrorLog = LogEntry
-AccessAttempt = LogEntry
-
-# Cache model aliases
-SearchCache = CacheEntry
-ApiToken = CacheEntry
-GraphPhoto = CacheEntry
-
-# External service aliases
-GenesysGroup = ExternalServiceData
-GenesysLocation = ExternalServiceData
-GenesysSkill = ExternalServiceData
+from .configuration import Configuration
+from .data_warehouse import DataWarehouseCache
 
 __all__ = [
-    # New unified models
-    "LogEntry",
-    "CacheEntry",
-    "ExternalServiceData",
-    "UserSession",
-    "User",
-    "UserNote",
-    # Backward compatibility aliases
+    # Core models
     "AuditLog",
     "ErrorLog",
     "AccessAttempt",
@@ -39,4 +23,9 @@ __all__ = [
     "GenesysGroup",
     "GenesysLocation",
     "GenesysSkill",
+    "UserSession",
+    "User",
+    "UserNote",
+    "Configuration",
+    "DataWarehouseCache",
 ]

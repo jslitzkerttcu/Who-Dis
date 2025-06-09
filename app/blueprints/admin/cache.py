@@ -195,7 +195,7 @@ def data_warehouse_cache_status():
     try:
         # Get data warehouse service from container
         data_warehouse_service = current_app.container.get("data_warehouse_service")
-        
+
         status = data_warehouse_service.get_cache_status()
         return jsonify(status)
     except Exception as e:
@@ -206,14 +206,14 @@ def data_warehouse_cache_status():
 def refresh_data_warehouse_cache():
     """Manually refresh data warehouse cache."""
     from app.services.audit_service_postgres import audit_service
-    
+
     try:
         # Get data warehouse service from container
         data_warehouse_service = current_app.container.get("data_warehouse_service")
-        
+
         # Execute cache refresh
         results = data_warehouse_service.refresh_cache()
-        
+
         # Log action
         admin_email = request.headers.get(
             "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
@@ -231,7 +231,7 @@ def refresh_data_warehouse_cache():
             success=True,
             details=results,
         )
-        
+
         return jsonify({"success": True, "results": results})
     except Exception as e:
         # Log failed action
@@ -254,7 +254,7 @@ def refresh_data_warehouse_cache():
             )
         except Exception:
             pass  # Don't fail if audit logging fails
-            
+
         return jsonify({"error": str(e)}), 500
 
 
@@ -262,13 +262,13 @@ def refresh_data_warehouse_cache():
 def clear_data_warehouse_cache():
     """Clear data warehouse cache."""
     from app.services.audit_service_postgres import audit_service
-    
+
     try:
         from app.models.data_warehouse import DataWarehouseCache
-        
+
         # Clear cache
         cleared_count = DataWarehouseCache.clear_cache()
-        
+
         # Log action
         admin_email = request.headers.get(
             "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
@@ -286,10 +286,12 @@ def clear_data_warehouse_cache():
             success=True,
             details={"records_cleared": cleared_count},
         )
-        
-        return jsonify({
-            "success": True, 
-            "message": f"Cleared {cleared_count} data warehouse cache records"
-        })
+
+        return jsonify(
+            {
+                "success": True,
+                "message": f"Cleared {cleared_count} data warehouse cache records",
+            }
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500

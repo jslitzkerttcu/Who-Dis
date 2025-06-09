@@ -2,13 +2,10 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from sqlalchemy import and_, or_, desc
-from app.models.unified_log import LogEntry
+from app.models.audit import AuditLog
+from app.models.error import ErrorLog
 from app.database import db
 from app.interfaces.audit_service import IAuditLogger, IAuditQueryService
-
-# Backward compatibility aliases
-AuditLog = LogEntry
-ErrorLog = LogEntry
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +36,21 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
             )
         except Exception as e:
             logger.error(f"Failed to log search: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
 
     def log_access(self, user_email: str, action: str, target_resource: str, **kwargs):
         try:
             AuditLog.log_access(user_email, action, target_resource, **kwargs)
         except Exception as e:
             logger.error(f"Failed to log access: {e}")
+            # Ensure session is rolled back on error
+            try:
+                db.session.rollback()
+            except:
+                pass
 
     def log_access_denial(
         self, user_email: str, requested_resource: str, reason: str, **kwargs
@@ -81,14 +87,20 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
             )
         except Exception as e:
             logger.error(f"Failed to log admin action: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
 
-    def log_config_change(
-        self, user_email: str, config_key: str, **kwargs
-    ):
+    def log_config_change(self, user_email: str, config_key: str, **kwargs):
         try:
             AuditLog.log_config_change(user_email, config_key, **kwargs)
         except Exception as e:
             logger.error(f"Failed to log config change: {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
 
     def log_config(
         self,
@@ -112,8 +124,8 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
         **kwargs,
     ) -> None:
         try:
-            # Log to both audit log and error log
-            AuditLog(
+            # Log to audit log
+            audit_log = AuditLog(
                 event_type="error",
                 user_email=kwargs.get("user_email", "system"),
                 action=error_type,
@@ -122,22 +134,23 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
                 ip_address=kwargs.get("ip_address"),
                 success=False,
                 message=error_message,
-                error_type=error_type,
-                stack_trace=kwargs.get("stack_trace"),
                 additional_data={
+                    "error_type": error_type,
+                    "stack_trace": stack_trace,
                     "request_method": kwargs.get("request_method"),
                 },
                 session_id=kwargs.get("session_id"),
                 user_agent=kwargs.get("user_agent"),
             )
+            audit_log.save()
 
             # Also log to dedicated error log
             ErrorLog.log_error(
-                user_email=kwargs.get("user_email", "system"),
                 error_type=error_type,
                 error_message=error_message,
-                stack_trace=kwargs.get("stack_trace"),
-                endpoint=kwargs.get("request_path"),
+                user_email=kwargs.get("user_email", "system"),
+                stack_trace=stack_trace,
+                request_path=kwargs.get("request_path"),
                 request_method=kwargs.get("request_method"),
                 request_data=kwargs.get("additional_data", {}).get("form"),
                 ip_address=kwargs.get("ip_address"),

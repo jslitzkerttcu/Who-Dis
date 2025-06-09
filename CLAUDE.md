@@ -86,17 +86,19 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
     - `AuditableModel`: Combines timestamps, user tracking, and JSON data
     - `CacheableModel`: For cache entries with expiration
     - `ServiceDataModel`: For external service data
-  - **Models**:
+  - **Models** (using separate tables - no unified models):
     - `user.py`: User management with roles (extends BaseModel + TimestampMixin)
-    - `configuration.py`: Encrypted configuration storage
-    - `audit.py`: Audit log entries (extends AuditableModel)
-    - `access.py`: Access attempt tracking (extends AuditableModel)
-    - `error.py`: Error logging (extends AuditableModel)
-    - `genesys.py`: Genesys cache models (extends ServiceDataModel)
+    - `configuration.py`: Encrypted configuration storage (extends BaseModel)
+    - `audit.py`: Audit log entries in `audit_log` table (extends AuditableModel)
+    - `access.py`: Access attempt tracking in `access_attempts` table (extends AuditableModel)
+    - `error.py`: Error logging in `error_log` table (extends AuditableModel)
+    - `api_token.py`: API token storage with expiration (extends BaseModel + ExpirableMixin)
+    - `cache.py`: Search result caching in `search_cache` table (extends BaseModel + ExpirableMixin)
+    - `genesys.py`: Genesys cache models - GenesysGroup, GenesysLocation, GenesysSkill (extends ServiceDataModel)
     - `graph_photo.py`: Microsoft Graph photo caching (extends CacheableModel)
-  - `session.py`: User session management with timeout tracking
-  - `user_note.py`: Internal notes about users
-  - `cache.py`: Search result caching
+    - `session.py`: User session management with timeout tracking (extends BaseModel + ExpirableMixin)
+    - `user_note.py`: Internal notes about users (extends BaseModel + TimestampMixin)
+    - `data_warehouse.py`: Data warehouse cache for user information - DataWarehouseCache (extends CacheableModel)
 - **`app/services/`**: Service layer with base class hierarchy:
   - **Base Classes** (`base.py`):
     - `BaseConfigurableService`: Configuration management

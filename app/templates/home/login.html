@@ -3,51 +3,65 @@
 {% block title %}Login - Who Dis?{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-4">
-        <div class="card shadow">
-            <div class="card-body text-center">
+<div class="min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full">
+        <div class="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+            <div class="p-8 text-center">
                 <img src="{{ url_for('static', filename='img/product_image_transparent.png') }}" 
                      alt="Who Dis?" 
-                     height="150" 
-                     class="mb-4">
-                <h2 class="card-title mb-4">Session Refresh Required</h2>
+                     class="h-32 mx-auto mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Session Refresh Required</h2>
                 
                 {% if reason == 'session_expired' %}
-                <div class="alert alert-warning">
-                    <i class="bi bi-clock-history"></i> Your session has expired.
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 text-left">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-clock text-yellow-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">Your session has expired.</p>
+                        </div>
+                    </div>
                 </div>
                 {% elif reason == 'session_timeout' %}
-                <div class="alert alert-info">
-                    <i class="bi bi-hourglass-split"></i> You were logged out due to inactivity.
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 text-left">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-hourglass-half text-blue-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700">You were logged out due to inactivity.</p>
+                        </div>
+                    </div>
                 </div>
                 {% endif %}
                 
-                <p class="text-muted mb-4">
+                <p class="text-gray-600 mb-6">
                     Click below to refresh your Azure AD authentication.
                 </p>
                 
-                <a href="{{ url_for('home.index') }}" class="btn btn-primary" id="refresh-link">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh Session
-                </a>
+                <div hx-get="{{ url_for('home.index') }}"
+                     hx-trigger="load delay:2s"
+                     hx-push-url="true">
+                    <a href="{{ url_for('home.index') }}" 
+                       class="inline-flex items-center px-6 py-3 bg-ttcu-green hover:bg-green-700 text-white font-medium rounded-lg transition duration-150 ease-in-out">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        Refresh Session
+                    </a>
+                    
+                    <div class="mt-2 text-sm text-gray-500">
+                        Redirecting automatically in 2 seconds...
+                    </div>
+                </div>
                 
-                <div class="mt-4">
-                    <small class="text-muted">
-                        <i class="bi bi-shield-lock"></i> Protected by Azure AD SSO
-                    </small>
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <p class="text-sm text-gray-500">
+                        <i class="fas fa-shield-alt mr-1"></i>
+                        Protected by Azure AD SSO
+                    </p>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-// Auto-redirect after 2 seconds for better UX
-setTimeout(function() {
-    const refreshLink = document.getElementById('refresh-link');
-    if (refreshLink) {
-        window.location.href = refreshLink.href;
-    }
-}, 2000);
-</script>
 {% endblock %}

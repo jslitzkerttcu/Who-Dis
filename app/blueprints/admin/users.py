@@ -1,13 +1,11 @@
 """
 User management functionality for admin blueprint.
-Handles user CRUD operations, role management, and user notes.
+Handles user CRUD operations and role management.
 """
 
-from flask import render_template, jsonify, request, make_response
+from flask import render_template, request, jsonify
 from app.middleware.auth import require_role
 from app.database import db
-import re
-from datetime import datetime
 
 
 @require_role("admin")
@@ -18,94 +16,57 @@ def manage_users():
 
 @require_role("admin")
 def api_users():
-    """API endpoint to get all users - returns HTML for Htmx or JSON."""
-    from app.models import User, UserNote
+    """Get all users."""
+    from app.models import User
 
-    # Get all users from database
-    users = User.get_all_active()
+    users = User.query.order_by(User.created_at.desc()).all()
 
     # Check if this is an Htmx request
-    if request.headers.get('HX-Request'):
-        # Build HTML response for Htmx
-        html_rows = []
-        for user in users:
-            notes_count = UserNote.query.filter_by(user_id=user.id, is_active=True).count()
-            html_rows.append(_render_user_row(user, notes_count))
-        return ''.join(html_rows)
-    
-    # Original JSON response
-    user_list = []
-    for user in users:
-        notes_count = UserNote.query.filter_by(user_id=user.id, is_active=True).count()
-        user_dict = user.to_dict()
-        user_dict["notes_count"] = notes_count
-        user_list.append(user_dict)
+    if request.headers.get("HX-Request"):
+        return _render_users_table(users)
 
-    return jsonify({"users": user_list})
+    results = []
+    for user in users:
+        results.append(
+            {
+                "id": user.id,
+                "email": user.email,
+                "role": user.role,
+                "is_active": user.is_active,
+                "created_at": user.created_at.isoformat(),
+                "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+            }
+        )
+
+    return jsonify({"users": results})
 
 
 @require_role("admin")
 def add_user():
-    """Add a new user with role."""
+    """Add a new user."""
     from app.models import User
-
-    email = request.form.get("email", "").strip().lower()
-    role = request.form.get("role", "viewer")
-
-    if not email or not re.match(
-        r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", email
-    ):
-        return jsonify(
-            {
-                "success": False,
-                "message": "Invalid email format. Even we have standards.",
-            }
-        ), 400
-
-    # Check if user already exists
-    existing_user = User.query.filter_by(email=email).first()
-    if existing_user:
-        if existing_user.is_active:
-            return jsonify(
-                {
-                    "success": False,
-                    "message": f"User {email} already exists.",
-                }
-            ), 400
-        else:
-            # Reactivate existing user
-            admin_email = request.headers.get(
-                "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-            )
-            existing_user.is_active = True
-            existing_user.role = role
-            existing_user.updated_by = admin_email
-            db.session.commit()
-
-            message = f"User {email} reactivated as {role}."
-    else:
-        # Create new user
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
-
-        try:
-            User.create_user(email=email, role=role, created_by=admin_email)
-            message = f"User {email} added as {role}. May the Force be with them."
-        except Exception as e:
-            return jsonify(
-                {
-                    "success": False,
-                    "message": f"Failed to add user: {str(e)}",
-                }
-            ), 500
-
-    # Audit log
     from app.services.audit_service_postgres import audit_service
 
+    data = request.get_json()
+    email = data.get("email", "").lower()
+    role = data.get("role", "viewer")
+
+    if not email:
+        return jsonify({"success": False, "error": "Email is required"}), 400
+
+    # Check if user already exists
+    if User.query.filter_by(email=email).first():
+        return jsonify({"success": False, "error": "User already exists"}), 409
+
+    # Add user
     admin_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
     )
+    user = User(email=email, role=role, created_by=admin_email)
+    db.session.add(user)
+    db.session.commit()
+
+    # Audit log
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -113,167 +74,176 @@ def add_user():
         user_email=admin_email,
         action="add_user",
         target=f"user:{email}",
-        details={"new_user": email, "assigned_role": role},
         user_role=admin_role,
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
+        details={"user": email, "role": role},
     )
 
-    # Check if this is an Htmx request
-    if request.headers.get('HX-Request'):
-        # Get the newly created/updated user
-        user = User.query.filter_by(email=email).first()
-        notes_count = 0
-        return _render_user_row(user, notes_count)
-    
-    return jsonify(
-        {
-            "success": True,
-            "message": message,
-        }
-    )
+    return jsonify({"success": True, "message": "User added successfully"})
 
 
 @require_role("admin")
 def update_user():
-    """Update user role."""
+    """Update an existing user."""
     from app.models import User
+    from app.services.audit_service_postgres import audit_service
 
-    email = request.form.get("email", "").strip().lower()
-    new_role = request.form.get("role", "viewer")
+    data = request.get_json()
+    user_id = data.get("user_id")
+    role = data.get("role")
+    is_active = data.get("is_active")
 
-    # Get admin info
+    if not user_id:
+        return jsonify({"success": False, "error": "User ID is required"}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"success": False, "error": "User not found"}), 404
+
+    # Track changes
+    changes = []
+    if role and role != user.role:
+        changes.append(f"role: {user.role} → {role}")
+        user.role = role
+
+    if is_active is not None and is_active != user.is_active:
+        changes.append(f"active: {user.is_active} → {is_active}")
+        user.is_active = is_active
+
+    if not changes:
+        return jsonify({"success": True, "message": "No changes made"})
+
+    # Update user
     admin_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
     )
-
-    # Update user in database
-    user = User.update_user_role(email, new_role, admin_email)
-
-    if not user:
-        return jsonify(
-            {"success": False, "message": "User not found. They must have ghosted us."}
-        ), 404
+    user.updated_by = admin_email
+    db.session.commit()
 
     # Audit log
-    from app.services.audit_service_postgres import audit_service
-
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
     audit_service.log_admin_action(
         user_email=admin_email,
-        action="update_user_role",
-        target=f"user:{email}",
+        action="update_user",
+        target=f"user:{user.email}",
         user_role=admin_role,
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
-        details={"user": email, "new_role": new_role},
+        details={"user": user.email, "changes": ", ".join(changes)},
     )
 
-    return jsonify(
-        {
-            "success": True,
-            "message": f"User {email} promoted/demoted to {new_role}. With great power...",
-        }
-    )
+    return jsonify({"success": True, "message": "User updated successfully"})
 
 
 @require_role("admin")
 def delete_user():
-    """Remove user access."""
+    """Delete a user."""
     from app.models import User
+    from app.services.audit_service_postgres import audit_service
 
-    email = request.form.get("email", "").strip().lower()
+    data = request.get_json()
+    user_id = data.get("user_id")
 
-    # Get admin info
+    if not user_id:
+        return jsonify({"success": False, "error": "User ID is required"}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"success": False, "error": "User not found"}), 404
+
+    # Don't allow self-deletion
     admin_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
     )
-
-    # Deactivate user in database (soft delete)
-    user = User.deactivate_user(email, admin_email)
-
-    if not user:
+    if user.email == admin_email:
         return jsonify(
-            {"success": False, "message": "User not found. Already yeeted?"}
-        ), 404
+            {"success": False, "error": "Cannot delete your own account"}
+        ), 400
+
+    # Delete user
+    user_email = user.email
+    db.session.delete(user)
+    db.session.commit()
 
     # Audit log
-    from app.services.audit_service_postgres import audit_service
-
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
     audit_service.log_admin_action(
         user_email=admin_email,
         action="delete_user",
-        target=f"user:{email}",
+        target=f"user:{user_email}",
         user_role=admin_role,
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
-        details={"deleted_user": email},
+        details={"user": user_email},
+    )
+
+    return jsonify({"success": True, "message": "User deleted successfully"})
+
+
+@require_role("admin")
+def get_user_notes(user_id):
+    """Get notes for a specific user."""
+    from app.models import UserNote
+
+    notes = (
+        UserNote.query.filter_by(user_id=user_id)
+        .order_by(UserNote.created_at.desc())
+        .all()
     )
 
     return jsonify(
         {
-            "success": True,
-            "message": f"User {email} has been yeeted from the system. 👋",
+            "notes": [
+                {
+                    "id": note.id,
+                    "content": note.content,
+                    "created_by": note.created_by,
+                    "created_at": note.created_at.isoformat(),
+                    "updated_at": note.updated_at.isoformat()
+                    if note.updated_at
+                    else None,
+                }
+                for note in notes
+            ]
         }
     )
 
 
 @require_role("admin")
-def get_user_notes(user_id):
-    """Get all notes for a specific user."""
-    from app.models import UserNote
-
-    notes = (
-        UserNote.query.filter_by(user_id=user_id, is_active=True)
-        .order_by(UserNote.created_at.desc())
-        .all()
-    )
-
-    notes_list = []
-    for note in notes:
-        notes_list.append(
-            {
-                "id": note.id,
-                "note": note.note,
-                "created_by": note.created_by,
-                "created_at": note.created_at.isoformat(),
-                "updated_at": note.updated_at.isoformat(),
-            }
-        )
-
-    return jsonify({"notes": notes_list})
-
-
-@require_role("editor")  # Allow editors and admins
 def add_user_note(user_id):
-    """Add a note for a specific user."""
+    """Add a note to a user."""
     from app.models import User, UserNote
     from app.services.audit_service_postgres import audit_service
 
     # Verify user exists
     user = User.query.get(user_id)
     if not user:
-        return jsonify({"success": False, "message": "User not found"}), 404
+        return jsonify({"success": False, "error": "User not found"}), 404
 
-    note_text = request.json.get("note", "").strip()
-    if not note_text:
-        return jsonify({"success": False, "message": "Note cannot be empty"}), 400
+    data = request.get_json()
+    content = data.get("content", "").strip()
 
-    # Get admin info
+    if not content:
+        return jsonify({"success": False, "error": "Note content is required"}), 400
+
+    # Create note
     admin_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
     )
-
-    # Create note
-    note = UserNote(user_id=user_id, note=note_text, created_by=admin_email)
+    note = UserNote(
+        user_id=user_id,
+        user_email=user.email,
+        content=content,
+        created_by=admin_email,
+    )
     db.session.add(note)
     db.session.commit()
 
@@ -289,22 +259,15 @@ def add_user_note(user_id):
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
-        details={
-            "user": user.email,
-            "note_id": note.id,
-            "note_preview": note_text[:50] + "..."
-            if len(note_text) > 50
-            else note_text,
-        },
+        details={"user": user.email, "note_id": note.id},
     )
 
     return jsonify(
         {
             "success": True,
-            "message": "Note added successfully",
             "note": {
                 "id": note.id,
-                "note": note.note,
+                "content": note.content,
                 "created_by": note.created_by,
                 "created_at": note.created_at.isoformat(),
             },
@@ -312,336 +275,134 @@ def add_user_note(user_id):
     )
 
 
-# ===== Htmx Helper Functions =====
-
-def _render_user_row(user, notes_count=0):
-    """Helper function to render a user table row."""
-    created_date = user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A'
-    updated_date = user.updated_at.strftime('%Y-%m-%d') if user.updated_at else 'N/A'
-    
-    status_class = 'bg-green-100 text-green-800' if user.is_active else 'bg-red-100 text-red-800'
-    status_text = 'Active' if user.is_active else 'Inactive'
-    
-    return f'''
-    <tr class="hover:bg-gray-50">
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.email}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                {user.role.upper()}
-            </span>
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {status_class}">
-                {status_text}
-            </span>
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{created_date}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{updated_date}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <button class="text-indigo-600 hover:text-indigo-900 mr-3"
-                    hx-get="/admin/api/users/{user.id}/edit"
-                    hx-target="#editUserContent"
-                    hx-swap="innerHTML">
-                Edit
-            </button>
-            <button class="text-red-600 hover:text-red-900"
-                    hx-post="/admin/users/toggle/{user.id}"
-                    hx-target="#userTableBody"
-                    hx-swap="innerHTML"
-                    hx-confirm="Are you sure you want to {'deactivate' if user.is_active else 'reactivate'} this user?">
-                {'Deactivate' if user.is_active else 'Reactivate'}
-            </button>
-        </td>
-    </tr>
-    '''
-
-
-# ===== New Htmx Routes =====
-
 @require_role("admin")
-def edit_user_modal(user_id):
-    """Get edit user modal content."""
-    from app.models import User
-    
-    user = User.query.get(user_id)
-    if not user:
-        return '<div class="p-4 text-red-600">User not found</div>', 404
-    
-    roles = ['viewer', 'editor', 'admin']
-    role_options = ''.join([
-        f'<option value="{role}" {"selected" if user.role == role else ""}>{role.capitalize()}</option>'
-        for role in roles
-    ])
-    
-    return f'''
-    <div class="bg-white rounded-lg">
-        <div class="flex justify-between items-center p-4 border-b">
-            <h3 class="text-lg font-semibold text-gray-900">Edit User</h3>
-            <button onclick="document.getElementById('editUserModal').classList.add('hidden')"
-                    class="text-gray-400 hover:text-gray-500">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <form hx-post="/admin/api/users/{user.id}/update"
-              hx-target="#userTableBody"
-              hx-swap="innerHTML"
-              class="p-4">
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                <input type="email" value="{user.email}" disabled
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
-            </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                <select name="role" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-ttcu-green">
-                    {role_options}
-                </select>
-            </div>
-            <div class="flex justify-end space-x-2">
-                <button type="button"
-                        onclick="document.getElementById('editUserModal').classList.add('hidden')"
-                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
-                    Cancel
-                </button>
-                <button type="submit"
-                        class="px-4 py-2 bg-ttcu-green text-white rounded-md hover:bg-green-700">
-                    Save Changes
-                </button>
-            </div>
-        </form>
-    </div>
-    '''
-
-
-@require_role("admin")
-def update_user_htmx(user_id):
-    """Update user via Htmx - returns updated HTML."""
-    from app.models import User
-    from app.services.audit_service_postgres import audit_service
-    
-    user = User.query.get(user_id)
-    if not user:
-        return '<div class="p-4 text-red-600">User not found</div>', 404
-    
-    new_role = request.form.get('role', user.role)
-    old_role = user.role
-    
-    # Update user
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
-    user.role = new_role
-    user.updated_by = admin_email
-    db.session.commit()
-    
-    # Audit log
-    admin_role = getattr(request, "user_role", None)
-    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    
-    audit_service.log_admin_action(
-        user_email=admin_email,
-        action="update_user_role",
-        target=f"user:{user.email}",
-        user_role=admin_role,
-        ip_address=user_ip,
-        user_agent=request.headers.get("User-Agent"),
-        success=True,
-        details={"user": user.email, "old_role": old_role, "new_role": new_role},
-    )
-    
-    # Return updated table
-    return api_users()
-
-
-@require_role("admin")
-def toggle_user_status(user_id):
-    """Toggle user active status via Htmx."""
-    from app.models import User
-    from app.services.audit_service_postgres import audit_service
-    
-    user = User.query.get(user_id)
-    if not user:
-        return '<div class="p-4 text-red-600">User not found</div>', 404
-    
-    # Toggle status
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
-    user.is_active = not user.is_active
-    user.updated_by = admin_email
-    db.session.commit()
-    
-    # Audit log
-    action = "reactivate_user" if user.is_active else "deactivate_user"
-    admin_role = getattr(request, "user_role", None)
-    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    
-    audit_service.log_admin_action(
-        user_email=admin_email,
-        action=action,
-        target=f"user:{user.email}",
-        user_role=admin_role,
-        ip_address=user_ip,
-        user_agent=request.headers.get("User-Agent"),
-        success=True,
-        details={"user": user.email, "is_active": user.is_active},
-    )
-    
-    # Return updated table
-    return api_users()
-
-
-@require_role("editor")  # Allow editors and admins
 def update_user_note(note_id):
-    """Update an existing user note."""
+    """Update a user note."""
     from app.models import UserNote
     from app.services.audit_service_postgres import audit_service
 
     note = UserNote.query.get(note_id)
-    if not note or not note.is_active:
-        return jsonify({"success": False, "message": "Note not found"}), 404
+    if not note:
+        return jsonify({"success": False, "error": "Note not found"}), 404
 
-    note_text = request.json.get("note", "").strip()
-    if not note_text:
-        return jsonify({"success": False, "message": "Note cannot be empty"}), 400
+    data = request.get_json()
+    content = data.get("content", "").strip()
 
-    old_note_text = note.note
-    note.note = note_text
-    db.session.commit()
+    if not content:
+        return jsonify({"success": False, "error": "Note content is required"}), 400
 
-    # Audit log
+    # Update note
     admin_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
     )
+    note.content = content
+    note.updated_by = admin_email
+    db.session.commit()
+
+    # Audit log
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
     audit_service.log_admin_action(
         user_email=admin_email,
         action="update_user_note",
-        target=f"note:{note_id}",
+        target=f"user:{note.user_email}",
         user_role=admin_role,
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
-        details={
-            "note_id": note_id,
-            "old_note": old_note_text[:50] + "..."
-            if len(old_note_text) > 50
-            else old_note_text,
-            "new_note": note_text[:50] + "..." if len(note_text) > 50 else note_text,
-        },
+        details={"user": note.user_email, "note_id": note.id},
     )
 
     return jsonify({"success": True, "message": "Note updated successfully"})
 
 
-@require_role("editor")  # Allow editors and admins
+@require_role("admin")
 def delete_user_note(note_id):
-    """Delete (soft delete) a user note."""
+    """Delete a user note."""
     from app.models import UserNote
     from app.services.audit_service_postgres import audit_service
 
     note = UserNote.query.get(note_id)
-    if not note or not note.is_active:
-        return jsonify({"success": False, "message": "Note not found"}), 404
+    if not note:
+        return jsonify({"success": False, "error": "Note not found"}), 404
 
-    note.is_active = False
-    db.session.commit()
-
-    # Audit log
+    # Delete note
     admin_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
     )
+    user_email = note.user_email
+    db.session.delete(note)
+    db.session.commit()
+
+    # Audit log
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
     audit_service.log_admin_action(
         user_email=admin_email,
         action="delete_user_note",
-        target=f"note:{note_id}",
+        target=f"user:{user_email}",
         user_role=admin_role,
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
-        details={
-            "note_id": note_id,
-            "note_preview": note.note[:50] + "..."
-            if len(note.note) > 50
-            else note.note,
-        },
+        details={"user": user_email, "note_id": note_id},
     )
 
     return jsonify({"success": True, "message": "Note deleted successfully"})
 
 
-@require_role("viewer")
+@require_role("admin")
 def get_user_notes_by_email(email):
-    """Get notes for a user by email (for search results)."""
-    from app.models import User, UserNote
+    """Get notes for a user by email."""
+    from app.models import UserNote
 
-    # All authenticated users can see notes
-    user_role = getattr(request, "user_role", "viewer")
-
-    # Find user by email
-    user = User.query.filter_by(email=email.lower()).first()
-    if not user:
-        return jsonify({"notes": []})
-
-    # Get active notes
     notes = (
-        UserNote.query.filter_by(user_id=user.id, is_active=True)
+        UserNote.query.filter_by(user_email=email)
         .order_by(UserNote.created_at.desc())
         .all()
     )
 
-    notes_list = []
-    for note in notes:
-        notes_list.append(
-            {
-                "id": note.id,
-                "note": note.note,
-                "created_by": note.created_by,
-                "created_at": note.created_at.isoformat(),
-                "updated_at": note.updated_at.isoformat(),
-                "can_edit": user_role
-                in ["admin", "editor"],  # Add edit permission flag
-            }
-        )
-
-    return jsonify({"notes": notes_list, "can_edit": user_role in ["admin", "editor"]})
-
-
-@require_role("editor")  # Allow editors and admins
-def add_user_note_by_email(email):
-    """Add a note for a user by email."""
-    from app.models import User, UserNote
-    from app.services.audit_service_postgres import audit_service
-
-    # Find user by email, create if doesn't exist
-    user = User.query.filter_by(email=email.lower()).first()
-
-    if not user:
-        # Create user if they don't exist
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL_NAME", request.remote_user or "unknown"
-        )
-        user = User.create_user(
-            email=email.lower(), role="viewer", created_by=admin_email
-        )
-
-    note_text = request.json.get("note", "").strip()
-    if not note_text:
-        return jsonify({"success": False, "message": "Note cannot be empty"}), 400
-
-    # Get admin info
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    return jsonify(
+        {
+            "notes": [
+                {
+                    "id": note.id,
+                    "content": note.content,
+                    "created_by": note.created_by,
+                    "created_at": note.created_at.isoformat(),
+                    "updated_at": note.updated_at.isoformat()
+                    if note.updated_at
+                    else None,
+                }
+                for note in notes
+            ]
+        }
     )
 
+
+@require_role("admin")
+def add_user_note_by_email(email):
+    """Add a note by user email (for users not yet in the system)."""
+    from app.models import UserNote
+    from app.services.audit_service_postgres import audit_service
+
+    data = request.get_json()
+    content = data.get("content", "").strip()
+
+    if not content:
+        return jsonify({"success": False, "error": "Note content is required"}), 400
+
     # Create note
-    note = UserNote(user_id=user.id, note=note_text, created_by=admin_email)
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL_NAME", request.remote_user or "unknown"
+    )
+    note = UserNote(
+        user_email=email,
+        content=content,
+        created_by=admin_email,
+    )
     db.session.add(note)
     db.session.commit()
 
@@ -652,27 +413,20 @@ def add_user_note_by_email(email):
     audit_service.log_admin_action(
         user_email=admin_email,
         action="add_user_note",
-        target=f"user:{user.email}",
+        target=f"user:{email}",
         user_role=admin_role,
         ip_address=user_ip,
         user_agent=request.headers.get("User-Agent"),
         success=True,
-        details={
-            "user": user.email,
-            "note_id": note.id,
-            "note_preview": note_text[:50] + "..."
-            if len(note_text) > 50
-            else note_text,
-        },
+        details={"user": email, "note_id": note.id},
     )
 
     return jsonify(
         {
             "success": True,
-            "message": "Note added successfully",
             "note": {
                 "id": note.id,
-                "note": note.note,
+                "content": note.content,
                 "created_by": note.created_by,
                 "created_at": note.created_at.isoformat(),
             },
@@ -680,67 +434,26 @@ def add_user_note_by_email(email):
     )
 
 
-# ===== Htmx Helper Functions =====
+# ===== Htmx Routes =====
 
-def _render_user_row(user, notes_count=0):
-    """Helper function to render a user table row."""
-    created_date = user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A'
-    updated_date = user.updated_at.strftime('%Y-%m-%d') if user.updated_at else 'N/A'
-    
-    status_class = 'bg-green-100 text-green-800' if user.is_active else 'bg-red-100 text-red-800'
-    status_text = 'Active' if user.is_active else 'Inactive'
-    
-    return f'''
-    <tr class="hover:bg-gray-50">
-        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.email}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                {user.role.upper()}
-            </span>
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {status_class}">
-                {status_text}
-            </span>
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{created_date}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{updated_date}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <button class="text-indigo-600 hover:text-indigo-900 mr-3"
-                    hx-get="/admin/api/users/{user.id}/edit"
-                    hx-target="#editUserContent"
-                    hx-swap="innerHTML">
-                Edit
-            </button>
-            <button class="text-red-600 hover:text-red-900"
-                    hx-post="/admin/users/toggle/{user.id}"
-                    hx-target="#userTableBody"
-                    hx-swap="innerHTML"
-                    hx-confirm="Are you sure you want to {'deactivate' if user.is_active else 'reactivate'} this user?">
-                {'Deactivate' if user.is_active else 'Reactivate'}
-            </button>
-        </td>
-    </tr>
-    '''
-
-
-# ===== New Htmx Routes =====
 
 @require_role("admin")
 def edit_user_modal(user_id):
     """Get edit user modal content."""
     from app.models import User
-    
+
     user = User.query.get(user_id)
     if not user:
         return '<div class="p-4 text-red-600">User not found</div>', 404
-    
-    roles = ['viewer', 'editor', 'admin']
-    role_options = ''.join([
-        f'<option value="{role}" {"selected" if user.role == role else ""}>{role.capitalize()}</option>'
-        for role in roles
-    ])
-    
+
+    roles = ["viewer", "editor", "admin"]
+    role_options = "".join(
+        [
+            f'<option value="{role}" {"selected" if user.role == role else ""}>{role.capitalize()}</option>'
+            for role in roles
+        ]
+    )
+
     return f'''
     <div class="bg-white rounded-lg">
         <div class="flex justify-between items-center p-4 border-b">
@@ -787,14 +500,14 @@ def update_user_htmx(user_id):
     """Update user via Htmx - returns updated HTML."""
     from app.models import User
     from app.services.audit_service_postgres import audit_service
-    
+
     user = User.query.get(user_id)
     if not user:
         return '<div class="p-4 text-red-600">User not found</div>', 404
-    
-    new_role = request.form.get('role', user.role)
+
+    new_role = request.form.get("role", user.role)
     old_role = user.role
-    
+
     # Update user
     admin_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
@@ -802,11 +515,11 @@ def update_user_htmx(user_id):
     user.role = new_role
     user.updated_by = admin_email
     db.session.commit()
-    
+
     # Audit log
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    
+
     audit_service.log_admin_action(
         user_email=admin_email,
         action="update_user_role",
@@ -817,7 +530,7 @@ def update_user_htmx(user_id):
         success=True,
         details={"user": user.email, "old_role": old_role, "new_role": new_role},
     )
-    
+
     # Return updated table
     return api_users()
 
@@ -827,11 +540,11 @@ def toggle_user_status(user_id):
     """Toggle user active status via Htmx."""
     from app.models import User
     from app.services.audit_service_postgres import audit_service
-    
+
     user = User.query.get(user_id)
     if not user:
         return '<div class="p-4 text-red-600">User not found</div>', 404
-    
+
     # Toggle status
     admin_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
@@ -839,12 +552,12 @@ def toggle_user_status(user_id):
     user.is_active = not user.is_active
     user.updated_by = admin_email
     db.session.commit()
-    
+
     # Audit log
     action = "reactivate_user" if user.is_active else "deactivate_user"
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    
+
     audit_service.log_admin_action(
         user_email=admin_email,
         action=action,
@@ -855,6 +568,79 @@ def toggle_user_status(user_id):
         success=True,
         details={"user": user.email, "is_active": user.is_active},
     )
-    
+
     # Return updated table
     return api_users()
+
+
+# ===== Htmx Helper Functions =====
+
+
+def _render_users_table(users):
+    """Render users table as HTML for Htmx."""
+    if not users:
+        return """
+        <tr>
+            <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                No users found
+            </td>
+        </tr>
+        """
+
+    html = ""
+    for user in users:
+        status_color = "green" if user.is_active else "red"
+        status_text = "Active" if user.is_active else "Inactive"
+        created_date = user.created_at.strftime("%Y-%m-%d")
+
+        # Role colors
+        role_colors = {"admin": "purple", "editor": "blue", "viewer": "gray"}
+        role_color = role_colors.get(user.role, "gray")
+
+        html += _render_user_row(
+            user, status_color, status_text, created_date, role_color
+        )
+
+    return html
+
+
+def _render_user_row(user, status_color, status_text, created_date, role_color):
+    """Render a single user row."""
+    return f"""
+    <tr class="hover:bg-gray-50">
+        <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm text-gray-900">{user.email}</div>
+            <div class="text-sm text-gray-500">ID: {user.id}</div>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-{role_color}-100 text-{role_color}-800">
+                {user.role}
+            </span>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-{status_color}-100 text-{status_color}-800">
+                {status_text}
+            </span>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {created_date}
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            {user.created_by or "System"}
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <button onclick="editUser({user.id})" 
+                    class="text-ttcu-green hover:text-green-700 mr-3">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button hx-post="/admin/users/toggle/{user.id}"
+                    hx-target="#userTableBody"
+                    hx-swap="innerHTML"
+                    hx-confirm="Are you sure you want to {"deactivate" if user.is_active else "reactivate"} this user?"
+                    class="text-{status_color}-600 hover:text-{status_color}-700">
+                <i class="fas fa-{"ban" if user.is_active else "check-circle"}"></i>
+                {"Deactivate" if user.is_active else "Reactivate"}
+            </button>
+        </td>
+    </tr>
+    """

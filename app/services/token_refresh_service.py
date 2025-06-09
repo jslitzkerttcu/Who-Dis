@@ -183,15 +183,19 @@ class TokenRefreshService:
 
                 # Get cache stats to check if refresh is needed
                 cache_stats = data_warehouse_service.get_cache_status()
-                
-                if cache_stats.get('needs_refresh', True):
-                    logger.info("Data warehouse cache needs refresh, starting refresh...")
+
+                if cache_stats.get("needs_refresh", True):
+                    logger.info(
+                        "Data warehouse cache needs refresh, starting refresh..."
+                    )
                     results = data_warehouse_service.refresh_cache()
                     logger.info(f"Data warehouse cache refresh results: {results}")
                 else:
                     logger.debug("Data warehouse cache is up to date")
             except Exception as e:
-                logger.error(f"Error checking/refreshing data warehouse cache: {str(e)}")
+                logger.error(
+                    f"Error checking/refreshing data warehouse cache: {str(e)}"
+                )
 
 
 # Global instance - will be initialized with container in app factory

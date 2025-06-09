@@ -3,6 +3,7 @@
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
+
 try:
     import pyodbc
 except ImportError:
@@ -19,7 +20,9 @@ class DataWarehouseService(BaseCacheService):
     def __init__(self):
         super().__init__(config_prefix="data_warehouse")
         if pyodbc is None:
-            logger.warning("pyodbc not available - data warehouse functionality disabled")
+            logger.warning(
+                "pyodbc not available - data warehouse functionality disabled"
+            )
 
     @property
     def server(self):
@@ -64,7 +67,7 @@ class DataWarehouseService(BaseCacheService):
     def _get_connection_string(self) -> str:
         """Build Azure SQL connection string with AD authentication."""
         driver = "ODBC Driver 18 for SQL Server"
-        
+
         connection_parts = [
             f"DRIVER={{{driver}}}",
             f"SERVER={self.server}",
@@ -74,9 +77,9 @@ class DataWarehouseService(BaseCacheService):
             "Connection Timeout=30",
             "Authentication=ActiveDirectoryServicePrincipal",
             f"UID={self.client_id}",
-            f"PWD={self.client_secret}"
+            f"PWD={self.client_secret}",
         ]
-        
+
         return ";".join(connection_parts)
 
     @handle_service_errors(raise_errors=True)
@@ -96,13 +99,15 @@ class DataWarehouseService(BaseCacheService):
 
         try:
             connection_string = self._get_connection_string()
-            
-            with pyodbc.connect(connection_string, timeout=self.connection_timeout) as conn:
+
+            with pyodbc.connect(
+                connection_string, timeout=self.connection_timeout
+            ) as conn:
                 cursor = conn.cursor()
                 # Simple test query
                 cursor.execute("SELECT 1 as test")
                 result = cursor.fetchone()
-                
+
                 if result and result[0] == 1:
                     logger.debug("Data warehouse connection test successful")
                     return True
@@ -121,7 +126,7 @@ class DataWarehouseService(BaseCacheService):
     def execute_keystone_query(self) -> List[Dict[str, Any]]:
         """
         Execute the Keystone user query and return results.
-        
+
         Returns:
             List of user records from the data warehouse
         """
@@ -202,14 +207,16 @@ class DataWarehouseService(BaseCacheService):
 
         try:
             connection_string = self._get_connection_string()
-            
-            with pyodbc.connect(connection_string, timeout=self.connection_timeout) as conn:
+
+            with pyodbc.connect(
+                connection_string, timeout=self.connection_timeout
+            ) as conn:
                 cursor = conn.cursor()
                 cursor.execute(query)
-                
+
                 # Get column names
                 columns = [column[0] for column in cursor.description]
-                
+
                 # Fetch all results and convert to list of dictionaries
                 results = []
                 for row in cursor.fetchall():
@@ -222,7 +229,7 @@ class DataWarehouseService(BaseCacheService):
                         else:
                             row_dict[column_name] = value
                     results.append(row_dict)
-                
+
                 logger.info(f"Retrieved {len(results)} records from data warehouse")
                 return results
 
@@ -236,35 +243,32 @@ class DataWarehouseService(BaseCacheService):
     def refresh_cache(self) -> Dict[str, int]:
         """
         Refresh the data warehouse cache.
-        
+
         Returns:
             Dictionary with refresh statistics
         """
         try:
             # Execute the query to get fresh data
             results = self.execute_keystone_query()
-            
+
             # Store in cache (will be implemented when we create the model)
             from app.models.data_warehouse import DataWarehouseCache
-            
+
             # Clear existing cache
             DataWarehouseCache.clear_cache()
-            
+
             # Insert new data
             stored_count = 0
             for record in results:
-                upn = record.get('UPN')
+                upn = record.get("UPN")
                 if upn:
                     DataWarehouseCache.cache_user_data(upn, record)
                     stored_count += 1
-            
+
             logger.info(f"Cached {stored_count} data warehouse records")
-            
-            return {
-                'total_records': len(results),
-                'cached_records': stored_count
-            }
-            
+
+            return {"total_records": len(results), "cached_records": stored_count}
+
         except Exception as e:
             logger.error(f"Error refreshing data warehouse cache: {str(e)}")
             raise
@@ -272,22 +276,22 @@ class DataWarehouseService(BaseCacheService):
     def get_user_data(self, upn: str) -> Optional[Dict[str, Any]]:
         """
         Get cached user data by UPN.
-        
+
         Args:
             upn: The UPN to look up
-            
+
         Returns:
             User data dictionary or None if not found
         """
         try:
             from app.models.data_warehouse import DataWarehouseCache
-            
+
             user_data = DataWarehouseCache.get_user_data(upn)
             if user_data:
                 return user_data.to_dict()
-            
+
             return None
-            
+
         except Exception as e:
             logger.error(f"Error getting data warehouse user data for {upn}: {str(e)}")
             return None
@@ -295,16 +299,16 @@ class DataWarehouseService(BaseCacheService):
     def get_cache_status(self) -> Dict[str, Any]:
         """
         Get current cache status.
-        
+
         Returns:
             Dictionary with cache statistics
         """
         try:
             from app.models.data_warehouse import DataWarehouseCache
-            
+
             stats = DataWarehouseCache.get_cache_stats()
-            last_updated = stats.get('last_updated')
-            
+            last_updated = stats.get("last_updated")
+
             # Handle None or naive datetime
             needs_refresh = True
             if last_updated:
@@ -312,25 +316,27 @@ class DataWarehouseService(BaseCacheService):
                     # Make it timezone aware
                     last_updated = last_updated.replace(tzinfo=timezone.utc)
                 # Check if cache is older than refresh interval
-                refresh_hours = float(self._get_config('cache_refresh_hours', '6'))
+                refresh_hours = float(self._get_config("cache_refresh_hours", "6"))
                 age = datetime.now(timezone.utc) - last_updated
                 needs_refresh = age.total_seconds() > (refresh_hours * 3600)
-            
+
             return {
-                'total_records': stats.get('total_records', 0),
-                'last_updated': last_updated.isoformat() if last_updated else None,
-                'record_count': stats.get('total_records', 0),  # Add for frontend compatibility
-                'refresh_status': 'needs_refresh' if needs_refresh else 'ready'
+                "total_records": stats.get("total_records", 0),
+                "last_updated": last_updated.isoformat() if last_updated else None,
+                "record_count": stats.get(
+                    "total_records", 0
+                ),  # Add for frontend compatibility
+                "refresh_status": "needs_refresh" if needs_refresh else "ready",
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting data warehouse cache status: {str(e)}")
             return {
-                'total_records': 0,
-                'record_count': 0,
-                'last_updated': None,
-                'refresh_status': 'error',
-                'error': str(e)
+                "total_records": 0,
+                "record_count": 0,
+                "last_updated": None,
+                "refresh_status": "error",
+                "error": str(e),
             }
 
 

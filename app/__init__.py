@@ -37,7 +37,6 @@ def create_app():
         db.init_app(app)
         app.logger.warning("Falling back to SQLite database")
 
-
     # Initialize dependency injection container
     inject_dependencies(app)
 
@@ -57,9 +56,10 @@ def create_app():
         secret_key = config_get("flask.secret_key")
         if secret_key:
             app.config["SECRET_KEY"] = secret_key
-            
+
         # Initialize CSRF protection after configuration is loaded
         from app.middleware.csrf import DoubleSubmitCSRF
+
         csrf = DoubleSubmitCSRF()
         csrf.init_app(app)
 

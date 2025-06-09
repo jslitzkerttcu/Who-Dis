@@ -57,6 +57,7 @@ admin_bp.route("/api/database/optimize", methods=["POST"])(database.optimize_dat
 admin_bp.route("/api/database/export/audit-logs")(database.export_audit_logs)
 admin_bp.route("/error-logs")(database.error_logs)
 admin_bp.route("/api/error-logs")(database.api_error_logs)
+admin_bp.route("/api/error-logs/<int:error_id>")(database.api_error_detail)
 admin_bp.route("/sessions")(database.sessions)
 admin_bp.route("/api/sessions")(database.api_sessions)
 admin_bp.route("/api/sessions/<int:session_id>/terminate", methods=["POST"])(
@@ -67,17 +68,30 @@ admin_bp.route("/api/tokens/refresh/<service_name>", methods=["POST"])(
     database.refresh_token
 )
 
-# Cache management routes
+# Cache management routes (from database module)
+admin_bp.route("/api/cache/status", endpoint="api_cache_status")(database.cache_status)
+admin_bp.route(
+    "/api/cache/refresh/<cache_type>", endpoint="api_cache_refresh", methods=["POST"]
+)(database.refresh_cache)
+admin_bp.route(
+    "/api/cache/clear-all", endpoint="api_cache_clear-all", methods=["POST"]
+)(database.clear_all_caches)
+
+# Cache management routes (from cache module)
 admin_bp.route("/cache-status")(cache.cache_status)
 admin_bp.route("/api/cache/search/status")(cache.search_cache_status)
 admin_bp.route("/api/cache/clear", methods=["POST"])(cache.clear_caches)
-admin_bp.route("/api/genesys/cache/status")(cache.genesys_cache_status)
+admin_bp.route("/api/genesys/cache/status", endpoint="genesys_cache_status_view")(
+    cache.genesys_cache_status
+)
 admin_bp.route("/api/genesys/cache/config", methods=["GET", "POST"])(
     cache.genesys_cache_config
 )
-admin_bp.route("/api/genesys/cache-status", methods=["GET"])(
-    cache.get_genesys_cache_status
-)
+admin_bp.route(
+    "/api/genesys/cache-status",
+    endpoint="get_genesys_cache_status_api",
+    methods=["GET"],
+)(cache.get_genesys_cache_status)
 admin_bp.route("/api/genesys/refresh-cache", methods=["POST"])(
     cache.refresh_genesys_cache
 )
@@ -102,4 +116,6 @@ admin_bp.route("/api/configuration", methods=["GET", "POST"])(config.api_configu
 admin_bp.route("/api/test/ldap", methods=["GET"])(config.test_ldap_connection)
 admin_bp.route("/api/test/graph", methods=["GET"])(config.test_graph_connection)
 admin_bp.route("/api/test/genesys", methods=["GET"])(config.test_genesys_connection)
-admin_bp.route("/api/test/data_warehouse", methods=["GET"])(config.test_data_warehouse_connection)
+admin_bp.route("/api/test/data_warehouse", methods=["GET"])(
+    config.test_data_warehouse_connection
+)

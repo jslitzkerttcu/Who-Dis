@@ -33,7 +33,7 @@
 </head>
 <body class="bg-gray-50 font-sans min-h-screen flex flex-col">
     <!-- Navigation -->
-    <nav class="bg-gray-900 shadow-lg" x-data="{ open: false }">
+    <nav class="bg-gray-900 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
@@ -131,19 +131,6 @@
         </div>
     </footer>
     
-    <!-- Application data for JavaScript -->
-    <div id="app-data" 
-         data-user-role="{{ g.role|default('viewer') }}"
-         style="display: none;">
-    </div>
-    
-    <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/security-utils.js') }}?v={{ range(1000, 9999) | random }}"></script>
-    <script src="{{ url_for('static', filename='js/shared-utils.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-    {% if g.user and g.role %}
-    <script src="{{ url_for('static', filename='js/session-timeout.js') }}"></script>
-    {% endif %}
     {% block scripts %}{% endblock %}
 </body>
 </html>

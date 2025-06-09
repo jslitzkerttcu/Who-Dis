@@ -1,198 +1,208 @@
 {% extends "base.html" %}
 
-{% block title %}Database Management - Who Dis?{% endblock %}
+{% block title %}Database Management - Admin Panel{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-lg-10 mx-auto">
-        <h1 class="mb-4 text-center"><i class="bi bi-database-fill-gear"></i> Database Management</h1>
+<div class="max-w-7xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+            <i class="fas fa-database mr-3"></i>
+            Database Management
+        </h1>
+        <a href="{{ url_for('admin.index') }}" 
+           class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition duration-150 ease-in-out flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Back to Admin
+        </a>
+    </div>
 
-        <div class="alert alert-info shadow-sm" role="alert">
-            <h5 class="alert-heading">Database Overview</h5>
-            <p>Monitor health, manage caches, and keep the data flowing smoothly.</p>
+    <!-- Database Health Card -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200 mb-6">
+        <div class="bg-blue-600 text-white px-6 py-4 rounded-t-lg">
+            <h2 class="text-lg font-semibold flex items-center">
+                <i class="fas fa-heartbeat mr-2"></i>
+                Database Health
+            </h2>
         </div>
-
-        <!-- Database Health Card -->
-        <div class="card mb-4 border-primary">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="bi bi-heart-pulse"></i> Database Health</h5>
-            </div>
-            <div class="card-body">
-                <div id="db-health-loading" class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
-                <div id="db-health-content" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-3 mb-3">
-                            <div class="text-center">
-                                <h2 id="db-status-icon" class="mb-2"></h2>
-                                <h6>Status</h6>
-                                <p id="db-status" class="mb-0"></p>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="text-center">
-                                <h2 class="text-primary mb-2" id="db-size">--</h2>
-                                <h6>Database Size</h6>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="text-center">
-                                <h2 class="text-info mb-2" id="active-connections">--</h2>
-                                <h6>Active Connections</h6>
-                            </div>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <div class="text-center">
-                                <h2 class="text-warning mb-2" id="pool-usage">--</h2>
-                                <h6>Pool Usage</h6>
-                            </div>
-                        </div>
-                    </div>
+        <div class="p-6" 
+             hx-get="{{ url_for('admin.database_health') }}"
+             hx-trigger="load, every 30s"
+             hx-swap="innerHTML">
+            <div class="text-center py-8">
+                <div class="inline-flex items-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                    <span class="text-gray-600">Loading database health...</span>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Quick Actions -->
-        <div class="row">
-            <!-- Error Logs -->
-            <div class="col-md-6 mb-3">
-                <div class="card border-danger h-100">
-                    <div class="card-header bg-danger text-white">
-                        <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Error Logs</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text">View recent application errors and exceptions.</p>
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <span>Recent Errors: <span id="error-count" class="badge bg-danger">0</span></span>
-                            <span>Last 24h: <span id="error-24h" class="badge bg-warning">0</span></span>
-                        </div>
-                        <button class="btn btn-outline-danger w-100" disabled title="Feature coming soon">
-                            <i class="bi bi-journal-x"></i> View Error Logs
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Cache Management -->
-            <div class="col-md-6 mb-3">
-                <div class="card border-info h-100">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="bi bi-lightning"></i> Cache Management</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text">Manage search and API caches for optimal performance.</p>
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Search Cache:</span>
-                                <span id="search-cache-size" class="badge bg-secondary">0 entries</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Genesys Token:</span>
-                                <span id="genesys-cache-status" class="badge bg-secondary">Unknown</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Graph API Token:</span>
-                                <span id="graph-cache-status" class="badge bg-secondary">Unknown</span>
-                            </div>
-                            <hr class="my-2">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Genesys Groups:</span>
-                                <span id="genesys-groups-count" class="badge bg-info">0</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Genesys Locations:</span>
-                                <span id="genesys-locations-count" class="badge bg-info">0</span>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <span>Cache Age:</span>
-                                <span id="genesys-cache-age" class="text-muted small">Unknown</span>
-                            </div>
-                        </div>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-outline-primary" data-action="refresh-genesys-cache" aria-label="Refresh Genesys cache">
-                                <i class="bi bi-arrow-clockwise"></i> Refresh Genesys Cache
-                            </button>
-                            <button class="btn btn-outline-info" data-action="clear-caches" aria-label="Clear all caches">
-                                <i class="bi bi-trash"></i> Clear All Caches
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Session Management -->
-            <div class="col-md-6 mb-3">
-                <div class="card border-success h-100">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0"><i class="bi bi-people"></i> Active Sessions</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text">Monitor and manage user sessions.</p>
-                        <div class="text-center mb-3">
-                            <h3 id="active-sessions" class="text-success">0</h3>
-                            <small class="text-muted">Active Users</small>
-                        </div>
-                        <button class="btn btn-outline-success w-100" disabled title="Feature coming soon">
-                            <i class="bi bi-person-lines-fill"></i> Manage Sessions
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Maintenance -->
-            <div class="col-md-6 mb-3">
-                <div class="card border-warning h-100">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0"><i class="bi bi-tools"></i> Maintenance</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text">Database maintenance and optimization tools.</p>
-                        <button class="btn btn-outline-warning w-100 mb-2" data-action="export-audit-logs" aria-label="Export audit logs">
-                            <i class="bi bi-download"></i> Export Audit Logs
-                        </button>
-                        <button class="btn btn-outline-warning w-100" data-action="optimize-database" aria-label="Optimize database tables">
-                            <i class="bi bi-speedometer2"></i> Optimize Tables
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Table Statistics Accordion (at bottom) -->
-        <div class="accordion mb-4" id="tableStatsAccordion">
-            <div class="accordion-item border-dark">
-                <h2 class="accordion-header" id="tableStatsHeading">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
-                            data-bs-target="#tableStatsCollapse" aria-expanded="false" 
-                            aria-controls="tableStatsCollapse">
-                        <i class="bi bi-table me-2"></i> Table Statistics
-                    </button>
+    <!-- Quick Actions Grid -->
+    <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <!-- Cache Management -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200">
+            <div class="bg-cyan-600 text-white px-6 py-4 rounded-t-lg">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-bolt mr-2"></i>
+                    Cache Management
                 </h2>
-                <div id="tableStatsCollapse" class="accordion-collapse collapse" 
-                     aria-labelledby="tableStatsHeading" data-bs-parent="#tableStatsAccordion">
-                    <div class="accordion-body">
-                        <div id="table-stats-loading" class="text-center">
-                            <div class="spinner-border" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600 mb-4">Manage search and API caches for optimal performance.</p>
+                
+                <div id="cache-status" 
+                     hx-get="{{ url_for('admin.api_cache_status') }}"
+                     hx-trigger="load, every 30s"
+                     hx-swap="innerHTML">
+                    <div class="text-center py-4">
+                        <div class="inline-flex items-center">
+                            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-600 mr-2"></div>
+                            <span class="text-gray-600 text-sm">Loading cache status...</span>
                         </div>
-                        <div id="table-stats-content" style="display: none;">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Table</th>
-                                        <th>Row Count</th>
-                                        <th>Size</th>
-                                        <th>Last Activity</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="table-stats-body">
-                                </tbody>
-                            </table>
-                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                    <button class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition duration-150 flex items-center justify-center"
+                            hx-post="{{ url_for('admin.api_cache_refresh', cache_type='genesys') }}"
+                            hx-target="#cache-action-result"
+                            hx-swap="innerHTML"
+                            hx-indicator="#genesys-cache-spinner">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        Refresh Genesys
+                        <span id="genesys-cache-spinner" class="htmx-indicator ml-2">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
+                    </button>
+                    <button class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md transition duration-150 flex items-center justify-center"
+                            hx-post="{{ url_for('admin.api_cache_clear-all') }}"
+                            hx-target="#cache-action-result"
+                            hx-swap="innerHTML"
+                            hx-confirm="Are you sure you want to clear all caches? This may temporarily impact performance."
+                            hx-indicator="#clear-cache-spinner">
+                        <i class="fas fa-trash mr-2"></i>
+                        Clear All
+                        <span id="clear-cache-spinner" class="htmx-indicator ml-2">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
+                    </button>
+                </div>
+                <div id="cache-action-result" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Session Management -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200">
+            <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-users mr-2"></i>
+                    Active Sessions
+                </h2>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600 mb-4">Monitor and manage user sessions.</p>
+                
+                <div id="session-stats"
+                     hx-get="{{ url_for('admin.session_stats') }}"
+                     hx-trigger="load, every 30s"
+                     hx-swap="innerHTML">
+                    <div class="text-center py-8">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                    </div>
+                </div>
+                
+                <a href="{{ url_for('admin.sessions') }}" 
+                   class="block w-full px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-center rounded-md transition duration-150 mt-4">
+                    <i class="fas fa-user-cog mr-2"></i>
+                    Manage Sessions
+                </a>
+            </div>
+        </div>
+
+        <!-- Error Logs -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200">
+            <div class="bg-red-600 text-white px-6 py-4 rounded-t-lg">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    Error Logs
+                </h2>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600 mb-4">View recent application errors and exceptions.</p>
+                
+                <div id="error-stats"
+                     hx-get="{{ url_for('admin.error_stats') }}"
+                     hx-trigger="load, every 60s"
+                     hx-swap="innerHTML">
+                    <div class="text-center py-4">
+                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto"></div>
+                    </div>
+                </div>
+                
+                <a href="{{ url_for('admin.error_logs') }}" 
+                   class="block w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-center rounded-md transition duration-150 mt-4">
+                    <i class="fas fa-list-ul mr-2"></i>
+                    View Error Logs
+                </a>
+            </div>
+        </div>
+
+        <!-- Maintenance -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200">
+            <div class="bg-yellow-600 text-white px-6 py-4 rounded-t-lg">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-tools mr-2"></i>
+                    Maintenance
+                </h2>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600 mb-4">Database maintenance and optimization tools.</p>
+                
+                <div class="space-y-2">
+                    <button class="w-full px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition duration-150 flex items-center justify-center"
+                            onclick="window.location.href='{{ url_for('admin.export_audit_logs') }}'">
+                        <i class="fas fa-download mr-2"></i>
+                        Export Audit Logs
+                    </button>
+                    <button class="w-full px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition duration-150 flex items-center justify-center"
+                            hx-post="{{ url_for('admin.optimize_database') }}"
+                            hx-target="#optimize-result"
+                            hx-swap="innerHTML"
+                            hx-confirm="This will optimize database tables. The operation may take a few moments. Continue?"
+                            hx-indicator="#optimize-spinner">
+                        <i class="fas fa-tachometer-alt mr-2"></i>
+                        Optimize Tables
+                        <span id="optimize-spinner" class="htmx-indicator ml-2">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
+                    </button>
+                </div>
+                <div id="optimize-result" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Statistics -->
+    <div class="bg-white rounded-lg shadow-md border border-gray-200">
+        <div class="bg-gray-700 text-white px-6 py-4 rounded-t-lg cursor-pointer hover:bg-gray-600 transition duration-150"
+             onclick="toggleTableStats()">
+            <h2 class="text-lg font-semibold flex items-center justify-between">
+                <span>
+                    <i class="fas fa-table mr-2"></i>
+                    Table Statistics
+                </span>
+                <i id="table-stats-icon" class="fas fa-chevron-down transition-transform"></i>
+            </h2>
+        </div>
+        <div id="table-stats-content" class="hidden">
+            <div class="overflow-x-auto"
+                 hx-get="{{ url_for('admin.database_tables') }}"
+                 hx-trigger="revealed"
+                 hx-swap="innerHTML">
+                <div class="text-center py-8">
+                    <div class="inline-flex items-center">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-700 mr-3"></div>
+                        <span class="text-gray-600">Loading table statistics...</span>
                     </div>
                 </div>
             </div>
@@ -200,11 +210,43 @@
     </div>
 </div>
 
-{% endblock %}
+<style>
+    .htmx-indicator {
+        display: none;
+    }
+    .htmx-request .htmx-indicator {
+        display: inline-block;
+    }
+    .htmx-request.htmx-indicator {
+        display: inline-block;
+    }
+</style>
 
-{% block scripts %}
-{{ super() }}
-<script src="{{ url_for('static', filename='js/shared-utils.js') }}"></script>
-<script src="{{ url_for('static', filename='js/admin-utils.js') }}"></script>
-<script src="{{ url_for('static', filename='js/admin-database.js') }}"></script>
+<script>
+    function toggleTableStats() {
+        const content = document.getElementById('table-stats-content');
+        const icon = document.getElementById('table-stats-icon');
+        
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            icon.classList.add('rotate-180');
+        } else {
+            content.classList.add('hidden');
+            icon.classList.remove('rotate-180');
+        }
+    }
+    
+    // Handle Htmx events
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        // Show/hide result messages after 5 seconds
+        if (evt.detail.target.id === 'cache-action-result' || 
+            evt.detail.target.id === 'optimize-result') {
+            if (evt.detail.target.querySelector('.bg-green-50')) {
+                setTimeout(() => {
+                    evt.detail.target.innerHTML = '';
+                }, 5000);
+            }
+        }
+    });
+</script>
 {% endblock %}

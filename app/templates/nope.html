@@ -3,102 +3,71 @@
 {% block title %}NOPE - Who Dis?{% endblock %}
 
 {% block content %}
-<div class="container-fluid bg-dark text-light min-vh-100 d-flex align-items-center">
-    <div class="row w-100">
-        <div class="col-lg-8 mx-auto text-center">
-            <div class="nope-page py-5">
-                <h1 class="nope-title text-danger mb-4">NOPE.</h1>
-                
-                <h2 class="subheading mb-5 text-warning">
-                    <i class="bi bi-hand-index-thumb"></i> This isn't the button you were looking for.
-                </h2>
-                
-                <div class="prophecy-section mb-5">
-                    <p class="prophecy text-info">
-                        {{ denial_reason|e }}
-                    </p>
-                </div>
-                
-                <div class="action-section">
-                    <a href="{{ url_for('home.index') }}" class="btn btn-lg btn-outline-light px-5 py-3">
-                        <i class="bi bi-arrow-left-circle"></i> Fine, Take Me Back
-                    </a>
-                </div>
-                
-                {% if g.user %}
-                <div class="mt-5 text-muted">
-                    <small>
-                        <i class="bi bi-person-fill"></i> Logged in as: {{ g.user|e }}
-                        {% if g.role %}
-                        <span class="badge bg-secondary ms-2">{{ g.role|upper }}</span>
-                        {% endif %}
-                    </small>
-                </div>
+<div class="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+    <div class="max-w-4xl w-full px-4 py-16 text-center">
+        <div class="transform transition-all duration-500">
+            <h1 class="text-8xl md:text-9xl font-black text-red-500 mb-6 animate-pulse tracking-tight">
+                NOPE.
+            </h1>
+            
+            <h2 class="text-2xl md:text-3xl font-light text-yellow-400 mb-12 italic">
+                <i class="fas fa-hand-paper mr-3"></i>
+                This isn't the button you were looking for.
+            </h2>
+            
+            <div class="max-w-3xl mx-auto mb-12">
+                <p class="text-2xl md:text-3xl font-bold text-cyan-400 italic leading-relaxed animate-glow">
+                    {{ denial_reason|e }}
+                </p>
+            </div>
+            
+            <div class="mt-12">
+                <a href="{{ url_for('home.index') }}" 
+                   class="inline-flex items-center px-8 py-4 text-lg border-2 border-white text-white hover:bg-white hover:text-gray-900 rounded-lg transition-all duration-200 transform hover:scale-105">
+                    <i class="fas fa-arrow-left mr-3"></i>
+                    Fine, Take Me Back
+                </a>
+            </div>
+            
+            {% if g.user %}
+            <div class="mt-12 text-gray-400 text-sm">
+                <i class="fas fa-user mr-2"></i>
+                Logged in as: {{ g.user|e }}
+                {% if g.role %}
+                <span class="ml-2 px-3 py-1 bg-gray-700 text-gray-300 rounded-full text-xs uppercase tracking-wider">
+                    {{ g.role }}
+                </span>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
 <style>
-.nope-page {
-    animation: fadeIn 0.5s ease-in;
-}
-
-.nope-title {
-    font-size: 8rem;
-    font-weight: 900;
-    letter-spacing: -0.05em;
-    text-shadow: 0 0 20px rgba(220, 53, 69, 0.5);
-    animation: pulse 2s ease-in-out infinite;
-}
-
-.subheading {
-    font-size: 1.5rem;
-    font-style: italic;
-    opacity: 0.9;
-}
-
-.prophecy-section {
-    max-width: 800px;
-    margin: 3rem auto;
-}
-
-.prophecy {
-    font-size: 2rem;
-    font-weight: bold;
-    letter-spacing: 0.02em;
-    line-height: 1.4;
-    text-shadow: 0 0 10px rgba(23, 162, 184, 0.3);
-    animation: glow 3s ease-in-out infinite alternate;
-    font-style: italic;
-}
-
-.btn-outline-light:hover {
-    transform: scale(1.05);
-    transition: transform 0.2s ease;
-}
-
 @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
 }
 
 @keyframes glow {
-    from { text-shadow: 0 0 10px rgba(23, 162, 184, 0.3); }
-    to { text-shadow: 0 0 20px rgba(23, 162, 184, 0.6), 0 0 30px rgba(23, 162, 184, 0.3); }
+    0%, 100% { 
+        text-shadow: 0 0 20px rgba(14, 165, 233, 0.5), 
+                     0 0 40px rgba(14, 165, 233, 0.3); 
+    }
+    50% { 
+        text-shadow: 0 0 30px rgba(14, 165, 233, 0.7), 
+                     0 0 60px rgba(14, 165, 233, 0.4),
+                     0 0 80px rgba(14, 165, 233, 0.2); 
+    }
 }
 
-@media (max-width: 768px) {
-    .nope-title {
-        font-size: 5rem;
-    }
+.animate-pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-glow {
+    animation: glow 3s ease-in-out infinite;
 }
 </style>
 {% endblock %}

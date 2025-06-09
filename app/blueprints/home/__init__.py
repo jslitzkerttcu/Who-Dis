@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, session, request, g
 from app.middleware.auth import auth_required
 from app.models.session import UserSession
-from app.models.unified_log import LogEntry
+from app.models import AccessAttempt
 from app.utils.error_handler import handle_errors
 
 home_bp = Blueprint("home", __name__)
@@ -46,12 +46,12 @@ def logout():
 
     # Log the logout
     if hasattr(g, "user") and g.user:
-        LogEntry.log_event(
-            event_type="auth",
-            action="logout",
-            user_email=g.user,
+        AccessAttempt.log_attempt(
             ip_address=request.remote_addr,
-            additional_data={"session_id": session_id},
+            access_granted=True,
+            user_email=g.user,
+            auth_method="logout",
+            requested_path=request.path,
         )
 
     # Clear Flask session

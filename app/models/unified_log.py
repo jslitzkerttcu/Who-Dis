@@ -215,7 +215,14 @@ class LogEntry(AuditableModel):
 
     # Backward compatibility aliases
     @classmethod
-    def log_access(cls, user_email: str, action: str, target_resource: str, success: bool = True, **kwargs):
+    def log_access(
+        cls,
+        user_email: str,
+        action: str,
+        target_resource: str,
+        success: bool = True,
+        **kwargs,
+    ):
         """Log an access event (success or failure)."""
         if success:
             return cls(

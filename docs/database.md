@@ -86,8 +86,8 @@ Check that all tables were created:
 
 -- Should show:
 -- api_tokens, users, configuration, configuration_history, audit_log, 
--- error_log, access_attempts, external_service_data, cache_entries,
--- search_cache, graph_photos, user_sessions, log_entries
+-- error_log, access_attempts, genesys_groups, genesys_locations,
+-- genesys_skills, search_cache, graph_photos, user_sessions, user_notes
 ```
 
 ### 5. Initial Table Analysis
@@ -115,11 +115,16 @@ This prevents the `-1` row count issue in the admin interface.
 ### Audit & Logging Tables (using AuditableModel)
 - **audit_log** (extends AuditableModel): Tracks all system activities
   - Base fields: `created_at`, `updated_at`, `user_email`, `ip_address`, `user_agent`, `session_id`, `success`, `message`, `additional_data`
-  - Custom fields: `event_type`, `action`, `target_resource`, `search_query`
+  - Custom fields: `event_type`, `action`, `target_resource`, `search_query`, `search_results_count`, `search_services`
+  - Note: Uses actual separate table, not unified model
 - **error_log** (extends AuditableModel): Application error tracking
-  - Inherits same base fields with error-specific additions: `error_type`, `stack_trace`, `severity`
+  - Base fields: `created_at`, `updated_at`, `user_email`, `ip_address`, `user_agent`, `session_id`, `success`, `message`, `additional_data`
+  - Custom fields: `error_type`, `stack_trace`, `severity`, `request_path`, `request_method`
+  - Note: Uses actual separate table, not unified model
 - **access_attempts** (extends AuditableModel): Security monitoring
-  - Maps `success` to `access_granted`, `message` to `denial_reason`
+  - Base fields: `created_at`, `updated_at`, `user_email`, `ip_address`, `user_agent`, `session_id`, `success`, `message`, `additional_data`
+  - Custom fields: `requested_path`, `auth_method`
+  - Note: `success` field represents access_granted, `message` field represents denial_reason
 
 ### Cache & External Data Tables
 - **search_cache** (extends CacheableModel): Search result caching
@@ -302,6 +307,12 @@ If you get errors about `warning_shown` or `is_active` columns:
 # Run the Python migration script
 python scripts/add_session_timeout_columns.py
 ```
+
+#### Missing 'message' column in audit tables
+If you get errors about missing 'message' column in audit_log, error_log, or access_attempts:
+1. This was fixed in June 2025 - tables now include all AuditableModel base fields
+2. The create_tables.sql file has been updated with the correct schema
+3. For existing installations, schema fix scripts are archived in scripts/archive/2025-06-schema-fixes/
 
 #### Transaction poisoning (InFailedSqlTransaction)
 If you get "InFailedSqlTransaction" errors:

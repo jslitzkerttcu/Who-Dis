@@ -23,22 +23,28 @@ class DoubleSubmitCSRF:
     def init_app(self, app):
         # Load CSRF configuration from database or use defaults
         self._load_csrf_config(app)
-        
+
         # Store instance on app
         app.csrf_double_submit = self
-        
+
     def _load_csrf_config(self, app):
         """Load CSRF configuration from database."""
         from app.services.configuration_service import config_get
-        
+
         # Load configuration from database with defaults
         app.config["CSRF_COOKIE_NAME"] = config_get("csrf.cookie_name") or "_csrf_token"
-        app.config["CSRF_COOKIE_SECURE"] = (config_get("csrf.cookie_secure") or "false").lower() == "true"
+        app.config["CSRF_COOKIE_SECURE"] = (
+            config_get("csrf.cookie_secure") or "false"
+        ).lower() == "true"
         # HttpOnly must be false for double-submit cookie pattern - JavaScript needs to read the cookie
-        app.config["CSRF_COOKIE_HTTPONLY"] = (config_get("csrf.cookie_httponly") or "false").lower() == "true"
+        app.config["CSRF_COOKIE_HTTPONLY"] = (
+            config_get("csrf.cookie_httponly") or "false"
+        ).lower() == "true"
         app.config["CSRF_COOKIE_SAMESITE"] = config_get("csrf.cookie_samesite") or "Lax"
         app.config["CSRF_COOKIE_PATH"] = config_get("csrf.cookie_path") or "/"
-        app.config["CSRF_HEADER_NAME"] = config_get("csrf.header_name") or "X-CSRF-Token"
+        app.config["CSRF_HEADER_NAME"] = (
+            config_get("csrf.header_name") or "X-CSRF-Token"
+        )
         app.config["CSRF_TOKEN_EXPIRE"] = int(config_get("csrf.token_expire") or "3600")
 
     def generate_token(self):
@@ -87,7 +93,7 @@ class DoubleSubmitCSRF:
     def set_cookie(self, response):
         """Set CSRF cookie on response."""
         token = self.generate_token()
-        
+
         response.set_cookie(
             current_app.config["CSRF_COOKIE_NAME"],
             value=token,

@@ -37,7 +37,7 @@ def main():
     print("⚠️  WARNING: This will clear all encrypted configuration values!")
     print("You will need to re-enter sensitive values through the admin UI.")
     response = input("\nContinue? (yes/no): ")
-    
+
     if response.lower() != "yes":
         print("Cancelled.")
         return
@@ -50,17 +50,17 @@ def main():
             WHERE encrypted_value IS NOT NULL
             ORDER BY category, setting_key
         """)
-        
+
         encrypted_configs = cursor.fetchall()
-        
+
         if not encrypted_configs:
             print("\n✅ No encrypted configuration values found.")
             return
-        
+
         print(f"\n📋 Found {len(encrypted_configs)} encrypted configuration values:")
         for category, key, is_sensitive in encrypted_configs:
             print(f"   - {category}.{key}")
-        
+
         # Clear encrypted values
         cursor.execute("""
             UPDATE configuration
@@ -70,19 +70,19 @@ def main():
                 updated_by = 'clear_encrypted_config'
             WHERE encrypted_value IS NOT NULL
         """)
-        
+
         affected = cursor.rowcount
         conn.commit()
-        
+
         print(f"\n✅ Cleared {affected} encrypted configuration values.")
         print("\n📌 Next steps:")
         print("1. Start the application: python run.py")
         print("2. Navigate to /admin/configuration")
         print("3. Re-enter the following sensitive values:")
-        
+
         for category, key, is_sensitive in encrypted_configs:
             print(f"   - {category}.{key}")
-            
+
     except Exception as e:
         print(f"\n❌ Error clearing encrypted values: {e}", file=sys.stderr)
         conn.rollback()

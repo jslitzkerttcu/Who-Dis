@@ -4,16 +4,8 @@ import requests
 import logging
 from typing import Dict, Optional, Any
 from datetime import datetime
-from app.models.external_service import ExternalServiceData
-from app.models.unified_cache import CacheEntry
 from app.database import db
 from app.services.base import BaseCacheService
-
-# Backward compatibility aliases
-GenesysGroup = ExternalServiceData
-GenesysLocation = ExternalServiceData
-GenesysSkill = ExternalServiceData
-ApiToken = CacheEntry
 
 logger = logging.getLogger(__name__)
 
