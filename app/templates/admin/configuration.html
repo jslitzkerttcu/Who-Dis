@@ -297,38 +297,29 @@
     
     // Handle dynamic show/hide of toggle button
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, setting up password toggles');
-        console.log('Available functions:', typeof setupPasswordToggles, typeof updatePasswordToggle, typeof togglePassword);
         setupPasswordToggles();
     });
     
     // Also setup toggles when HTMX loads new content
     document.body.addEventListener('htmx:afterSwap', function(evt) {
-        console.log('HTMX afterSwap event, setting up password toggles');
         setTimeout(() => {
             setupPasswordToggles();
         }, 100);
     });
     
     function setupPasswordToggles() {
-        console.log('setupPasswordToggles called');
         // Monitor all password fields
         const passwordFields = document.querySelectorAll('input[type="password"]');
-        console.log('Found password fields:', passwordFields.length);
         
-        passwordFields.forEach((input, index) => {
-            console.log('Setting up password field', index, ':', input.name, input.placeholder);
-            
+        passwordFields.forEach((input) => {
             // Mark this field as processed to avoid duplicates
             if (input.dataset.toggleSetup) {
-                console.log('Field already has toggle setup, skipping');
                 return;
             }
             input.dataset.toggleSetup = 'true';
             
             // Add event listener directly
             input.addEventListener('input', function(event) {
-                console.log('Input event triggered for:', event.target.name);
                 updatePasswordToggle(event.target);
             });
             
@@ -338,21 +329,15 @@
     }
     
     function updatePasswordToggle(input) {
-        console.log('updatePasswordToggle called for:', input.name, 'value length:', input.value.length, 'placeholder:', input.placeholder);
-        
         const container = input.parentElement;
         const existingBtn = container.querySelector('button[onclick*="togglePassword"]');
-        const hasPlaceholder = input.placeholder && input.placeholder.includes('••••');
         const hasValue = input.value && input.value.length > 0;
-        
-        console.log('hasPlaceholder:', hasPlaceholder, 'hasValue:', hasValue, 'existingBtn:', !!existingBtn);
         
         // Show button if user has typed something (regardless of placeholder)
         // When user types in a field with placeholder dots, they're entering a new value
         if (hasValue) {
             // Show button if it doesn't exist
             if (!existingBtn) {
-                console.log('Creating new toggle button');
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.onclick = function() { togglePassword(this); };
@@ -363,7 +348,6 @@
         } else {
             // Remove button if it exists (no value typed)
             if (existingBtn) {
-                console.log('Removing existing toggle button');
                 existingBtn.remove();
             }
         }

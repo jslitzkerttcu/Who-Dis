@@ -142,7 +142,7 @@ def render_app_config():
                     Secret Key
                     {'<span class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded"><i class="fas fa-shield-alt mr-1"></i>Encrypted</span>' if secret_key_encrypted else ""}
                     <i class="fas fa-exclamation-triangle text-yellow-500 ml-2" title="Changing this will log out all users"></i>
-                    {'''<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>''' if secret_key_encrypted else ""}
+                    {('<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>' if secret_key_encrypted else "")}
                 </label>
                 <div class="relative">
                     <input type="password" name="flask_secret_key" 
@@ -314,7 +314,7 @@ def render_ldap_config():
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Bind Password
                     {'<span class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded"><i class="fas fa-shield-alt mr-1"></i>Encrypted</span>' if ldap_password_encrypted else ""}
-                    {'''<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>''' if ldap_password_encrypted else ""}
+                    {('<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>' if ldap_password_encrypted else "")}
                 </label>
                 <div class="relative">
                     <input type="password" name="ldap_bind_password" 
@@ -417,7 +417,7 @@ def render_graph_config():
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Client Secret
                     {'<span class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded"><i class="fas fa-shield-alt mr-1"></i>Encrypted</span>' if graph_secret_encrypted else ""}
-                    {'''<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>''' if graph_secret_encrypted else ""}
+                    {('<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>' if graph_secret_encrypted else "")}
                 </label>
                 <div class="relative">
                     <input type="password" name="graph_client_secret" 
@@ -498,7 +498,7 @@ def render_genesys_config():
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Client Secret
                     {'<span class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded"><i class="fas fa-shield-alt mr-1"></i>Encrypted</span>' if genesys_secret_encrypted else ""}
-                    {'''<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>''' if genesys_secret_encrypted else ""}
+                    {('<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>' if genesys_secret_encrypted else "")}
                 </label>
                 <div class="relative">
                     <input type="password" name="genesys_client_secret" 
@@ -616,7 +616,7 @@ def render_data_warehouse_config():
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Client Secret
                     {'<span class="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded"><i class="fas fa-shield-alt mr-1"></i>Encrypted</span>' if dw_secret_encrypted else ""}
-                    {'''<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>''' if dw_secret_encrypted else ""}
+                    {('<i class="fas fa-info-circle text-blue-500 ml-2 cursor-help" title="This field is encrypted. To update: enter a new value. To keep current value: leave the field empty and save. The placeholder dots are for display only."></i>' if dw_secret_encrypted else "")}
                 </label>
                 <div class="relative">
                     <input type="password" name="data_warehouse_client_secret" 

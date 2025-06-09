@@ -195,7 +195,7 @@ def handle_service_errors(
                         error_type=type(e).__name__,
                         error_message=str(e),
                         stack_trace=traceback.format_exc(),
-                        endpoint=f"{service}.{f.__name__}",
+                        request_path=f"{service}.{f.__name__}",
                         request_method="SERVICE",
                     )
                 except Exception as log_error:
