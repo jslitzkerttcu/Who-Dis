@@ -124,12 +124,98 @@
         </div>
     </main>
     
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+    
     <!-- Footer -->
     <footer class="bg-gray-900 text-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <p class="text-center text-sm">&copy; 2025 Who Dis? All rights reserved.</p>
         </div>
     </footer>
+    
+    <!-- Toast JavaScript -->
+    <script>
+    function showToast(message, type = 'info', duration = 4000) {
+        const container = document.getElementById('toast-container');
+        const toastId = 'toast-' + Date.now();
+        
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.className = `transform transition-all duration-300 ease-in-out translate-x-full opacity-0`;
+        
+        // Style based on type
+        let bgColor, borderColor, iconClass, textColor;
+        switch(type) {
+            case 'success':
+                bgColor = 'bg-green-50';
+                borderColor = 'border-green-400';
+                iconClass = 'fas fa-check-circle text-green-400';
+                textColor = 'text-green-700';
+                break;
+            case 'error':
+                bgColor = 'bg-red-50';
+                borderColor = 'border-red-400';
+                iconClass = 'fas fa-times-circle text-red-400';
+                textColor = 'text-red-700';
+                break;
+            case 'warning':
+                bgColor = 'bg-yellow-50';
+                borderColor = 'border-yellow-400';
+                iconClass = 'fas fa-exclamation-triangle text-yellow-400';
+                textColor = 'text-yellow-700';
+                break;
+            default:
+                bgColor = 'bg-blue-50';
+                borderColor = 'border-blue-400';
+                iconClass = 'fas fa-info-circle text-blue-400';
+                textColor = 'text-blue-700';
+        }
+        
+        toast.innerHTML = `
+            <div class="${bgColor} ${borderColor} border-l-4 p-4 rounded-lg shadow-lg max-w-sm">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="${textColor} text-sm font-medium">${message}</p>
+                    </div>
+                    <div class="ml-4 flex-shrink-0">
+                        <button class="rounded-md inline-flex text-gray-400 hover:text-gray-600 focus:outline-none"
+                                onclick="removeToast('${toastId}')">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add to container
+        container.appendChild(toast);
+        
+        // Trigger animation
+        setTimeout(() => {
+            toast.className = `transform transition-all duration-300 ease-in-out translate-x-0 opacity-100`;
+        }, 10);
+        
+        // Auto remove
+        setTimeout(() => {
+            removeToast(toastId);
+        }, duration);
+    }
+    
+    function removeToast(toastId) {
+        const toast = document.getElementById(toastId);
+        if (toast) {
+            toast.className = `transform transition-all duration-300 ease-in-out translate-x-full opacity-0`;
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }
+    }
+    </script>
     
     {% block scripts %}{% endblock %}
 </body>

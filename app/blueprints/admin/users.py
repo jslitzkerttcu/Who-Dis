@@ -6,6 +6,8 @@ Handles user CRUD operations and role management.
 from flask import render_template, request, jsonify
 from app.middleware.auth import require_role
 from app.database import db
+from app.models import User, UserNote
+from app.services.audit_service_postgres import audit_service
 
 
 @require_role("admin")
@@ -17,8 +19,6 @@ def manage_users():
 @require_role("admin")
 def api_users():
     """Get all users."""
-    from app.models import User
-
     users = User.query.order_by(User.created_at.desc()).all()
 
     # Check if this is an Htmx request
@@ -44,9 +44,6 @@ def api_users():
 @require_role("admin")
 def add_user():
     """Add a new user."""
-    from app.models import User
-    from app.services.audit_service_postgres import audit_service
-
     data = request.get_json()
     email = data.get("email", "").lower()
     role = data.get("role", "viewer")
@@ -87,9 +84,6 @@ def add_user():
 @require_role("admin")
 def update_user():
     """Update an existing user."""
-    from app.models import User
-    from app.services.audit_service_postgres import audit_service
-
     data = request.get_json()
     user_id = data.get("user_id")
     role = data.get("role")
@@ -143,9 +137,6 @@ def update_user():
 @require_role("admin")
 def delete_user():
     """Delete a user."""
-    from app.models import User
-    from app.services.audit_service_postgres import audit_service
-
     data = request.get_json()
     user_id = data.get("user_id")
 
@@ -191,8 +182,6 @@ def delete_user():
 @require_role("admin")
 def get_user_notes(user_id):
     """Get notes for a specific user."""
-    from app.models import UserNote
-
     notes = (
         UserNote.query.filter_by(user_id=user_id)
         .order_by(UserNote.created_at.desc())
@@ -220,9 +209,6 @@ def get_user_notes(user_id):
 @require_role("admin")
 def add_user_note(user_id):
     """Add a note to a user."""
-    from app.models import User, UserNote
-    from app.services.audit_service_postgres import audit_service
-
     # Verify user exists
     user = User.query.get(user_id)
     if not user:
@@ -278,9 +264,6 @@ def add_user_note(user_id):
 @require_role("admin")
 def update_user_note(note_id):
     """Update a user note."""
-    from app.models import UserNote
-    from app.services.audit_service_postgres import audit_service
-
     note = UserNote.query.get(note_id)
     if not note:
         return jsonify({"success": False, "error": "Note not found"}), 404
@@ -320,9 +303,6 @@ def update_user_note(note_id):
 @require_role("admin")
 def delete_user_note(note_id):
     """Delete a user note."""
-    from app.models import UserNote
-    from app.services.audit_service_postgres import audit_service
-
     note = UserNote.query.get(note_id)
     if not note:
         return jsonify({"success": False, "error": "Note not found"}), 404
@@ -356,8 +336,6 @@ def delete_user_note(note_id):
 @require_role("admin")
 def get_user_notes_by_email(email):
     """Get notes for a user by email."""
-    from app.models import UserNote
-
     notes = (
         UserNote.query.filter_by(user_email=email)
         .order_by(UserNote.created_at.desc())
@@ -385,9 +363,6 @@ def get_user_notes_by_email(email):
 @require_role("admin")
 def add_user_note_by_email(email):
     """Add a note by user email (for users not yet in the system)."""
-    from app.models import UserNote
-    from app.services.audit_service_postgres import audit_service
-
     data = request.get_json()
     content = data.get("content", "").strip()
 
@@ -440,8 +415,6 @@ def add_user_note_by_email(email):
 @require_role("admin")
 def edit_user_modal(user_id):
     """Get edit user modal content."""
-    from app.models import User
-
     user = User.query.get(user_id)
     if not user:
         return '<div class="p-4 text-red-600">User not found</div>', 404
@@ -498,9 +471,6 @@ def edit_user_modal(user_id):
 @require_role("admin")
 def update_user_htmx(user_id):
     """Update user via Htmx - returns updated HTML."""
-    from app.models import User
-    from app.services.audit_service_postgres import audit_service
-
     user = User.query.get(user_id)
     if not user:
         return '<div class="p-4 text-red-600">User not found</div>', 404
@@ -538,9 +508,6 @@ def update_user_htmx(user_id):
 @require_role("admin")
 def toggle_user_status(user_id):
     """Toggle user active status via Htmx."""
-    from app.models import User
-    from app.services.audit_service_postgres import audit_service
-
     user = User.query.get(user_id)
     if not user:
         return '<div class="p-4 text-red-600">User not found</div>', 404

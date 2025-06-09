@@ -37,9 +37,6 @@ def api_configuration():
             },
             "auth": {
                 "AUTH_REQUIRED": config_get("auth.required", "True"),
-                "AUTH_BASIC_ENABLED": config_get("auth.basic_enabled", "False"),
-                "AUTH_BASIC_USERNAME": config_get("auth.basic_username", ""),
-                "AUTH_BASIC_PASSWORD": config_get("auth.basic_password", ""),
                 "SESSION_TIMEOUT_MINUTES": config_get(
                     "auth.session_timeout_minutes", "15"
                 ),
@@ -62,7 +59,6 @@ def api_configuration():
             },
             "ldap": {
                 "LDAP_HOST": config_get("ldap.host", ""),
-                "LDAP_SERVER": config_get("ldap.server", ""),  # Alias for compatibility
                 "LDAP_PORT": config_get("ldap.port", "389"),
                 "LDAP_USE_SSL": config_get("ldap.use_ssl", "False"),
                 "LDAP_BIND_DN": config_get("ldap.bind_dn", ""),
@@ -200,9 +196,6 @@ def api_configuration():
                         "SECRET_KEY": "secret_key",
                         # Auth keys
                         "AUTH_REQUIRED": "required",
-                        "AUTH_BASIC_ENABLED": "basic_enabled",
-                        "AUTH_BASIC_USERNAME": "basic_username",
-                        "AUTH_BASIC_PASSWORD": "basic_password",
                         # Search keys
                         "SEARCH_TIMEOUT": "timeout",
                         "SEARCH_OVERALL_TIMEOUT": "overall_timeout",
@@ -215,7 +208,6 @@ def api_configuration():
                         "SESSION_TIMEOUT_MINUTES": "session_timeout_minutes",
                         # LDAP keys
                         "LDAP_HOST": "host",
-                        "LDAP_SERVER": "server",
                         "LDAP_PORT": "port",
                         "LDAP_USE_SSL": "use_ssl",
                         "LDAP_BASE_DN": "base_dn",

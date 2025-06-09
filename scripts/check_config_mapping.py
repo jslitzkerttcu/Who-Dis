@@ -21,9 +21,6 @@ def check_config_mapping():
         },
         "auth": {
             "AUTH_REQUIRED": "required",
-            "AUTH_BASIC_ENABLED": "basic_enabled",
-            "AUTH_BASIC_USERNAME": "basic_username",
-            "AUTH_BASIC_PASSWORD": "basic_password",
         },
         "search": {
             "SEARCH_TIMEOUT": "timeout",
@@ -33,7 +30,7 @@ def check_config_mapping():
             "AUDIT_RETENTION_DAYS": "retention_days",
         },
         "ldap": {
-            "LDAP_SERVER": "server",
+            "LDAP_HOST": "host",
             "LDAP_PORT": "port",
             "LDAP_USE_SSL": "use_ssl",
             "LDAP_BASE_DN": "base_dn",

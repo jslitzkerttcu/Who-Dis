@@ -10,6 +10,7 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 from cryptography.fernet import Fernet
+from sqlalchemy import text
 from app.database import db
 from app.utils.error_handler import handle_service_errors
 from app.interfaces.configuration_service import IConfigurationService
@@ -98,8 +99,6 @@ class SimpleConfig(IConfigurationService):
         # Check database
         try:
             with db.engine.begin() as conn:
-                from sqlalchemy import text
-
                 # Parse key into category and setting_key
                 if "." in key:
                     category, setting_key = key.split(".", 1)
@@ -108,45 +107,28 @@ class SimpleConfig(IConfigurationService):
 
                 result = conn.execute(
                     text(
-                        "SELECT setting_value, encrypted_value FROM configuration WHERE category = :category AND setting_key = :setting_key"
+                        "SELECT value FROM simple_config WHERE key = :key"
                     ),
-                    {"category": category, "setting_key": setting_key},
+                    {"key": key},
                 ).first()
 
                 if result:
-                    setting_value, encrypted_value = result
+                    value = result[0]  # Get the single value column
 
-                    # Use encrypted_value if available, otherwise setting_value
-                    if encrypted_value:
+                    # Try to decrypt if it looks encrypted
+                    if value and isinstance(value, str) and value.startswith("gAAAAAB"):
                         try:
-                            # Handle memoryview objects from PostgreSQL BYTEA columns
-                            if hasattr(encrypted_value, "tobytes"):
-                                encrypted_str = encrypted_value.tobytes().decode(
-                                    "utf-8"
-                                )
-                            else:
-                                encrypted_str = str(encrypted_value)
-                            value = self._decrypt(encrypted_str)
-
-                            # If decryption returned empty string due to key mismatch
-                            # and this field shouldn't be encrypted, use plain value
-                            if (
-                                value == ""
-                                and not self._should_encrypt(key)
-                                and setting_value
-                            ):
-                                logger.warning(
-                                    f"Using plain value for {key} due to decryption failure"
-                                )
-                                value = setting_value
+                            value = self._decrypt(value)
                             # Debug logging for encrypted values
-                            elif self._should_encrypt(key):
+                            if self._should_encrypt(key):
                                 logger.debug(f"Successfully decrypted {key}")
                         except Exception as e:
                             logger.warning(f"Failed to decrypt {key}: {e}")
-                            value = setting_value
-                    else:
-                        value = setting_value
+                            # If decryption fails and this shouldn't be encrypted, keep original
+                            if not self._should_encrypt(key):
+                                pass  # Keep the original value
+                            else:
+                                value = default  # Use default for encrypted fields that fail
 
                     self._cache[key] = value
                     return value
@@ -171,8 +153,6 @@ class SimpleConfig(IConfigurationService):
 
         try:
             with db.engine.begin() as conn:
-                from sqlalchemy import text
-
                 # Parse key into category and setting_key
                 if "." in key:
                     category, setting_key = key.split(".", 1)
@@ -237,8 +217,6 @@ class SimpleConfig(IConfigurationService):
         try:
             configs = {}
             with db.engine.begin() as conn:
-                from sqlalchemy import text
-
                 results = conn.execute(
                     text(
                         "SELECT category, setting_key, setting_value, encrypted_value FROM configuration ORDER BY category, setting_key"
@@ -286,8 +264,6 @@ class SimpleConfig(IConfigurationService):
         """Delete a configuration value."""
         try:
             with db.engine.begin() as conn:
-                from sqlalchemy import text
-
                 # Parse key into category and setting_key
                 if "." in key:
                     category, setting_key = key.split(".", 1)

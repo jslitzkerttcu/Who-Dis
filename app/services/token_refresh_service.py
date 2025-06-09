@@ -163,7 +163,7 @@ class TokenRefreshService:
                         logger.error("Failed to refresh Graph API token")
             else:
                 logger.debug(
-                    f"Token for {token.cache_key} is valid for {time_until_expiry}"
+                    f"Token for {token.service_name} is valid for {time_until_expiry}"
                 )
 
             # Also check if Genesys cache needs refresh

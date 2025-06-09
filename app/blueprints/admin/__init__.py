@@ -113,9 +113,9 @@ admin_bp.route("/api/audit-metadata")(audit.api_audit_metadata)
 # Configuration management routes
 admin_bp.route("/configuration")(config.configuration)
 admin_bp.route("/api/configuration", methods=["GET", "POST"])(config.api_configuration)
-admin_bp.route("/api/test/ldap", methods=["GET"])(config.test_ldap_connection)
-admin_bp.route("/api/test/graph", methods=["GET"])(config.test_graph_connection)
-admin_bp.route("/api/test/genesys", methods=["GET"])(config.test_genesys_connection)
-admin_bp.route("/api/test/data_warehouse", methods=["GET"])(
+admin_bp.route("/api/test/ldap", methods=["GET", "POST"])(config.test_ldap_connection)
+admin_bp.route("/api/test/graph", methods=["GET", "POST"])(config.test_graph_connection)
+admin_bp.route("/api/test/genesys", methods=["GET", "POST"])(config.test_genesys_connection)
+admin_bp.route("/api/test/data_warehouse", methods=["GET", "POST"])(
     config.test_data_warehouse_connection
 )

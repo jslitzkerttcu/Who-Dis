@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, Dict, Any, List
-from datetime import datetime
-from sqlalchemy import and_, or_, desc
+from datetime import datetime, timedelta
+from sqlalchemy import and_, or_, desc, func
 from app.models.audit import AuditLog
 from app.models.error import ErrorLog
 from app.database import db
@@ -304,8 +304,6 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
         self, user_email: str, days: int = 30
     ) -> List[Dict[str, Any]]:
         try:
-            from datetime import timedelta
-
             cutoff = datetime.utcnow() - timedelta(days=days)
 
             results = (
@@ -321,9 +319,6 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
 
     def get_search_statistics(self, days: int = 30) -> Dict[str, Any]:
         try:
-            from datetime import timedelta
-            from sqlalchemy import func
-
             cutoff = datetime.utcnow() - timedelta(days=days)
 
             # Base query for searches
@@ -391,8 +386,6 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
 
     def get_config_changes(self, days: int = 30) -> List[Dict[str, Any]]:
         try:
-            from datetime import timedelta
-
             cutoff = datetime.utcnow() - timedelta(days=days)
 
             results = (
@@ -408,8 +401,6 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
 
     def get_errors(self, days: int = 7) -> List[Dict[str, Any]]:
         try:
-            from datetime import timedelta
-
             cutoff = datetime.utcnow() - timedelta(days=days)
 
             results = (
@@ -424,9 +415,6 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
 
     def get_error_statistics(self, days: int = 7) -> Dict[str, Any]:
         try:
-            from datetime import timedelta
-            from sqlalchemy import func
-
             cutoff = datetime.utcnow() - timedelta(days=days)
 
             # Base query for errors
