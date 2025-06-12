@@ -412,9 +412,9 @@ def refresh_cache(cache_type):
             )
 
         elif cache_type == "data_warehouse":
-            from app.services.data_warehouse_service import data_warehouse_service
+            from app.services.refresh_employee_profiles import employee_profiles_service
 
-            result = data_warehouse_service.refresh_cache()
+            result = employee_profiles_service.refresh_all_profiles()
 
             audit_service.log_admin_action(
                 user_email=admin_email,
@@ -503,7 +503,6 @@ def clear_all_caches():
         GenesysGroup,
         GenesysLocation,
         GenesysSkill,
-        GraphPhoto,
     )
     from app.services.audit_service_postgres import audit_service
 
@@ -516,13 +515,12 @@ def clear_all_caches():
         locations_deleted = GenesysLocation.query.delete()
         skills_deleted = GenesysSkill.query.delete()
 
-        # Clear Graph photos
-        photos_deleted = GraphPhoto.query.delete()
+        # Clear employee profiles (consolidated cache)
+        from app.models.employee_profiles import EmployeeProfiles
 
-        # Clear Data Warehouse cache
-        from app.models.data_warehouse import DataWarehouseCache
+        profiles_deleted = EmployeeProfiles.query.delete()
 
-        dw_deleted = DataWarehouseCache.query.delete()
+        # For backward compatibility with the audit logging
 
         db.session.commit()
 
@@ -546,8 +544,7 @@ def clear_all_caches():
                 "genesys_groups": groups_deleted,
                 "genesys_locations": locations_deleted,
                 "genesys_skills": skills_deleted,
-                "graph_photos": photos_deleted,
-                "data_warehouse": dw_deleted,
+                "employee_profiles": profiles_deleted,
             },
         )
 
@@ -564,8 +561,7 @@ def clear_all_caches():
                             All caches cleared successfully!
                             Deleted {search_deleted} search entries,
                             {groups_deleted + locations_deleted + skills_deleted} Genesys entries,
-                            {photos_deleted} cached photos,
-                            and {dw_deleted} data warehouse records.
+                            and {profiles_deleted} employee profiles (including photos and data warehouse data).
                         </p>
                     </div>
                 </div>
@@ -581,7 +577,7 @@ def clear_all_caches():
                     "genesys_groups": groups_deleted,
                     "genesys_locations": locations_deleted,
                     "genesys_skills": skills_deleted,
-                    "graph_photos": photos_deleted,
+                    "employee_profiles": profiles_deleted,
                 },
             }
         )
@@ -1103,7 +1099,7 @@ def _render_cache_status():
     """Render cache status as HTML for Htmx with modern mobile-friendly design."""
     from app.models import SearchCache, ApiToken
     from app.services.genesys_cache_db import genesys_cache_db
-    from app.services.data_warehouse_service import data_warehouse_service
+    from app.services.refresh_employee_profiles import employee_profiles_service
     from datetime import datetime
 
     try:
@@ -1115,7 +1111,7 @@ def _render_cache_status():
             (t for t in tokens if t["service"] == "microsoft_graph"), None
         )
         genesys_cache = genesys_cache_db.get_cache_status()
-        dw_cache = data_warehouse_service.get_cache_status()
+        dw_cache = employee_profiles_service.get_cache_stats()
 
         # Helper function to format expiration time for tooltip
         def format_expiration(token_data):
@@ -2157,11 +2153,11 @@ def genesys_cache_stats_html():
 @require_role("admin")
 def data_warehouse_cache_stats_html():
     """Get data warehouse cache statistics as HTML for HTMX."""
-    from app.services.data_warehouse_service import data_warehouse_service
+    from app.services.refresh_employee_profiles import employee_profiles_service
     from datetime import datetime
 
     try:
-        status = data_warehouse_service.get_cache_status()
+        status = employee_profiles_service.get_cache_stats()
 
         record_count = status.get("record_count", 0)
         refresh_status = status.get("refresh_status", "unknown")
@@ -2217,7 +2213,7 @@ def data_warehouse_cache_stats_html():
 @require_role("admin")
 def data_warehouse_connection_status():
     """Get data warehouse connection status as HTML for HTMX."""
-    from app.services.data_warehouse_service import data_warehouse_service
+    from app.services.refresh_employee_profiles import employee_profiles_service
     from app.services.simple_config import config_get
 
     try:
@@ -2236,7 +2232,7 @@ def data_warehouse_connection_status():
             """
 
         # Get cache status to check if connection is working
-        cache_status = data_warehouse_service.get_cache_status()
+        cache_status = employee_profiles_service.get_cache_stats()
         record_count = cache_status.get("record_count", 0)
         refresh_status = cache_status.get("refresh_status", "unknown")
 
@@ -2343,7 +2339,7 @@ def cache_performance_metrics():
     """Get overall cache performance metrics as HTML."""
     from app.models import SearchCache, ApiToken
     from app.services.genesys_cache_db import genesys_cache_db
-    from app.services.data_warehouse_service import data_warehouse_service
+    from app.services.refresh_employee_profiles import employee_profiles_service
     from datetime import datetime
 
     try:
@@ -2359,7 +2355,7 @@ def cache_performance_metrics():
         )
 
         # Get data warehouse stats
-        dw_status = data_warehouse_service.get_cache_status()
+        dw_status = employee_profiles_service.get_cache_stats()
         dw_count = dw_status.get("record_count", 0)
 
         # Calculate total cache entries
@@ -2414,7 +2410,7 @@ def cache_performance_metrics():
 @require_role("admin")
 def api_cache_clear(cache_type):
     """Clear specific cache type."""
-    from app.models import SearchCache, GraphPhoto
+    from app.models import SearchCache
     from datetime import datetime, timezone
 
     try:
@@ -2424,9 +2420,9 @@ def api_cache_clear(cache_type):
             search_deleted = SearchCache.query.filter(
                 SearchCache.expires_at < now
             ).delete()
-            photo_deleted = GraphPhoto.query.filter(
-                GraphPhoto.expires_at < now
-            ).delete()
+
+            # Note: Employee profiles don't have individual expiration
+            # They are refreshed as a whole, so skip here
 
             db.session.commit()
 
@@ -2437,7 +2433,7 @@ def api_cache_clear(cache_type):
                         <i class="fas fa-check-circle text-green-400"></i>
                     </div>
                     <div class="ml-3">
-                        <p class="text-green-700">Cleared {search_deleted + photo_deleted} expired cache entries</p>
+                        <p class="text-green-700">Cleared {search_deleted} expired cache entries</p>
                     </div>
                 </div>
             </div>
@@ -2466,8 +2462,9 @@ def api_cache_clear(cache_type):
 @require_role("admin")
 def clear_single_cache(cache_type):
     """Clear a specific cache type."""
-    from app.models import SearchCache, GraphPhoto
+    from app.models import SearchCache
     from app.models.genesys import GenesysGroup, GenesysLocation, GenesysSkill
+    from app.models.employee_profiles import EmployeeProfiles
     from app.services.audit_service_postgres import audit_service
 
     try:
@@ -2484,8 +2481,9 @@ def clear_single_cache(cache_type):
             deleted_count = groups_deleted + locations_deleted + skills_deleted
             cache_name = "Genesys cache"
         elif cache_type == "photos":
-            deleted_count = GraphPhoto.query.delete()
-            cache_name = "photo cache"
+            # Photos are now part of employee profiles
+            deleted_count = EmployeeProfiles.query.delete()
+            cache_name = "employee profiles (including photos)"
         else:
             return (
                 f"""

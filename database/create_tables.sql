@@ -261,21 +261,7 @@ CREATE INDEX IF NOT EXISTS idx_genesys_skills_service ON genesys_skills(service_
 CREATE INDEX IF NOT EXISTS idx_genesys_skills_name ON genesys_skills(name);
 CREATE INDEX IF NOT EXISTS idx_genesys_skills_is_active ON genesys_skills(is_active);
 
--- Graph photos cache table (using CacheableModel)
-CREATE TABLE IF NOT EXISTS graph_photos (
-    user_id VARCHAR(255) PRIMARY KEY,
-    user_principal_name VARCHAR(255),
-    photo_data BYTEA NOT NULL,
-    content_type VARCHAR(50) DEFAULT 'image/jpeg' NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 days'),
-    fetched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP -- Synonym for created_at
-);
-
-CREATE INDEX IF NOT EXISTS idx_graph_photos_upn ON graph_photos(user_principal_name);
-CREATE INDEX IF NOT EXISTS idx_graph_photos_updated ON graph_photos(updated_at);
-CREATE INDEX IF NOT EXISTS idx_graph_photos_expires_at ON graph_photos(expires_at);
+-- REMOVED: graph_photos table - consolidated into employee_profiles
 
 -- User Sessions table (using BaseModel + TimestampMixin + ExpirableMixin)
 CREATE TABLE IF NOT EXISTS user_sessions (
@@ -297,40 +283,47 @@ CREATE INDEX IF NOT EXISTS idx_session_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_session_expires ON user_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_session_is_active ON user_sessions(is_active);
 
--- Data Warehouse Cache table (using CacheableModel)
-CREATE TABLE IF NOT EXISTS data_warehouse_cache (
-    id SERIAL PRIMARY KEY,
-    upn VARCHAR(100) UNIQUE NOT NULL,
+-- REMOVED: data_warehouse_cache table - consolidated into employee_profiles
+
+-- Employee Profiles consolidated table
+CREATE TABLE IF NOT EXISTS employee_profiles (
+    upn VARCHAR(255) PRIMARY KEY,
     
-    -- Core Keystone data fields
-    ks_user_serial VARCHAR(50),
+    -- Keystone fields
+    ks_user_serial INTEGER,
     ks_last_login_time TIMESTAMP WITH TIME ZONE,
-    ks_login_lock VARCHAR(1), -- Store as 'L' or 'N'
+    ks_login_lock VARCHAR(1),
+    
+    -- Role fields  
     live_role VARCHAR(255),
     test_role VARCHAR(255),
-    ukg_job_code VARCHAR(20),
     keystone_expected_role VARCHAR(255),
     
-    -- Complete raw data from the query (JSONB for efficient querying)
+    -- UKG field
+    ukg_job_code VARCHAR(50),
+    
+    -- Photo fields
+    photo_data BYTEA,
+    photo_content_type VARCHAR(50) DEFAULT 'image/jpeg',
+    
+    -- Raw data storage
     raw_data JSONB,
     
-    -- CacheableModel fields
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP WITH TIME ZONE -- NULL for no expiration
+    -- Timestamp fields
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for data warehouse cache performance
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_upn ON data_warehouse_cache(upn);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_updated_at ON data_warehouse_cache(updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_expires_at ON data_warehouse_cache(expires_at);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_ks_user_serial ON data_warehouse_cache(ks_user_serial);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_ukg_job_code ON data_warehouse_cache(ukg_job_code);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_live_role ON data_warehouse_cache(live_role);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_ks_login_lock ON data_warehouse_cache(ks_login_lock);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_ks_last_login ON data_warehouse_cache(ks_last_login_time DESC);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_keystone_expected_role ON data_warehouse_cache(keystone_expected_role);
-CREATE INDEX IF NOT EXISTS idx_data_warehouse_cache_raw_data_gin ON data_warehouse_cache USING GIN (raw_data);
+-- Indexes for employee_profiles table
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_ks_login_lock ON employee_profiles(ks_login_lock);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_live_role ON employee_profiles(live_role);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_upn ON employee_profiles(upn);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_keystone_expected_role ON employee_profiles(keystone_expected_role);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_created_at ON employee_profiles(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_updated_at ON employee_profiles(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_ukg_job_code ON employee_profiles(ukg_job_code);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_ks_user_serial ON employee_profiles(ks_user_serial);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_raw_data_gin ON employee_profiles USING GIN (raw_data);
 
 -- Create views for common queries
 CREATE OR REPLACE VIEW recent_searches AS
@@ -376,16 +369,13 @@ BEGIN
     -- Delete expired sessions
     DELETE FROM user_sessions WHERE expires_at < CURRENT_TIMESTAMP;
     
-    -- Delete expired graph photos
-    DELETE FROM graph_photos WHERE expires_at < CURRENT_TIMESTAMP;
-    
     -- Clean up old Genesys cache (older than 30 days)
     DELETE FROM genesys_groups WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
     DELETE FROM genesys_locations WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
     DELETE FROM genesys_skills WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
     
-    -- Clean up old Data Warehouse cache (older than 30 days)
-    DELETE FROM data_warehouse_cache WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
+    -- Clean up old Employee Profiles cache (older than 30 days)
+    DELETE FROM employee_profiles WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
 END;
 $$ LANGUAGE plpgsql;
 

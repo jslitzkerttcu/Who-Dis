@@ -3,7 +3,7 @@
 {% block title %}Employee Search - Who Dis?{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto">
+<div class="max-w-4xl mx-auto">
     <!-- Header Section -->
     <div class="text-center mb-8">
         <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Employee Search</h1>
@@ -11,22 +11,15 @@
     </div>
 
     <!-- Search Form -->
-    <form hx-post="{{ url_for('search.search') }}"
-          hx-target="#searchResults"
-          hx-swap="innerHTML"
-          hx-indicator="#loadingSpinner"
-          class="mb-8">
+    <form hx-post="{{ url_for('search.search') }}" hx-target="#searchResults" hx-swap="innerHTML"
+        hx-indicator="#loadingSpinner" class="mb-8">
         <div class="max-w-2xl mx-auto">
             <div class="relative">
-                <input type="text" 
-                       name="query"
-                       class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-full focus:outline-none focus:border-ttcu-green focus:ring-2 focus:ring-ttcu-green focus:ring-opacity-20 transition-colors pr-16"
-                       placeholder="Enter username or email (we won't judge typos… much)" 
-                       minlength="3" 
-                       required 
-                       autofocus>
-                <button type="submit" 
-                        class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-ttcu-yellow hover:bg-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium transition-all duration-150 hover:scale-105 hover:shadow-lg flex items-center">
+                <input type="text" name="query"
+                    class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-full focus:outline-none focus:border-ttcu-green focus:ring-2 focus:ring-ttcu-green focus:ring-opacity-20 transition-colors pr-16"
+                    placeholder="Enter username or email (we won't judge typos… much)" minlength="3" required autofocus>
+                <button type="submit"
+                    class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-ttcu-yellow hover:bg-yellow-500 text-gray-900 px-6 py-2 rounded-full font-medium transition-all duration-150 hover:scale-105 hover:shadow-lg flex items-center">
                     <i class="fas fa-search mr-2"></i>
                     Search
                 </button>
@@ -34,7 +27,7 @@
         </div>
     </form>
 
-    <!-- Loading Spinner with Skeleton -->
+    <!-- Loading Spinner -->
     <div id="loadingSpinner" class="htmx-indicator py-8">
         <div class="text-center mb-6">
             <div class="inline-flex items-center justify-center">
@@ -43,53 +36,14 @@
             <p class="mt-4 text-gray-600">Summoning data goblins...</p>
         </div>
         
-        <!-- Skeleton Cards -->
-        <div class="grid md:grid-cols-2 gap-6 max-w-6xl mx-auto">
-            <!-- Azure AD Skeleton -->
-            <div class="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
-                <div class="bg-ttcu-green h-16 flex items-center px-6">
-                    <div class="w-8 h-8 bg-white/20 rounded mr-3"></div>
-                    <div class="w-32 h-6 bg-white/20 rounded"></div>
-                </div>
-                <div class="p-6 space-y-4">
-                    <div class="flex items-start">
-                        <div class="w-24 h-24 bg-gray-200 rounded-full mr-4"></div>
-                        <div class="flex-1 space-y-2">
-                            <div class="w-3/4 h-6 bg-gray-200 rounded"></div>
-                            <div class="w-1/2 h-4 bg-gray-200 rounded"></div>
-                            <div class="w-2/3 h-4 bg-gray-200 rounded"></div>
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="w-full h-4 bg-gray-200 rounded"></div>
-                        <div class="w-4/5 h-4 bg-gray-200 rounded"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Genesys Skeleton -->
-            <div class="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
-                <div class="bg-genesys-orange h-16 flex items-center px-6">
-                    <div class="w-8 h-8 bg-white/20 rounded mr-3"></div>
-                    <div class="w-28 h-6 bg-white/20 rounded"></div>
-                </div>
-                <div class="p-6 space-y-4">
-                    <div class="space-y-2">
-                        <div class="w-3/4 h-6 bg-gray-200 rounded"></div>
-                        <div class="w-1/2 h-4 bg-gray-200 rounded"></div>
-                        <div class="w-2/3 h-4 bg-gray-200 rounded"></div>
-                    </div>
-                    <div class="space-y-3">
-                        <div class="flex flex-wrap gap-2">
-                            <div class="w-16 h-6 bg-gray-200 rounded-full"></div>
-                            <div class="w-20 h-6 bg-gray-200 rounded-full"></div>
-                            <div class="w-14 h-6 bg-gray-200 rounded-full"></div>
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            <div class="w-18 h-6 bg-gray-200 rounded-full"></div>
-                            <div class="w-16 h-6 bg-gray-200 rounded-full"></div>
-                        </div>
-                    </div>
+        <!-- Skeleton Card -->
+        <div class="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto animate-pulse">
+            <div class="flex">
+                <div class="w-24 h-24 bg-gray-200 rounded-full mr-6"></div>
+                <div class="flex-1 space-y-3">
+                    <div class="h-6 bg-gray-200 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+                    <div class="h-4 bg-gray-200 rounded w-2/3"></div>
                 </div>
             </div>
         </div>
@@ -104,10 +58,12 @@
 <!-- Note Modal Container -->
 <div id="noteModal" class="fixed inset-0 z-50 overflow-y-auto hidden">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity" onclick="document.getElementById('noteModal').classList.add('hidden')">
+        <div class="fixed inset-0 transition-opacity"
+            onclick="document.getElementById('noteModal').classList.add('hidden')">
             <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
         </div>
-        <div id="noteModalContent" class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div id="noteModalContent"
+            class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <!-- Modal content will be loaded here -->
         </div>
     </div>
@@ -119,43 +75,45 @@
 </div>
 
 <style>
-.htmx-indicator {
-    display: none;
-}
-.htmx-request .htmx-indicator {
-    display: block;
-}
-.htmx-request.htmx-indicator {
-    display: block;
-}
+    .htmx-indicator {
+        display: none;
+    }
+
+    .htmx-request .htmx-indicator {
+        display: block;
+    }
+
+    .htmx-request.htmx-indicator {
+        display: block;
+    }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Session timeout handling - simpler approach without server polling
-document.addEventListener('DOMContentLoaded', function() {
-    // Only implement basic session timeout detection on network errors
-    // This avoids the polling loop that was causing authentication issues
-    
-    // Monitor HTMX events for authentication errors
-    document.body.addEventListener('htmx:responseError', function(evt) {
-        if (evt.detail.xhr.status === 401) {
-            // Show user-friendly message before redirect
-            if (typeof showBanner === 'function') {
-                showBanner('Your session has expired. Redirecting to login...', 'warning', 3000);
+    // Session timeout handling - simpler approach without server polling
+    document.addEventListener('DOMContentLoaded', function () {
+        // Only implement basic session timeout detection on network errors
+        // This avoids the polling loop that was causing authentication issues
+
+        // Monitor HTMX events for authentication errors
+        document.body.addEventListener('htmx:responseError', function (evt) {
+            if (evt.detail.xhr.status === 401) {
+                // Show user-friendly message before redirect
+                if (typeof showBanner === 'function') {
+                    showBanner('Your session has expired. Redirecting to login...', 'warning', 3000);
+                }
+                // Redirect to login on authentication error
+                setTimeout(() => {
+                    window.location.href = '/home/login?reason=session_expired';
+                }, 2000);
             }
-            // Redirect to login on authentication error
-            setTimeout(() => {
-                window.location.href = '/home/login?reason=session_expired';
-            }, 2000);
-        }
+        });
+
+        // Monitor for network errors that might indicate session issues
+        document.body.addEventListener('htmx:sendError', function (evt) {
+            console.warn('Network error detected, session might be expired');
+        });
     });
-    
-    // Monitor for network errors that might indicate session issues
-    document.body.addEventListener('htmx:sendError', function(evt) {
-        console.warn('Network error detected, session might be expired');
-    });
-});
 </script>
 {% endblock %}

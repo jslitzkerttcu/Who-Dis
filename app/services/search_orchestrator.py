@@ -50,7 +50,22 @@ class SearchOrchestrator(BaseConfigurableService):
     @property
     def overall_timeout(self) -> int:
         """Get overall search timeout in seconds."""
-        return int(self._get_config("overall_timeout", "20"))
+        return int(self._get_config("overall_timeout", "8"))
+
+    @property
+    def ldap_timeout(self) -> int:
+        """Get LDAP-specific timeout in seconds."""
+        return int(self._get_config("ldap_timeout", "3"))
+
+    @property
+    def genesys_timeout(self) -> int:
+        """Get Genesys-specific timeout in seconds."""
+        return int(self._get_config("genesys_timeout", "5"))
+
+    @property
+    def graph_timeout(self) -> int:
+        """Get Graph API-specific timeout in seconds."""
+        return int(self._get_config("graph_timeout", "4"))
 
     @property
     def lazy_load_photos(self) -> bool:
@@ -174,7 +189,7 @@ class SearchOrchestrator(BaseConfigurableService):
         result: Dict[str, Any] = {"result": None, "error": None, "multiple": False}
 
         try:
-            ldap_data = future.result(timeout=self.overall_timeout)
+            ldap_data = future.result(timeout=self.ldap_timeout)
 
             if ldap_user_dn and ldap_data:
                 result["result"] = ldap_data
@@ -193,7 +208,7 @@ class SearchOrchestrator(BaseConfigurableService):
                 logger.info(f"LDAP search for '{search_term}' - No results")
 
         except FutureTimeoutError:
-            error_msg = f"LDAP search timed out after {self.overall_timeout} seconds. Please try a more specific search term."
+            error_msg = f"LDAP search timed out after {self.ldap_timeout} seconds. Please try a more specific search term."
             logger.error(error_msg)
             result["error"] = error_msg
             future.cancel()
@@ -213,7 +228,7 @@ class SearchOrchestrator(BaseConfigurableService):
         result: Dict[str, Any] = {"result": None, "error": None, "multiple": False}
 
         try:
-            genesys_data = future.result(timeout=self.overall_timeout)
+            genesys_data = future.result(timeout=self.genesys_timeout)
 
             if genesys_user_id and genesys_data:
                 result["result"] = genesys_data
@@ -242,7 +257,7 @@ class SearchOrchestrator(BaseConfigurableService):
                 logger.info(f"Genesys search for '{search_term}' - No results")
 
         except FutureTimeoutError:
-            error_msg = f"Genesys search timed out after {self.overall_timeout} seconds. Please try a more specific search term."
+            error_msg = f"Genesys search timed out after {self.genesys_timeout} seconds. Please try a more specific search term."
             logger.error(error_msg)
             result["error"] = error_msg
             future.cancel()
@@ -262,7 +277,7 @@ class SearchOrchestrator(BaseConfigurableService):
         result: Dict[str, Any] = {"result": None, "error": None, "multiple": False}
 
         try:
-            graph_data = future.result(timeout=self.overall_timeout)
+            graph_data = future.result(timeout=self.graph_timeout)
 
             if graph_user_id and graph_data:
                 result["result"] = graph_data
@@ -283,7 +298,7 @@ class SearchOrchestrator(BaseConfigurableService):
                 logger.info(f"Graph API search for '{search_term}' - No results")
 
         except FutureTimeoutError:
-            error_msg = f"Microsoft Graph search timed out after {self.overall_timeout} seconds. Please try a more specific search term."
+            error_msg = f"Microsoft Graph search timed out after {self.graph_timeout} seconds. Please try a more specific search term."
             logger.error(error_msg)
             result["error"] = error_msg
             future.cancel()

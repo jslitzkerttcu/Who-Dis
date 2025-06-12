@@ -43,13 +43,30 @@ class GenesysCacheDB(BaseCacheService):
         return int(self._get_config("cache_refresh_period", "21600"))  # 6 hours
 
     def _get_access_token(self) -> Optional[str]:
-        """Get access token from database (managed by GenesysService)."""
+        """
+        Legacy database token lookup (fallback only).
+
+        Note: This method is only used as a final fallback. The preferred approach
+        is to pass the GenesysService instance directly to refresh_all_caches().
+        """
         try:
             token_record = ApiToken.get_token("genesys")
-            if token_record and hasattr(token_record, "access_token"):
-                return str(token_record.access_token)
+            if token_record:
+                # Check if token is expired
+                if token_record.is_expired():
+                    logger.debug("Genesys token is expired")
+                    return None
+
+                # Get the access token
+                if hasattr(token_record, "access_token") and token_record.access_token:
+                    logger.debug("Retrieved Genesys token from database (legacy path)")
+                    return str(token_record.access_token)
+                else:
+                    logger.error("Genesys token record exists but has no access_token")
+            else:
+                logger.debug("No Genesys token found in database")
         except Exception as e:
-            logger.error(f"Error getting Genesys token: {e}")
+            logger.error(f"Error getting Genesys token from database: {e}")
         return None
 
     def needs_refresh(self, last_update: Optional[datetime] = None) -> bool:
@@ -89,15 +106,51 @@ class GenesysCacheDB(BaseCacheService):
             logger.error(f"Error checking cache refresh status: {e}")
             return True
 
-    def refresh_all_caches(self) -> Dict[str, int]:
-        """Refresh all Genesys caches."""
+    def refresh_all_caches(self, genesys_service=None) -> Dict[str, int]:
+        """
+        Refresh all Genesys caches.
+
+        Args:
+            genesys_service: Optional GenesysService instance. If provided, uses it directly.
+                           If not provided, attempts to get service from container.
+        """
         results = {
             "groups": 0,
             "skills": 0,
             "locations": 0,
         }
 
-        token = self._get_access_token()
+        # Get token from GenesysService (preferred) or fallback to database
+        token = None
+        if genesys_service:
+            try:
+                token = genesys_service.get_access_token()
+                if token:
+                    logger.debug("Using provided GenesysService for cache refresh")
+            except Exception as e:
+                logger.error(f"Error getting token from provided GenesysService: {e}")
+
+        if not token:
+            # Fallback: try to get service from container
+            try:
+                from flask import current_app
+
+                if current_app and hasattr(current_app, "container"):
+                    service = current_app.container.get("genesys_service")
+                    token = service.get_access_token()
+                    if token:
+                        logger.debug(
+                            "Using GenesysService from container for cache refresh"
+                        )
+            except Exception as e:
+                logger.debug(f"Could not get GenesysService from container: {e}")
+
+        if not token:
+            # Final fallback: direct database lookup (legacy path)
+            token = self._get_access_token()
+            if token:
+                logger.debug("Using direct database lookup for cache refresh")
+
         if not token:
             logger.error("No valid token available for cache refresh")
             return results

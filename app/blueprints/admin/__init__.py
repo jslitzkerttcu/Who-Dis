@@ -3,11 +3,11 @@ Admin blueprint for WhoDis application.
 Refactored to follow Single Responsibility Principle with separate modules.
 """
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request, jsonify, render_template_string
 from app.middleware.auth import require_role
 
 # Import all module functions
-from . import users, database, config, cache, audit
+from . import users, database, config, cache, audit, admin_employee_profiles
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -162,3 +162,223 @@ admin_bp.route("/api/test/genesys", methods=["GET", "POST"])(
 admin_bp.route("/api/test/data_warehouse", methods=["GET", "POST"])(
     config.test_data_warehouse_connection
 )
+
+# Employee Profiles management routes
+
+
+@admin_bp.route("/employee-profiles")
+@require_role("admin")
+def employee_profiles():
+    """Employee profiles management page."""
+    return render_template("admin/employee_profiles.html")
+
+
+@admin_bp.route("/api/employee-profiles")
+@require_role("admin")
+def api_employee_profiles():
+    """Get employee profiles list with filters and pagination."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    filter_role = request.args.get("filter_role", "").strip()
+    filter_lock = request.args.get("filter_lock", "").strip()
+    filter_expected_role = request.args.get("filter_expected_role", "").strip()
+
+    # Apply filters
+    filter_role = filter_role if filter_role else None
+    filter_lock = filter_lock if filter_lock else None
+    filter_expected_role = filter_expected_role if filter_expected_role else None
+
+    profiles_data = admin_employee_profiles.get_employee_profiles_list(
+        page=page,
+        per_page=per_page,
+        filter_role=filter_role,
+        filter_lock=filter_lock,
+        filter_expected_role=filter_expected_role,
+    )
+
+    # Return HTML for HTMX requests
+    if request.headers.get("HX-Request"):
+        # Always return full content (table + pagination) to ensure
+        # pagination controls update correctly for both filters and navigation
+        return admin_employee_profiles.render_employee_profiles_with_pagination(
+            profiles_data
+        )
+
+    return jsonify(profiles_data)
+
+
+@admin_bp.route("/api/employee-profiles/stats")
+@require_role("admin")
+def api_employee_profiles_stats():
+    """Get employee profiles statistics."""
+    stats = admin_employee_profiles.get_employee_profiles_stats()
+
+    if request.headers.get("HX-Request"):
+        # Return single card for cache stats section
+        stats_template = """
+        <div class="space-y-2 text-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Total Profiles:</span>
+                <span class="font-medium">{{ stats.total_profiles }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Locked Accounts:</span>
+                <span class="font-medium {% if stats.locked_profiles > 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ stats.locked_profiles }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">With Photos:</span>
+                <span class="font-medium text-blue-600">{{ stats.profiles_with_photos }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-600">Last Refresh:</span>
+                <span class="font-medium">{{ stats.last_refresh_formatted }}</span>
+            </div>
+        </div>
+        """
+        return render_template_string(stats_template, stats=stats)
+
+    return jsonify(stats)
+
+
+@admin_bp.route("/api/employee-profiles/pagination")
+@require_role("admin")
+def api_employee_profiles_pagination():
+    """Get pagination controls for employee profiles."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+
+    profiles_data = admin_employee_profiles.get_employee_profiles_list(
+        page=page, per_page=per_page
+    )
+
+    if request.headers.get("HX-Request"):
+        return admin_employee_profiles.render_employee_profiles_pagination(
+            profiles_data["pagination"]
+        )
+
+    return jsonify(profiles_data["pagination"])
+
+
+@admin_bp.route("/api/employee-profiles/refresh", methods=["POST"])
+@require_role("admin")
+def api_employee_profiles_refresh():
+    """Trigger refresh of all employee profiles."""
+    result = admin_employee_profiles.refresh_all_employee_profiles()
+    return jsonify(result)
+
+
+@admin_bp.route("/api/employee-profile-lookup")
+@require_role("admin")
+def api_employee_profile_lookup():
+    """Look up specific employee profile by UPN."""
+    upn = request.args.get("search_upn", "").strip()
+
+    if not upn:
+        return jsonify({"error": "UPN required"})
+
+    profile = admin_employee_profiles.get_employee_profile_by_upn(upn)
+
+    if request.headers.get("HX-Request"):
+        if profile:
+            profile_template = """
+            <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-start space-x-4">
+                    {% if profile.has_photo %}
+                        <div class="relative photo-hover-container">
+                            <img src="{{ url_for('admin.api_employee_profile_photo', upn=profile.upn) }}" 
+                                 alt="Profile photo" 
+                                 class="h-16 w-16 rounded-full object-cover border border-gray-200 cursor-pointer">
+                            <!-- Hover overlay with larger image -->
+                            <div class="photo-hover-overlay absolute z-50 hidden bg-white rounded-lg shadow-2xl border border-gray-300 p-2" 
+                                 style="bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px;">
+                                <img src="{{ url_for('admin.api_employee_profile_photo', upn=profile.upn) }}" 
+                                     alt="Profile photo enlarged" 
+                                     class="w-40 h-40 rounded-lg object-cover">
+                                <div class="text-xs text-gray-600 text-center mt-2 font-medium">{{ profile.upn }}</div>
+                                <!-- Arrow pointing down -->
+                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-white"></div>
+                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-300" style="margin-top: 1px;"></div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center border border-gray-300">
+                            <i class="fas fa-user text-gray-500 text-xl"></i>
+                        </div>
+                    {% endif %}
+                    <div class="flex-1">
+                        <h4 class="text-lg font-medium text-gray-900">{{ profile.upn }}</h4>
+                        <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <div>
+                                <dt class="font-medium text-gray-500">User Serial:</dt>
+                                <dd class="text-gray-900">{{ profile.user_serial or 'N/A' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500">Live Role:</dt>
+                                <dd class="text-gray-900">{{ profile.live_role or 'None' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500">Expected Role:</dt>
+                                <dd class="text-gray-900">{{ profile.expected_role or 'Not mapped' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500">Lock Status:</dt>
+                                <dd class="text-gray-900">{{ profile.lock_status }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500">Job Code:</dt>
+                                <dd class="text-gray-900">{{ profile.job_code or 'N/A' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500">Last Login:</dt>
+                                <dd class="text-gray-900">{{ profile.last_login or 'Never' }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            """
+            return render_template_string(profile_template, profile=profile)
+        else:
+            return """
+            <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 mr-3"></i>
+                    <span class="text-yellow-800">No employee profile found for UPN: {}</span>
+                </div>
+            </div>
+            """.format(upn)
+
+    return jsonify({"profile": profile, "upn": upn})
+
+
+@admin_bp.route("/api/employee-profiles/<upn>/photo")
+@require_role("admin")
+def api_employee_profile_photo(upn: str):
+    """Get employee profile photo."""
+    from app.models.employee_profiles import EmployeeProfiles
+    import base64
+    from flask import Response
+
+    # Only fetch the photo fields for performance
+    profile = EmployeeProfiles.query.filter_by(upn=upn).first()
+    if not profile or not profile.photo_data:
+        # Return a 1x1 transparent pixel if no photo
+        return Response(
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+            ),
+            mimetype="image/png",
+            headers={
+                "Cache-Control": "public, max-age=86400",  # Cache for 24 hours
+                "Content-Length": "67",  # Size of transparent pixel
+            },
+        )
+
+    return Response(
+        profile.photo_data,
+        mimetype=profile.photo_content_type or "image/jpeg",
+        headers={
+            "Cache-Control": "public, max-age=86400",  # Cache for 24 hours
+            "Content-Length": str(len(profile.photo_data)),
+        },
+    )

@@ -1,11 +1,22 @@
-"""Data warehouse service for Azure SQL Server integration."""
+"""
+DEPRECATED: Data warehouse service for Azure SQL Server integration.
+
+This module is deprecated. The core functionality for employee profile management
+has been consolidated into `app.services.refresh_employee_profiles.py`.
+
+Use `EmployeeProfilesRefreshService.load_keystone_employee_data()` instead of
+`DataWarehouseService.execute_keystone_query()` for new code.
+
+The `employee_profiles_service` now owns all logic to construct complete
+employee profiles from multiple data sources.
+"""
 
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 
 try:
-    import pyodbc
+    import pyodbc  # type: ignore[import-not-found]
 except ImportError:
     pyodbc = None
 from app.services.base import BaseCacheService
@@ -251,19 +262,17 @@ class DataWarehouseService(BaseCacheService):
             # Execute the query to get fresh data
             results = self.execute_keystone_query()
 
-            # Store in cache (will be implemented when we create the model)
-            from app.models.data_warehouse import DataWarehouseCache
+            # Legacy cache functionality removed - use employee_profiles service instead
+            try:
+                from app.services.refresh_employee_profiles import (
+                    employee_profiles_service,
+                )
 
-            # Clear existing cache
-            DataWarehouseCache.clear_cache()
-
-            # Insert new data
-            stored_count = 0
-            for record in results:
-                upn = record.get("UPN")
-                if upn:
-                    DataWarehouseCache.cache_user_data(upn, record)
-                    stored_count += 1
+                refresh_stats = employee_profiles_service.refresh_all_profiles()
+                stored_count = refresh_stats.get("success", 0)
+            except ImportError:
+                logger.warning("Employee profiles service not available")
+                stored_count = 0
 
             logger.info(f"Cached {stored_count} data warehouse records")
 
@@ -285,19 +294,20 @@ class DataWarehouseService(BaseCacheService):
             User data dictionary or None if not found
         """
         try:
-            from app.models.data_warehouse import DataWarehouseCache
+            # Use consolidated employee profiles service
+            from app.services.refresh_employee_profiles import employee_profiles_service
 
-            # Get data directly from PostgreSQL cache
-            cached_record = DataWarehouseCache.get_user_data(upn)
-            if cached_record:
-                # Use the model's get_keystone_info method for formatted data
-                return cached_record.get_keystone_info()
+            profile = employee_profiles_service.get_employee_profile(upn)
+            if profile:
+                return profile
 
-            logger.debug(f"No cached Keystone data found for UPN: {upn}")
+            logger.debug(f"No employee profile found for UPN: {upn}")
             return None
 
         except Exception as e:
-            logger.error(f"Error getting cached data warehouse user data for {upn}: {str(e)}")
+            logger.error(
+                f"Error getting cached data warehouse user data for {upn}: {str(e)}"
+            )
             return None
 
     def get_cache_status(self) -> Dict[str, Any]:
@@ -308,10 +318,23 @@ class DataWarehouseService(BaseCacheService):
             Dictionary with cache statistics
         """
         try:
-            from app.models.data_warehouse import DataWarehouseCache
+            # Use consolidated employee profiles service
+            from app.services.refresh_employee_profiles import employee_profiles_service
 
-            stats = DataWarehouseCache.get_cache_stats()
-            last_updated = stats.get("last_updated")
+            stats = employee_profiles_service.get_cache_stats()
+            last_updated_str = stats.get("last_updated")
+
+            # Parse datetime string if needed
+            last_updated = None
+            if last_updated_str:
+                try:
+                    from datetime import datetime
+
+                    last_updated = datetime.fromisoformat(
+                        last_updated_str.replace("Z", "+00:00")
+                    )
+                except (ValueError, AttributeError):
+                    last_updated = None
 
             # Handle None or naive datetime
             needs_refresh = True

@@ -8,16 +8,10 @@ from app.container import inject_dependencies
 def create_app():
     app = Flask(__name__)
 
-    # Get secret key from database configuration, generate if not available
+    # Set a temporary secret key for Flask initialization
     import secrets
-    from app.services.simple_config import config_get, config_set
 
-    secret_key = config_get("flask.secret_key")
-    if not secret_key:
-        secret_key = secrets.token_hex(32)
-        # Store the generated key in database for consistency
-        config_set("flask.secret_key", secret_key, "system")
-    app.config["SECRET_KEY"] = secret_key
+    app.config["SECRET_KEY"] = secrets.token_hex(32)
 
     # Configure logging
     logging.basicConfig(
@@ -58,9 +52,18 @@ def create_app():
         app.config["FLASK_PORT"] = config_get("flask.port", 5000)
         app.config["FLASK_DEBUG"] = config_get("flask.debug", False)
 
-        # Load encrypted Flask secret key
-        secret_key = config_get("flask.secret_key")
-        if secret_key:
+        # Load encrypted Flask secret key from database
+        with app.app_context():
+            from app.services.simple_config import (
+                config_get as simple_config_get,
+                config_set as simple_config_set,
+            )
+
+            secret_key = simple_config_get("flask.secret_key")
+            if not secret_key:
+                # Generate and store a new key
+                secret_key = secrets.token_hex(32)
+                simple_config_set("flask.secret_key", secret_key, "system")
             app.config["SECRET_KEY"] = secret_key
 
         # Initialize CSRF protection after configuration is loaded
@@ -89,11 +92,14 @@ def create_app():
 
                 # Get all token services from container and refresh them
                 token_services = app.container.get_all_by_interface(ITokenService)
+                genesys_service = None
                 for service in token_services:
                     try:
                         service_name = getattr(service, "token_service_name", "unknown")
                         if service.refresh_token_if_needed():
                             app.logger.info(f"{service_name} token is valid")
+                            if service_name == "genesys":
+                                genesys_service = service
                         else:
                             app.logger.warning(
                                 f"Failed to refresh {service_name} token at startup"
@@ -108,18 +114,34 @@ def create_app():
                 token_refresh.start()
                 app.logger.info("Token refresh background service started")
 
-                # Initialize Genesys cache if empty
-                try:
-                    from app.services.genesys_cache_db import genesys_cache_db
+                # Initialize Genesys cache using the validated service
+                if genesys_service:
+                    try:
+                        from app.services.genesys_cache_db import genesys_cache_db
 
-                    if genesys_cache_db.needs_refresh():
-                        app.logger.info("Initializing Genesys cache on startup...")
-                        results = genesys_cache_db.refresh_all()
-                        app.logger.info(
-                            f"Genesys cache initialization results: {results}"
-                        )
-                except Exception as e:
-                    app.logger.error(f"Error initializing Genesys cache: {str(e)}")
+                        if genesys_cache_db.needs_refresh():
+                            app.logger.info(
+                                "Initializing Genesys cache with validated service..."
+                            )
+                            results = genesys_cache_db.refresh_all_caches(
+                                genesys_service
+                            )
+                            if any(results.values()):
+                                app.logger.info(
+                                    f"Genesys cache initialization results: {results}"
+                                )
+                            else:
+                                app.logger.warning(
+                                    "Genesys cache initialization returned no results"
+                                )
+                        else:
+                            app.logger.info("Genesys cache is up to date")
+                    except Exception as e:
+                        app.logger.error(f"Error initializing Genesys cache: {str(e)}")
+                else:
+                    app.logger.info(
+                        "Skipping Genesys cache initialization - no valid Genesys service"
+                    )
 
                 # Clean up expired sessions on startup
                 try:

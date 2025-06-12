@@ -24,15 +24,8 @@ def configure_logging():
 
 def configure_session(app):
     """Configure Flask session settings."""
-    # Get secret key from database configuration, generate if not available
-    from app.services.simple_config import config_get, config_set
-
-    secret_key = config_get("flask.secret_key")
-    if not secret_key:
-        secret_key = secrets.token_hex(32)
-        # Store the generated key in database for consistency
-        config_set("flask.secret_key", secret_key, "system")
-    app.config["SECRET_KEY"] = secret_key
+    # Set a temporary secret key - will be replaced after database initialization
+    app.config["SECRET_KEY"] = secrets.token_hex(32)
     app.config["SESSION_COOKIE_SECURE"] = False  # Set to True in production with HTTPS
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -60,19 +53,27 @@ def initialize_database(app):
 
 def load_configuration(app):
     """Load configuration from database."""
-    from app.services.simple_config import config_get, config_clear_cache
+    with app.app_context():
+        from app.services.simple_config import (
+            config_get,
+            config_set,
+            config_clear_cache,
+        )
 
-    # Clear cache to ensure fresh config on startup
-    config_clear_cache()
+        # Clear cache to ensure fresh config on startup
+        config_clear_cache()
 
-    # Override Flask config with database values
-    app.config["FLASK_HOST"] = config_get("flask.host", "0.0.0.0")
-    app.config["FLASK_PORT"] = config_get("flask.port", 5000)
-    app.config["FLASK_DEBUG"] = config_get("flask.debug", False)
+        # Override Flask config with database values
+        app.config["FLASK_HOST"] = config_get("flask.host", "0.0.0.0")
+        app.config["FLASK_PORT"] = config_get("flask.port", 5000)
+        app.config["FLASK_DEBUG"] = config_get("flask.debug", False)
 
-    # Load encrypted Flask secret key
-    secret_key = config_get("flask.secret_key")
-    if secret_key:
+        # Load encrypted Flask secret key from database
+        secret_key = config_get("flask.secret_key")
+        if not secret_key:
+            # Generate and store a new key if it doesn't exist
+            secret_key = secrets.token_hex(32)
+            config_set("flask.secret_key", secret_key, "system")
         app.config["SECRET_KEY"] = secret_key
 
 

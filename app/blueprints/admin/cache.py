@@ -264,10 +264,10 @@ def clear_data_warehouse_cache():
     from app.services.audit_service_postgres import audit_service
 
     try:
-        from app.models.data_warehouse import DataWarehouseCache
+        from app.models.employee_profiles import EmployeeProfiles
 
         # Clear cache
-        cleared_count = DataWarehouseCache.clear_cache()
+        cleared_count = EmployeeProfiles.clear_cache()
 
         # Log action
         admin_email = request.headers.get(

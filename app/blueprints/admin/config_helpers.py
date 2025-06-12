@@ -18,7 +18,7 @@ def is_sensitive_field(config_key):
             is_sensitive = True
 
         return is_sensitive
-    except:
+    except Exception:
         return False
 
 
@@ -73,7 +73,7 @@ def has_encrypted_value(config_key):
             current_app.logger.error(
                 f"Error checking encrypted value for {config_key}: {e}"
             )
-        except:
+        except Exception:
             pass
 
     return False
@@ -87,7 +87,6 @@ def render_app_config():
     flask_host = config_get("flask.host", "0.0.0.0")
     flask_port = config_get("flask.port", "5000")
     flask_debug = config_get("flask.debug", "False")
-    secret_key = config_get("flask.secret_key", "")
     search_timeout = config_get("search.overall_timeout", "20")
     cache_expiration = config_get("search.cache_expiration_hours", "24")
     lazy_photos = config_get("search.lazy_load_photos", "true")
@@ -277,7 +276,6 @@ def render_ldap_config():
     ldap_port = config_get("ldap.port", "389")
     ldap_use_ssl = config_get("ldap.use_ssl", "False")
     ldap_bind_dn = config_get("ldap.bind_dn", "")
-    ldap_bind_password = config_get("ldap.bind_password", "")
     ldap_base_dn = config_get("ldap.base_dn", "")
     ldap_user_search_base = config_get("ldap.user_search_base", "")
     ldap_connect_timeout = config_get("ldap.connect_timeout", "5")
@@ -396,7 +394,6 @@ def render_graph_config():
     # Get current values
     graph_tenant_id = config_get("graph.tenant_id", "")
     graph_client_id = config_get("graph.client_id", "")
-    graph_client_secret = config_get("graph.client_secret", "")
     graph_api_timeout = config_get("graph.api_timeout", "15")
 
     # Check for encrypted values
@@ -482,7 +479,6 @@ def render_genesys_config():
 
     # Get current values
     genesys_client_id = config_get("genesys.client_id", "")
-    genesys_client_secret = config_get("genesys.client_secret", "")
     genesys_region = config_get("genesys.region", "mypurecloud.com")
     genesys_api_timeout = config_get("genesys.api_timeout", "15")
     genesys_cache_refresh_hours = config_get("genesys.cache_refresh_hours", "6")
@@ -587,7 +583,6 @@ def render_data_warehouse_config():
     dw_server = config_get("data_warehouse.server", "")
     dw_database = config_get("data_warehouse.database", "CUFX")
     dw_client_id = config_get("data_warehouse.client_id", "")
-    dw_client_secret = config_get("data_warehouse.client_secret", "")
     dw_connection_timeout = config_get("data_warehouse.connection_timeout", "30")
     dw_query_timeout = config_get("data_warehouse.query_timeout", "60")
     dw_cache_refresh_hours = config_get("data_warehouse.cache_refresh_hours", "6.0")

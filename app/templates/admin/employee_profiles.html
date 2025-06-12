@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Profiles - Admin - WhoDis{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Employee Profiles</h1>
+                    <p class="mt-1 text-gray-500">Consolidated employee data from Azure SQL and Graph API</p>
+                </div>
+                <div class="flex space-x-3">
+                    <!-- Refresh Button -->
+                    <button id="refresh-profiles-btn" 
+                            hx-post="{{ url_for('admin.api_employee_profiles_refresh') }}"
+                            hx-swap="none"
+                            hx-indicator="#refresh-indicator"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-ttcu-green hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-150 hover:scale-105">
+                        <i class="fas fa-sync-alt -ml-1 mr-2 h-4 w-4"></i>
+                        Refresh Now
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Action Indicators -->
+            <div class="mt-4 flex space-x-4">
+                <div id="refresh-indicator" class="htmx-indicator">
+                    <div class="flex items-center text-blue-600">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                        <span class="text-sm">Refreshing profiles...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div hx-get="{{ url_for('admin.api_employee_profiles_stats') }}"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML"
+                 class="bg-white overflow-hidden shadow rounded-lg">
+                <!-- Loading skeleton -->
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <div class="h-4 bg-gray-200 rounded animate-pulse mb-2"></div>
+                            <div class="h-6 bg-gray-200 rounded animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="bg-white shadow rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Search and Filter</h3>
+            </div>
+            <div class="px-6 py-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- UPN Search -->
+                    <div>
+                        <label for="search-upn" class="block text-sm font-medium text-gray-700 mb-2">
+                            Search by UPN
+                        </label>
+                        <div class="relative">
+                            <input type="text" 
+                                   id="search-upn" 
+                                   name="search_upn"
+                                   placeholder="Enter UPN to search..."
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-ttcu-green focus:border-ttcu-green sm:text-sm">
+                            <button type="button"
+                                    id="search-upn-btn"
+                                    hx-get="{{ url_for('admin.api_employee_profile_lookup') }}"
+                                    hx-include="#search-upn"
+                                    hx-target="#search-results"
+                                    hx-swap="innerHTML"
+                                    class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Live Role Filter -->
+                    <div>
+                        <label for="filter-role" class="block text-sm font-medium text-gray-700 mb-2">
+                            Live Role
+                        </label>
+                        <select id="filter-role" 
+                                name="filter_role"
+                                hx-get="{{ url_for('admin.api_employee_profiles') }}"
+                                hx-target="#employee-profiles-content"
+                                hx-swap="innerHTML"
+                                hx-include="#filter-lock, #filter-expected-role"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ttcu-green focus:border-ttcu-green sm:text-sm">
+                            <option value="">All Roles</option>
+                            <option value="Manager">Manager</option>
+                            <option value="Analyst">Analyst</option>
+                            <option value="Supervisor">Supervisor</option>
+                            <option value="Representative">Representative</option>
+                            <option value="Specialist">Specialist</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Lock Status Filter -->
+                    <div>
+                        <label for="filter-lock" class="block text-sm font-medium text-gray-700 mb-2">
+                            Lock Status
+                        </label>
+                        <select id="filter-lock" 
+                                name="filter_lock"
+                                hx-get="{{ url_for('admin.api_employee_profiles') }}"
+                                hx-target="#employee-profiles-content"
+                                hx-swap="innerHTML"
+                                hx-include="#filter-role, #filter-expected-role"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ttcu-green focus:border-ttcu-green sm:text-sm">
+                            <option value="">All Status</option>
+                            <option value="N">Unlocked</option>
+                            <option value="L">Locked</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Expected Role Filter -->
+                    <div>
+                        <label for="filter-expected-role" class="block text-sm font-medium text-gray-700 mb-2">
+                            Expected Role
+                        </label>
+                        <select id="filter-expected-role" 
+                                name="filter_expected_role"
+                                hx-get="{{ url_for('admin.api_employee_profiles') }}"
+                                hx-target="#employee-profiles-content"
+                                hx-swap="innerHTML"
+                                hx-include="#filter-role, #filter-lock"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-ttcu-green focus:border-ttcu-green sm:text-sm">
+                            <option value="">All Expected</option>
+                            <option value="Manager">Manager</option>
+                            <option value="Analyst">Analyst</option>
+                            <option value="Supervisor">Supervisor</option>
+                            <option value="Representative">Representative</option>
+                            <option value="Specialist">Specialist</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Search Results -->
+                <div id="search-results" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Employee Profiles Table -->
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Employee Profiles</h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    Consolidated employee data with photos, roles, and Keystone information
+                </p>
+            </div>
+            
+            <!-- Table and pagination content container -->
+            <div id="employee-profiles-content"
+                 hx-get="{{ url_for('admin.api_employee_profiles') }}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <!-- Loading skeleton -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Employee
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Live Role
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Expected Role
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Lock Status
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Job Code
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Last Login
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Photo
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Last Updated
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="8" class="px-6 py-4 text-center">
+                                    <div class="flex items-center justify-center">
+                                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-ttcu-green mr-3"></div>
+                                        <span class="text-gray-500">Loading employee profiles...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notifications -->
+<div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+<style>
+    /* Photo hover effects */
+    .photo-hover-overlay {
+        z-index: 1000;
+        min-width: 140px;
+        position: fixed !important;
+        pointer-events: none;
+        transition: opacity 0.2s ease-out;
+    }
+
+    .photo-hover-overlay.hidden {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .photo-hover-overlay:not(.hidden) {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* Add a subtle hover effect to the small photo */
+    .photo-hover-container img:hover {
+        transform: scale(1.05);
+        transition: transform 0.15s ease-in-out;
+    }
+
+    /* Container positioning */
+    .photo-hover-container {
+        position: relative;
+        cursor: pointer;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle refresh success/error
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+        if (event.detail.elt.id === 'refresh-profiles-btn') {
+            const response = JSON.parse(event.detail.xhr.responseText);
+            showToast(response.success ? 'success' : 'error', response.message);
+            
+            if (response.success) {
+                // Refresh the content after successful refresh
+                htmx.trigger('#employee-profiles-content', 'load');
+                // Find and trigger the stats card
+                const statsCard = document.querySelector('[hx-get*="api_employee_profiles_stats"]');
+                if (statsCard) {
+                    htmx.trigger(statsCard, 'load');
+                }
+            }
+        }
+        
+    });
+    
+    // UPN search on Enter key
+    document.getElementById('search-upn').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('search-upn-btn').click();
+        }
+    });
+
+    // Smart photo hover positioning
+    function positionPhotoOverlay(container, overlay) {
+        const containerRect = container.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const overlayWidth = 148; // 140px min-width + padding
+        const overlayHeight = 180; // approximate height with image and text
+        
+        let left = containerRect.left + (containerRect.width / 2) - (overlayWidth / 2);
+        let top = containerRect.top - overlayHeight - 8;
+        
+        // Adjust horizontal position if it would overflow viewport
+        if (left < 8) {
+            left = 8;
+        } else if (left + overlayWidth > viewportWidth - 8) {
+            left = viewportWidth - overlayWidth - 8;
+        }
+        
+        // If not enough space above, show below
+        if (top < 8) {
+            top = containerRect.bottom + 8;
+        }
+        
+        overlay.style.left = left + 'px';
+        overlay.style.top = top + 'px';
+    }
+
+    // Add hover event listeners to photo containers
+    document.addEventListener('htmx:afterSwap', function() {
+        setupPhotoHovers();
+    });
+    
+    function setupPhotoHovers() {
+        document.querySelectorAll('.photo-hover-container').forEach(container => {
+            const overlay = container.querySelector('.photo-hover-overlay');
+            if (!overlay) return;
+            
+            container.addEventListener('mouseenter', function() {
+                positionPhotoOverlay(container, overlay);
+                overlay.classList.remove('hidden');
+            });
+            
+            container.addEventListener('mouseleave', function() {
+                overlay.classList.add('hidden');
+            });
+        });
+    }
+    
+    // Setup for initial page load
+    setupPhotoHovers();
+});
+
+function showToast(type, message) {
+    const toastContainer = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    
+    const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+    
+    toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 transform transition-all duration-300 ease-in-out translate-x-full`;
+    toast.innerHTML = `
+        <i class="fas ${icon}"></i>
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+        toast.classList.remove('translate-x-full');
+    }, 100);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        toast.classList.add('translate-x-full');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+</script>
+{% endblock %}

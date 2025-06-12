@@ -5,19 +5,173 @@ from flask import (
     jsonify,
     make_response,
     current_app,
+    g,
 )
 from app.middleware.auth import require_role
 from app.utils.error_handler import handle_errors
 from app.interfaces.configuration_service import IConfigurationService
 from app.services.search_orchestrator import SearchOrchestrator
 from app.services.result_merger import ResultMerger
+from app.models.cache import SearchCache
 import logging
 from typing import Optional, Dict, Any
 import base64
+import hashlib
+import json
 from app.utils.timezone import format_timestamp
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+
+def _generate_search_cache_key(
+    search_term: str,
+    genesys_user_id: Optional[str] = None,
+    ldap_user_dn: Optional[str] = None,
+    graph_user_id: Optional[str] = None,
+) -> str:
+    """Generate a cache key for search results."""
+    cache_data = {
+        "search_term": search_term.lower().strip(),
+        "genesys_user_id": genesys_user_id,
+        "ldap_user_dn": ldap_user_dn,
+        "graph_user_id": graph_user_id,
+    }
+    cache_string = json.dumps(cache_data, sort_keys=True)
+    return hashlib.md5(cache_string.encode()).hexdigest()
+
+
+def _get_cached_search_result(cache_key: str) -> Optional[Dict[str, Any]]:
+    """Get cached search result if available and not expired."""
+    try:
+        cache_entry = SearchCache.query.filter_by(
+            search_query=cache_key, search_type="user_search"
+        ).first()
+
+        if cache_entry and not cache_entry.is_expired:
+            logger.info(f"Using cached search result for key: {cache_key}")
+            return dict(cache_entry.result_data) if cache_entry.result_data else None
+    except Exception as e:
+        logger.error(f"Error retrieving cached search result: {str(e)}")
+
+    return None
+
+
+def _cache_search_result(
+    cache_key: str, result_data: Dict[str, Any], expiration_hours: int = 1
+) -> None:
+    """Cache search result with expiration."""
+    try:
+        from datetime import timedelta
+
+        expires_at = datetime.now() + timedelta(hours=expiration_hours)
+
+        cache_entry = SearchCache.query.filter_by(
+            search_query=cache_key, search_type="user_search"
+        ).first()
+
+        if cache_entry:
+            cache_entry.result_data = result_data
+            cache_entry.expires_at = expires_at
+            cache_entry.save()
+        else:
+            cache_entry = SearchCache(
+                search_query=cache_key,
+                search_type="user_search",
+                result_data=result_data,
+                expires_at=expires_at,
+            )
+            cache_entry.save()
+
+        logger.info(f"Cached search result for key: {cache_key}")
+    except Exception as e:
+        logger.error(f"Error caching search result: {str(e)}")
+
+
+def _get_photo_element(
+    ldap_data: Dict[str, Any], graph_data: Dict[str, Any]
+) -> Optional[str]:
+    """
+    Get photo element HTML from employee profiles table or fallback sources.
+
+    Args:
+        ldap_data: LDAP user data
+        graph_data: Graph user data
+
+    Returns:
+        HTML img element or None if no photo available
+    """
+    try:
+        # Get UPN from either source
+        upn = None
+        if ldap_data and ldap_data.get("userPrincipalName"):
+            upn = ldap_data["userPrincipalName"]
+        elif graph_data and graph_data.get("userPrincipalName"):
+            upn = graph_data["userPrincipalName"]
+
+        if upn:
+            from app.models.employee_profiles import EmployeeProfiles
+
+            profile = EmployeeProfiles.get_by_upn(upn)
+            if profile and profile.photo_data:
+                # Create inline base64 data URL
+                photo_b64 = base64.b64encode(profile.photo_data).decode("utf-8")
+                data_url = f"data:{profile.photo_content_type or 'image/jpeg'};base64,{photo_b64}"
+                return f'<img src="{data_url}" alt="Profile Photo" class="w-24 h-24 rounded-full mr-6 object-cover">'
+
+        # Fallback to Graph photo if available
+        if graph_data and graph_data.get("photo"):
+            return f'<img src="{graph_data["photo"]}" alt="Profile Photo" class="w-24 h-24 rounded-full mr-6 object-cover">'
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Error getting photo element: {str(e)}")
+        return None
+
+
+def _get_photo_element_for_card(user_data: Dict[str, Any]) -> Optional[str]:
+    """
+    Get photo element HTML for Azure AD card from employee profiles table or fallback sources.
+
+    Args:
+        user_data: User data from Azure AD search
+
+    Returns:
+        HTML img element or None if no photo available
+    """
+    try:
+        upn = user_data.get("userPrincipalName")
+
+        if upn:
+            from app.models.employee_profiles import EmployeeProfiles
+
+            profile = EmployeeProfiles.get_by_upn(upn)
+            if profile and profile.photo_data:
+                # Create inline base64 data URL
+                photo_b64 = base64.b64encode(profile.photo_data).decode("utf-8")
+                data_url = f"data:{profile.photo_content_type or 'image/jpeg'};base64,{photo_b64}"
+                return f'<img src="{data_url}" class="w-24 h-24 rounded-full bg-gray-200 mr-4 object-cover" alt="User photo">'
+
+        # Fallback to existing logic
+        if user_data.get("graphId"):
+            # Use Graph service for photo
+            photo_url = f"/search/photo/{user_data['graphId']}"
+            if user_data.get("userPrincipalName"):
+                photo_url += f"?upn={user_data['userPrincipalName']}"
+            return f'<img src="{photo_url}" class="w-24 h-24 rounded-full bg-gray-200 mr-4 object-cover" alt="User photo">'
+        elif user_data.get("thumbnailPhoto") and user_data["thumbnailPhoto"].startswith(
+            "data:"
+        ):
+            # Direct base64 photo data (from Graph)
+            return f'<img src="{user_data["thumbnailPhoto"]}" class="w-24 h-24 rounded-full bg-gray-200 mr-4 object-cover" alt="User photo">'
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Error getting photo element for card: {str(e)}")
+        return None
+
 
 search_bp = Blueprint("search", __name__)
 
@@ -67,15 +221,27 @@ def index():
 @require_role("viewer")
 @handle_errors(json_response=True)
 def get_user_photo(user_id):
-    """Get user photo by Graph ID."""
+    """Get user photo by Graph ID or UPN from employee profiles."""
     user_principal_name = request.args.get("upn")
 
     logger.info(f"Fetching photo for user ID: {user_id}, UPN: {user_principal_name}")
 
     try:
-        # Get graph service from container
+        # Try to get photo from employee profiles first
+        if user_principal_name:
+            from app.models.employee_profiles import EmployeeProfiles
+
+            profile = EmployeeProfiles.get_by_upn(user_principal_name)
+            if profile and profile.photo_data:
+                response = make_response(profile.photo_data)
+                response.headers["Content-Type"] = (
+                    profile.photo_content_type or "image/jpeg"
+                )
+                response.headers["Cache-Control"] = "private, max-age=3600"
+                return response
+
+        # Fallback to legacy Graph service for backward compatibility
         graph_service = current_app.container.get("graph_service")
-        # Get photo from Graph service (will use cache if available)
         photo_url = graph_service.get_user_photo(user_id, user_principal_name)
 
         if photo_url:
@@ -381,7 +547,6 @@ def add_search_note(email):
     """Add a note to a searched user in search context."""
     from app.models.user import User
     from app.models.user_note import UserNote
-    from flask import session as flask_session
 
     # Check if this is an Htmx request
     if request.headers.get("HX-Request"):
@@ -403,8 +568,12 @@ def add_search_note(email):
             email=email.lower(), role="viewer", created_by="search_system"
         )
 
-    # Get current user
-    current_user = flask_session.get("user_email", "system")
+    # Get current user from authentication context
+    current_user = (
+        g.user
+        if hasattr(g, "user")
+        else request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME", "system")
+    )
 
     # Create note with search context
     note = UserNote.create_note(
@@ -543,6 +712,23 @@ def search():
 
     logger.info(f"Searching for user: {search_term}")
 
+    # Generate cache key
+    cache_key = _generate_search_cache_key(search_term)
+
+    # Check cache first
+    cached_result = _get_cached_search_result(cache_key)
+    if cached_result:
+        logger.info(f"Returning cached search result for: {search_term}")
+        # Add cache indicator to the result HTML
+        html = cached_result.get("html", "")
+        if html:
+            # Remove the cache marker comment if it exists
+            html = html.replace("<!-- cached -->", "")
+            # Add visible cache indicator
+            cache_indicator = '<div class="text-xs text-gray-500 mb-2 flex items-center bg-blue-50 border border-blue-200 rounded px-2 py-1"><i class="fas fa-clock mr-1"></i>Results from cache</div>'
+            html = cache_indicator + html
+        return html
+
     # Get user info for audit logging
     user_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
@@ -617,7 +803,23 @@ def search():
     )
 
     # Render results
-    return _render_search_results(enhanced_results, search_term)
+    html_result = _render_search_results(enhanced_results, search_term)
+
+    # Cache the result for future requests
+    try:
+        # Add cache marker to prevent duplicate indicators
+        html_with_marker = "<!-- cached -->" + html_result
+        cache_data = {
+            "html": html_with_marker,
+            "enhanced_results": enhanced_results,
+            "timestamp": datetime.now().isoformat(),
+        }
+        # Cache for 30 minutes for search results
+        _cache_search_result(cache_key, cache_data, expiration_hours=0.5)
+    except Exception as e:
+        logger.error(f"Error caching search result: {str(e)}")
+
+    return html_result
 
 
 def _render_timeout_error(search_term, timeout):
@@ -693,6 +895,16 @@ def _render_multiple_results(results, search_term):
         html += '<div class="space-y-3">'
 
         for user in results["azureAD"]["results"]:
+            # Account status badges
+            enabled = user.get("enabled", True)
+            locked = user.get("locked", False)
+
+            status_badges = ""
+            if not enabled:
+                status_badges += '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-1"><i class="fas fa-times-circle mr-1"></i>Disabled</span>'
+            if locked:
+                status_badges += '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><i class="fas fa-lock mr-1"></i>Locked</span>'
+
             html += f'''
             <div class="border border-gray-200 rounded-lg p-4 hover:border-ttcu-green cursor-pointer"
                  hx-post="{{ url_for('search.search_specific') }}"
@@ -704,6 +916,7 @@ def _render_multiple_results(results, search_term):
                         <h5 class="font-medium text-gray-900">{user.get("displayName", "Unknown")}</h5>
                         <p class="text-sm text-gray-600">{user.get("mail", "")}</p>
                         <p class="text-sm text-gray-500">{user.get("jobTitle", "")} - {user.get("department", "")}</p>
+                        {f'<div class="mt-1">{status_badges}</div>' if status_badges else ""}
                     </div>
                     <i class="fas fa-chevron-right text-gray-400"></i>
                 </div>
@@ -745,30 +958,355 @@ def _render_multiple_results(results, search_term):
 
 
 def _render_unified_profile(results):
-    """Render unified user profile."""
-    # This is a simplified version - you would expand this to show all user details
-    azure_data = results.get("azureAD")
-    genesys_data = results.get("genesys")
+    """Render unified user profile in single-column card layout."""
+    # Get data from all three sources correctly
+    ldap_data = results.get("azureAD", {})
+    graph_data = results.get("graph", {})
+    genesys_data = results.get("genesys", {})
+
+    # Get user data with fallbacks using LDAP attributes
+    name = ldap_data.get("displayName", "Unknown User")
+    title = ldap_data.get("title", "No Title Available")
+    department = ldap_data.get("department", "No Department")
+
+    # Check for title mismatch between LDAP and Genesys
+    ldap_title = ldap_data.get("title")
+    genesys_title = genesys_data.get("title")
+    title_mismatch = False
+
+    if ldap_title and genesys_title and ldap_title != genesys_title:
+        title_mismatch = True
+
+    # Photo from employee profiles table or Graph API fallback
+    photo_element = _get_photo_element(ldap_data, graph_data)
+    if not photo_element:
+        photo_element = """
+        <div class="w-24 h-24 rounded-full mr-6 bg-gray-200 flex items-center justify-center">
+            <svg class="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+            </svg>
+        </div>
+        """
+
+    # Helper function for consistent phone number formatting
+    def format_phone_number(phone_number):
+        """Format phone number consistently as XXX-XXX-XXXX"""
+        if not phone_number:
+            return phone_number
+
+        # Convert to string and remove all non-digit characters
+        phone_str = str(phone_number)
+        digits = "".join(filter(str.isdigit, phone_str))
+
+        # Handle extensions (4 digits or less) - don't format these
+        if len(digits) <= 4:
+            return phone_str
+
+        # Format as XXX-XXX-XXXX if we have 10 digits
+        if len(digits) == 10:
+            return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
+        # Format as XXX-XXX-XXXX if we have 11 digits starting with 1 (remove +1 prefix)
+        elif len(digits) == 11 and digits.startswith("1"):
+            return f"{digits[1:4]}-{digits[4:7]}-{digits[7:]}"
+
+        # Return original if we can't format it
+        return phone_str
+
+    # Generate phone HTML items using nested phoneNumbers dictionary
+    phone_html_items = ""
+    # Get the nested dictionary of pre-processed phone numbers
+    phone_data = ldap_data.get("phoneNumbers", {})
+
+    # Display the pre-processed phone numbers from the nested dictionary
+    if phone_data.get("teams_did"):
+        formatted_number = format_phone_number(phone_data.get("teams_did"))
+        phone_html_items += f"""
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 flex items-center">
+                DID
+                <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full" style="background-color: #e0e7ff; color: #6264a7;" title="[AD] telephoneNumber">
+                    Teams
+                </span>
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900">{formatted_number}</dd>
+        </div>
+        """
+    if phone_data.get("genesys_did"):
+        formatted_number = format_phone_number(phone_data.get("genesys_did"))
+        phone_html_items += f"""
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 flex items-center">
+                DID
+                <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full" style="background-color: #ffebe6; color: #FF4F1F;" title="[AD] extensionAttribute4; [Genesys] primaryContactInfo[mediaType=PHONE].address">
+                    Genesys
+                </span>
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900">{formatted_number}</dd>
+        </div>
+        """
+    if phone_data.get("genesys_ext"):
+        formatted_number = format_phone_number(phone_data.get("genesys_ext"))
+        phone_html_items += f"""
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 flex items-center">
+                Ext
+                <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full" style="background-color: #ffebe6; color: #FF4F1F;" title="[AD] pager; [Genesys] addresses[type=WORK2].extension">
+                    Genesys
+                </span>
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900">{formatted_number}</dd>
+        </div>
+        """
+
+    # Check for legacy phone extension - the LDAP service processes ipPhone into 'extension'
+    legacy_phone = ldap_data.get("extension")
+
+    if legacy_phone:
+        formatted_number = format_phone_number(legacy_phone)
+        phone_html_items += f"""
+        <div class="sm:col-span-1">
+            <dt class="text-sm font-medium text-gray-500 flex items-center">
+                Legacy Ext
+                <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-800" title="[AD] ipPhone">
+                    Legacy
+                </span>
+            </dt>
+            <dd class="mt-1 text-sm text-gray-900">{formatted_number}</dd>
+        </div>
+        """
+
+    # Generate user type badges and account status badges
+    user_badges_html = ""
+
+    # Account status badges from LDAP data
+    enabled = ldap_data.get("enabled", True)
+    locked = ldap_data.get("locked", False)
+
+    # Account enabled/disabled badge
+    if enabled:
+        user_badges_html += '<span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i>Account Enabled</span>'
+    else:
+        user_badges_html += '<span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800"><i class="fas fa-times-circle mr-1"></i>Account Disabled</span>'
+
+    # Account locked/unlocked badge
+    if locked:
+        user_badges_html += '<span class="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800"><i class="fas fa-lock mr-1"></i>Account Locked</span>'
+    else:
+        user_badges_html += '<span class="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800"><i class="fas fa-unlock mr-1"></i>Account Unlocked</span>'
+
+    # Service type badges
+    phone_data = ldap_data.get("phoneNumbers", {})
+    if phone_data.get("teams_did"):
+        user_badges_html += '<span class="ml-2 px-2 py-1 text-xs font-medium rounded-full" style="background-color: #e0e7ff; color: #6264a7;">Teams User</span>'
+    if phone_data.get("genesys_did") or phone_data.get("genesys_ext"):
+        user_badges_html += '<span class="ml-2 px-2 py-1 text-xs font-medium rounded-full" style="background-color: #ffebe6; color: #FF4F1F;">Genesys User</span>'
+
+    # Get Keystone data
     keystone_data = results.get("keystone")
-
-    html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">'
-
-    # Azure AD Card
-    if azure_data:
-        html += _render_azure_ad_card(azure_data)
-
-    # Genesys Card
-    if genesys_data:
-        html += _render_genesys_card(genesys_data)
-
-    html += "</div>"
-
-    # Keystone Card (full width) - show even if there's an error
     keystone_error = results.get("keystone_error")
-    if keystone_data or keystone_error:
-        html += _render_keystone_card(keystone_data, keystone_error)
 
+    # Generate Keystone accordion if data exists
+    keystone_accordion_html = ""
+    if keystone_data or keystone_error:
+        keystone_accordion_html = _render_keystone_accordion(
+            keystone_data, keystone_error
+        )
+
+    html = f"""
+    <div class="space-y-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center">
+                {photo_element}
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">{name}</h2>
+                    {'<div class="bg-yellow-50 border border-yellow-200 rounded-md p-2 mt-1"><div class="flex items-center"><i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i><div class="text-sm"><span class="font-medium text-yellow-800">Title Mismatch:</span> <span class="text-gray-700">LDAP:</span> <span class="font-medium">' + str(ldap_title) + '</span> | <span class="text-gray-700">Genesys:</span> <span class="font-medium">' + str(genesys_title) + "</span></div></div></div>" if title_mismatch else '<p class="text-lg text-gray-600">' + str(title) + "</p>"}
+                    <p class="text-md text-gray-500">{department}</p>
+                    <div class="mt-4 flex flex-wrap gap-2">{user_badges_html}</div>
+                </div>
+            </div>
+            <div class="border-t border-gray-200 mt-6 pt-6">
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
+                    <div class="sm:col-span-1">
+                        <dt class="text-sm font-medium text-gray-500">Email address</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{ldap_data.get("mail", "N/A")}</dd>
+                    </div>
+                    {phone_html_items}
+                </dl>
+            </div>
+        </div>
+        {keystone_accordion_html}
+    </div>
+    """
     return html
+
+
+def _render_keystone_accordion(keystone_data, keystone_error=None):
+    """Render Keystone data in an accordion component."""
+    # Determine if there's an alert to show
+    alert_html = ""
+    if keystone_data:
+        role_mismatch = keystone_data.get("role_mismatch")
+        warning_level = keystone_data.get("role_warning_level", "medium")
+
+        if role_mismatch and warning_level in ["high", "medium"]:
+            # Use yellow for warnings as requested - big yellow warning message
+            alert_color = "yellow"
+            alert_icon = "fas fa-exclamation-triangle"
+
+            # Get the descriptive message instead of the boolean value
+            alert_message = keystone_data.get(
+                "role_warning_message", "Role assignment issue detected"
+            )
+
+            # Set title based on severity
+            if warning_level == "high":
+                alert_title = "⚠️ Security Alert: Role Mismatch Detected"
+            else:
+                alert_title = "⚠️ Role Assignment Notice"
+
+            alert_html = f"""
+            <div class="bg-{alert_color}-50 border-l-4 border-{alert_color}-400 p-4 mb-4 shadow-sm">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="{alert_icon} text-{alert_color}-500 text-lg"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-semibold text-{alert_color}-800">{alert_title}</h4>
+                        <p class="text-sm text-{alert_color}-700 mt-1 font-medium">{alert_message}</p>
+                        <p class="text-xs text-{alert_color}-600 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Please review user permissions and contact IT Security if needed.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            """
+        elif warning_level == "success":
+            # Subtle green check indicator for matching roles - much more discrete
+            expected_role = keystone_data.get("expected_role", "")
+            alert_html = f"""
+            <div class="bg-green-50 border-l-2 border-green-300 p-2 mb-3 rounded-sm">
+                <div class="flex items-center">
+                    <i class="fas fa-check-circle text-green-500 text-sm mr-2"></i>
+                    <p class="text-xs text-green-700">
+                        <span class="font-medium">Role Verified:</span> '{expected_role}' ✓
+                    </p>
+                </div>
+            </div>
+            """
+
+    # Build content based on available data
+    content_html = ""
+    if keystone_error:
+        if "pyodbc not available" in str(
+            keystone_error
+        ) or "Error loading Keystone data" in str(keystone_error):
+            content_html = """
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-blue-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-blue-800">Data Warehouse Integration</h4>
+                        <p class="text-sm text-blue-700 mt-1">
+                            The Keystone data warehouse integration is currently unavailable. 
+                            This service provides additional member information from internal systems.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            """
+        else:
+            content_html = f"""
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-yellow-800">Data Warehouse Error</h4>
+                        <p class="text-sm text-yellow-700 mt-1">{keystone_error}</p>
+                    </div>
+                </div>
+            </div>
+            """
+    elif keystone_data:
+        # Build the definition list
+        content_html = f"""
+        {alert_html}
+        <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">User Serial</dt>
+                <dd class="mt-1 text-sm text-gray-900">{keystone_data.get("user_serial", "N/A")}</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">Live Role</dt>
+                <dd class="mt-1 text-sm text-gray-900">{keystone_data.get("live_role", "N/A")}</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">UPN</dt>
+                <dd class="mt-1 text-sm text-gray-900">{keystone_data.get("upn", "N/A")}</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">Test Role</dt>
+                <dd class="mt-1 text-sm text-gray-900">{keystone_data.get("test_role", "N/A")}</dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">Lock Status</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    <span class="{"text-red-600" if keystone_data.get("login_locked") else "text-green-600"}">
+                        <i class="fas {"fa-lock" if keystone_data.get("login_locked") else "fa-unlock"} mr-1"></i>
+                        {keystone_data.get("lock_status", "Unknown")}
+                    </span>
+                </dd>
+            </div>
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">Last Login</dt>
+                <dd class="mt-1 text-sm text-gray-900">{keystone_data.get("last_login_formatted", "N/A")}</dd>
+            </div>
+        </dl>
+        """
+    else:
+        content_html = """
+        <div class="text-center py-4">
+            <i class="fas fa-database text-gray-400 text-3xl mb-2"></i>
+            <p class="text-gray-500">No Keystone data found for this user</p>
+        </div>
+        """
+
+    return f"""
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <button 
+            class="w-full flex items-center justify-between p-4 bg-gray-800 text-white hover:bg-gray-700 transition-colors duration-200"
+            onclick="toggleKeystoneAccordion(this)"
+            type="button">
+            <div class="flex items-center">
+                <i class="fas fa-database mr-3"></i>
+                <span class="text-lg font-semibold">Keystone Data Warehouse</span>
+            </div>
+            <i class="fas fa-chevron-down transform transition-transform duration-200" id="keystone-chevron"></i>
+        </button>
+        <div id="keystone-content" class="hidden p-6">
+            {content_html}
+        </div>
+    </div>
+    
+    <script>
+    function toggleKeystoneAccordion(button) {{
+        const content = document.getElementById('keystone-content');
+        const chevron = document.getElementById('keystone-chevron');
+        
+        if (content.classList.contains('hidden')) {{
+            content.classList.remove('hidden');
+            chevron.classList.add('rotate-180');
+        }} else {{
+            content.classList.add('hidden');
+            chevron.classList.remove('rotate-180');
+        }}
+    }}
+    </script>
+    """
 
 
 def _render_azure_ad_card(user_data):
@@ -797,24 +1335,14 @@ def _render_azure_ad_card(user_data):
         <div class="p-6">
     """
 
-    # User photo and basic info - always prioritize Graph photo over LDAP
-    photo_url = "/static/img/user-placeholder.svg"
-    
-    # First priority: Graph photo (either direct data or via Graph ID for lazy loading)
-    if user_data.get("graphId"):
-        # Use Graph service for photo
-        photo_url = f"/search/photo/{user_data['graphId']}"
-        if user_data.get("userPrincipalName"):
-            photo_url += f"?upn={user_data['userPrincipalName']}"
-    elif user_data.get("thumbnailPhoto") and user_data["thumbnailPhoto"].startswith("data:"):
-        # Direct base64 photo data (from Graph)
-        photo_url = user_data["thumbnailPhoto"]
+    # Get photo element using employee profiles or fallback
+    photo_element = _get_photo_element_for_card(user_data)
+    if not photo_element:
+        photo_element = '<img src="/static/img/user-placeholder.svg" class="w-24 h-24 rounded-full bg-gray-200 mr-4 object-cover" alt="User photo">'
 
     html += f"""
         <div class="flex items-start mb-6">
-            <img src="{photo_url}" 
-                 class="w-24 h-24 rounded-full bg-gray-200 mr-4 object-cover"
-                 alt="User photo">
+            {photo_element}
             <div class="flex-1">
                 <h4 class="text-xl font-semibold text-gray-900">{display_name}</h4>
                 <p class="text-gray-600">{email}</p>
@@ -833,7 +1361,7 @@ def _render_azure_ad_card(user_data):
     else:
         html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">'
         html += '<i class="fas fa-times-circle mr-1"></i>AD Disabled</span>'
-    
+
     # Account locked/unlocked status
     if locked:
         html += '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-1">'
@@ -913,7 +1441,7 @@ def _render_azure_ad_card(user_data):
         html += (
             f'<div><span class="font-medium">Extension:</span> {user_data["extension"]}'
         )
-        html += ' <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Legacy</span></div>'
+        html += ' <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded" title="[AD] ipPhone">Legacy</span></div>'
 
     html += "</div></div></div>"
 
@@ -1049,11 +1577,9 @@ def _render_genesys_card(user_data):
         for phone_type, number in phone_numbers.items():
             if number:
                 formatted_number = _format_phone_number(number)
+                badge_html = _get_phone_badge(phone_type)
                 label = _get_phone_label(phone_type)
-                html += (
-                    f'<div><span class="font-medium">{label}:</span> {formatted_number}'
-                )
-                html += ' <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Genesys</span></div>'
+                html += f'<div><span class="font-medium">{label}:</span> {formatted_number} {badge_html}</div>'
 
         html += "</div></div>"
 
@@ -1232,7 +1758,9 @@ def _render_keystone_card(keystone_data, keystone_error=None):
 
     # Handle errors first
     if keystone_error:
-        if "pyodbc not available" in str(keystone_error) or "Error loading Keystone data" in str(keystone_error):
+        if "pyodbc not available" in str(
+            keystone_error
+        ) or "Error loading Keystone data" in str(keystone_error):
             html += """
             <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
                 <div class="flex">
@@ -1266,13 +1794,13 @@ def _render_keystone_card(keystone_data, keystone_error=None):
                 </div>
             </div>
             """
-    
+
     # Show data if available
     if keystone_data:
         # Role status indicator
         if keystone_data.get("role_mismatch"):
             warning_level = keystone_data.get("role_warning_level", "medium")
-            
+
             if warning_level == "success":
                 # Positive indicator for matching roles
                 html += f"""
@@ -1284,7 +1812,7 @@ def _render_keystone_card(keystone_data, keystone_error=None):
                         <div class="ml-3">
                             <h4 class="text-sm font-medium text-green-800">Role Assignment Verified</h4>
                             <p class="text-sm text-green-700 mt-1">
-                                {keystone_data['role_mismatch']}
+                                {keystone_data["role_mismatch"]}
                             </p>
                         </div>
                     </div>
@@ -1293,7 +1821,11 @@ def _render_keystone_card(keystone_data, keystone_error=None):
             else:
                 # Warning/error indicators for issues
                 warning_color = "red" if warning_level == "high" else "yellow"
-                warning_title = "Security Alert: Role Assignment Issue" if warning_level == "high" else "Audit Alert: Role Mapping Issue"
+                warning_title = (
+                    "Security Alert: Role Assignment Issue"
+                    if warning_level == "high"
+                    else "Audit Alert: Role Mapping Issue"
+                )
                 html += f"""
                 <div class="bg-{warning_color}-50 border-l-4 border-{warning_color}-400 p-4 mb-4">
                     <div class="flex">
@@ -1303,7 +1835,7 @@ def _render_keystone_card(keystone_data, keystone_error=None):
                         <div class="ml-3">
                             <h4 class="text-sm font-medium text-{warning_color}-800">{warning_title}</h4>
                             <p class="text-sm text-{warning_color}-700 mt-1">
-                                {keystone_data['role_mismatch']}
+                                {keystone_data["role_mismatch"]}
                             </p>
                         </div>
                     </div>
@@ -1312,30 +1844,34 @@ def _render_keystone_card(keystone_data, keystone_error=None):
 
         # Display Keystone data in organized sections
         html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-6">'
-        
+
         # Keystone Identity Section
-        html += '<div>'
-        html += '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        html += "<div>"
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
         html += '<i class="fas fa-id-badge mr-2"></i>Keystone Identity</h6>'
         html += '<div class="space-y-2 text-sm">'
-        
+
         if keystone_data.get("user_serial"):
             html += f'<div><span class="font-medium">User Serial:</span> {keystone_data["user_serial"]}</div>'
-        
+
         if keystone_data.get("upn"):
             html += f'<div><span class="font-medium">UPN:</span> {keystone_data["upn"]}</div>'
-        
+
         if keystone_data.get("ukg_job_code"):
             html += f'<div><span class="font-medium">UKG Job Code:</span> {keystone_data["ukg_job_code"]}</div>'
-        
-        html += '</div></div>'
-        
+
+        html += "</div></div>"
+
         # Role Information Section
-        html += '<div>'
-        html += '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        html += "<div>"
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
         html += '<i class="fas fa-user-tag mr-2"></i>Role Information</h6>'
         html += '<div class="space-y-2 text-sm">'
-        
+
         if keystone_data.get("live_role"):
             warning_level = keystone_data.get("role_warning_level")
             if warning_level == "success":
@@ -1350,36 +1886,44 @@ def _render_keystone_card(keystone_data, keystone_error=None):
             else:
                 role_class = "text-gray-600"  # Default
                 role_icon = ""
-            
+
             html += f'<div><span class="font-medium">Live Role:</span> <span class="{role_class}">{role_icon}{keystone_data["live_role"]}</span></div>'
-        
+
         if keystone_data.get("test_role"):
             html += f'<div><span class="font-medium">Test Role:</span> {keystone_data["test_role"]}</div>'
-        
+
         if keystone_data.get("expected_role"):
             html += f'<div><span class="font-medium">Expected Role:</span> {keystone_data["expected_role"]}</div>'
-        
-        html += '</div></div></div>'
-        
+
+        html += "</div></div></div>"
+
         # Account Status Section
         html += '<div class="mt-6">'
-        html += '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        html += (
+            '<h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">'
+        )
         html += '<i class="fas fa-shield-alt mr-2"></i>Account Status</h6>'
         html += '<div class="space-y-2 text-sm">'
-        
+
         if keystone_data.get("lock_status"):
-            lock_class = "text-red-600" if keystone_data.get("login_locked") else "text-green-600"
+            lock_class = (
+                "text-red-600"
+                if keystone_data.get("login_locked")
+                else "text-green-600"
+            )
             lock_icon = "fa-lock" if keystone_data.get("login_locked") else "fa-unlock"
             html += f'<div><span class="font-medium">Keystone Login Lock Status:</span> <span class="{lock_class}"><i class="fas {lock_icon} mr-1"></i>{keystone_data["lock_status"]}</span></div>'
-        
+
         if keystone_data.get("last_login_formatted"):
             html += f'<div><span class="font-medium">Keystone Last Login:</span> {keystone_data["last_login_formatted"]}</div>'
-        
+
         if keystone_data.get("last_cached"):
-            formatted_cached = _format_date_with_relative(keystone_data["last_cached"], "Data Cached")
-            html += f'<div>{formatted_cached}</div>'
-        
-        html += '</div></div>'
+            formatted_cached = _format_date_with_relative(
+                keystone_data["last_cached"], "Data Cached"
+            )
+            html += f"<div>{formatted_cached}</div>"
+
+        html += "</div></div>"
     else:
         # No data available
         if not keystone_error:
@@ -1623,13 +2167,38 @@ def _get_phone_label(phone_type):
 
 
 def _get_phone_badge(phone_type):
-    """Get badge HTML for phone type."""
+    """Get badge HTML for phone type with tooltips showing raw field names."""
+    # Map phone types to their raw field names for tooltips based on documentation
+    # Format: "[Source] fieldName; [Source] fieldName"
+    field_mappings = {
+        "teams_did": "[AD] telephoneNumber",
+        "teams": "[AD] telephoneNumber",
+        "genesys_did": "[AD] extensionAttribute4; [Genesys] primaryContactInfo[mediaType=PHONE].address",
+        "genesys_ext": "[AD] pager; [Genesys] addresses[type=WORK2].extension",
+        "genesys": "[AD] extensionAttribute4; [Genesys] primaryContactInfo[mediaType=PHONE].address",
+        "mobile": "[AD] ExclaimerMobile; [Graph] mobilePhone; [Genesys] addresses[type=MOBILE].address",
+        "business": "[Graph] businessPhones",
+        "primary": "[Genesys] primaryContactInfo[mediaType=PHONE].address",
+        "work": "[Genesys] addresses[type=WORK].address",
+        "work2": "[Genesys] addresses[type=WORK2].address",
+        "work3": "[Genesys] addresses[type=WORK3].address",
+        "extension": "[Genesys] addresses[type=WORK2].extension",
+    }
+
+    tooltip = field_mappings.get(phone_type, f"[Unknown] {phone_type}")
+
     if "teams" in phone_type.lower():
-        return '<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Teams</span>'
-    elif "genesys" in phone_type.lower():
-        return '<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Genesys</span>'
+        return f'<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="{tooltip}">Teams</span>'
+    elif "genesys" in phone_type.lower() or phone_type in [
+        "primary",
+        "work",
+        "work2",
+        "work3",
+        "extension",
+    ]:
+        return f'<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded" title="{tooltip}">Genesys</span>'
     elif phone_type in ["mobile", "business"]:
-        return '<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">AD</span>'
+        return f'<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="{tooltip}">AD</span>'
     return ""
 
 
@@ -1801,6 +2370,22 @@ def search_specific():
     if not search_term:
         return '<div class="text-center text-gray-500 py-8">Invalid search parameters</div>'
 
+    # Generate cache key for specific search
+    cache_key = _generate_search_cache_key(
+        search_term, genesys_user_id, ldap_user_dn, graph_user_id
+    )
+
+    # Check cache first
+    cached_result = _get_cached_search_result(cache_key)
+    if cached_result:
+        logger.info(f"Returning cached specific search result for: {search_term}")
+        # Add cache indicator to the result HTML
+        html = cached_result.get("html", "")
+        if html and "<!-- cached -->" not in html:
+            cache_indicator = '<div class="text-xs text-gray-500 mb-2 flex items-center"><i class="fas fa-clock mr-1"></i>Results from cache</div>'
+            html = cache_indicator + html
+        return html
+
     # Get user info for audit logging
     user_email = request.headers.get(
         "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
@@ -1866,4 +2451,20 @@ def search_specific():
     )
 
     # Render results
-    return _render_unified_profile(enhanced_results)
+    html_result = _render_unified_profile(enhanced_results)
+
+    # Cache the specific search result
+    try:
+        # Add cache marker to prevent duplicate indicators
+        html_with_marker = "<!-- cached -->" + html_result
+        cache_data = {
+            "html": html_with_marker,
+            "enhanced_results": enhanced_results,
+            "timestamp": datetime.now().isoformat(),
+        }
+        # Cache for 30 minutes for specific search results
+        _cache_search_result(cache_key, cache_data, expiration_hours=0.5)
+    except Exception as e:
+        logger.error(f"Error caching specific search result: {str(e)}")
+
+    return html_result

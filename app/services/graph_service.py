@@ -5,7 +5,8 @@ from typing import Optional, Dict, Any
 from msal import ConfidentialClientApplication  # type: ignore[import-untyped]
 import base64
 from app.services.base import BaseAPITokenService
-from app.models import GraphPhoto
+
+# Legacy GraphPhoto model removed - photos now stored in employee_profiles
 from app.database import get_db
 from app.interfaces.search_service import ISearchService
 from app.interfaces.token_service import ITokenService
@@ -300,17 +301,8 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                 user_principal_name = user.get("userPrincipalName") or ""
                 photo_data = self.get_user_photo(user_id, user_principal_name)
             elif include_photo:
-                # Get from cache
-                try:
-                    from flask import current_app
-
-                    if current_app:
-                        with get_db() as db:
-                            cached_photo = GraphPhoto.get_photo(db, user.get("id"))
-                            if cached_photo:
-                                photo_data = cached_photo.photo_data
-                except Exception:
-                    pass
+                # Legacy photo caching removed - photos now managed by employee_profiles service
+                pass
 
             # Build result
             result = {
@@ -386,17 +378,7 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                     photo_base64 = base64.b64encode(photo_content).decode("utf-8")
                     photo_data = f"data:image/jpeg;base64,{photo_base64}"
 
-                    # Cache the photo
-                    try:
-                        from flask import current_app
-
-                        if current_app:
-                            with get_db() as db:
-                                GraphPhoto.upsert_photo(
-                                    db, user_id, photo_data.encode()
-                                )
-                    except Exception as e:
-                        logger.debug(f"Could not cache photo: {e}")
+                    # Legacy photo caching removed - photos now managed by employee_profiles service
 
                     return photo_data
 

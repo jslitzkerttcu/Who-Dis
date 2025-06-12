@@ -10,15 +10,15 @@ import os
 import sys
 from datetime import datetime, timezone
 from dotenv import load_dotenv
+from sqlalchemy import text
 
 # Add the app directory to the path so we can import modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 load_dotenv()
 
-from app.app_factory import create_app
-from app.database import db
-from sqlalchemy import text
+from app.app_factory import create_app  # noqa: E402
+from app.database import db  # noqa: E402
 
 
 def migrate_configuration():

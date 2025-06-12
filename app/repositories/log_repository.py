@@ -52,7 +52,9 @@ class LogRepository(ILogRepository):
         **kwargs,
     ) -> None:
         """Log an error event."""
-        ErrorLog.log_error(error_type, error_message, stack_trace or "", **kwargs)
+        ErrorLog.log_error(
+            error_type, error_message, stack_trace=stack_trace or "", **kwargs
+        )
 
     def query_logs(
         self,
@@ -179,7 +181,7 @@ class LogRepository(ILogRepository):
                 AuditLog.ip_address.ilike(f"%{ip_address}%")
             )
 
-        total_count += audit_query.count()
+        total_count += int(audit_query.count())
 
         # Count ErrorLog entries (if no specific event_type or event_type is 'error')
         if not event_type or event_type == "error":
@@ -197,7 +199,7 @@ class LogRepository(ILogRepository):
                     ErrorLog.ip_address.ilike(f"%{ip_address}%")
                 )
 
-            total_count += error_query.count()
+            total_count += int(error_query.count())
 
         # Count AccessAttempt entries (if no specific event_type or event_type is 'access')
         if not event_type or event_type == "access":
@@ -217,6 +219,6 @@ class LogRepository(ILogRepository):
                     AccessAttempt.ip_address.ilike(f"%{ip_address}%")
                 )
 
-            total_count += access_query.count()
+            total_count += int(access_query.count())
 
         return total_count

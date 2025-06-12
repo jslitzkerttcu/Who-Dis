@@ -17,10 +17,31 @@ from app.services.simple_config import (
     config_exists,
 )
 
-# Create singleton instance - SimpleConfig now implements IConfigurationService directly
-configuration_service: IConfigurationService = SimpleConfig()
+# Lazy initialization of configuration service
+_configuration_service = None
+
+
+def get_configuration_service() -> IConfigurationService:
+    """Get the singleton configuration service instance."""
+    global _configuration_service
+    if _configuration_service is None:
+        _configuration_service = SimpleConfig()
+    return _configuration_service
+
+
+# For backward compatibility, create a wrapper class
+class LazyConfigurationService:
+    """Lazy wrapper for configuration service."""
+
+    def __getattr__(self, name):
+        return getattr(get_configuration_service(), name)
+
+
+# Export the lazy wrapper
+configuration_service = LazyConfigurationService()
 
 __all__ = [
+    "get_configuration_service",
     "configuration_service",
     "config_get",
     "config_set",

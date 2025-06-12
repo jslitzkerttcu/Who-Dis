@@ -276,21 +276,29 @@ class SimpleConfig(IConfigurationService):
         self._cache.clear()
 
 
-# Global instance
-_config = SimpleConfig()
+# Global instance - lazy initialization
+_config = None
+
+
+def _get_config():
+    """Get the singleton config instance, creating it if needed."""
+    global _config
+    if _config is None:
+        _config = SimpleConfig()
+    return _config
 
 
 # Simple API functions
 @handle_service_errors(raise_errors=False, default_return=None)
 def config_get(key: str, default: Optional[Any] = None) -> Any:
     """Get a configuration value."""
-    return _config.get(key, default)
+    return _get_config().get(key, default)
 
 
 def config_set(key: str, value: Any, user: str = "system") -> bool:
     """Set a configuration value."""
     try:
-        result = _config.set_with_result(key, value, user)
+        result = _get_config().set_with_result(key, value, user)
         return bool(result)  # Ensure boolean return
     except Exception:
         return False
@@ -298,20 +306,22 @@ def config_set(key: str, value: Any, user: str = "system") -> bool:
 
 def config_delete(key: str) -> bool:
     """Delete a configuration value."""
-    result = _config.delete(key)
+    result = _get_config().delete(key)
     return bool(result)
 
 
 def config_get_all() -> Dict[str, Any]:
     """Get all configuration values."""
-    return _config.get_all()
+    result = _get_config().get_all()
+    return dict(result) if result is not None else {}
 
 
 def config_clear_cache() -> None:
     """Clear the configuration cache."""
-    _config.clear_cache()
+    _get_config().clear_cache()
 
 
 def config_exists(key: str) -> bool:
     """Check if a configuration key exists."""
-    return _config.exists(key)
+    result = _get_config().exists(key)
+    return bool(result)

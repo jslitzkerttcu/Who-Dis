@@ -38,7 +38,7 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
             logger.error(f"Failed to log search: {e}")
             try:
                 db.session.rollback()
-            except:
+            except Exception:
                 pass
 
     def log_access(self, user_email: str, action: str, target_resource: str, **kwargs):
@@ -49,7 +49,7 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
             # Ensure session is rolled back on error
             try:
                 db.session.rollback()
-            except:
+            except Exception:
                 pass
 
     def log_access_denial(
@@ -89,7 +89,7 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
             logger.error(f"Failed to log admin action: {e}")
             try:
                 db.session.rollback()
-            except:
+            except Exception:
                 pass
 
     def log_config_change(self, user_email: str, config_key: str, **kwargs):
@@ -99,7 +99,7 @@ class PostgresAuditService(IAuditLogger, IAuditQueryService):
             logger.error(f"Failed to log config change: {e}")
             try:
                 db.session.rollback()
-            except:
+            except Exception:
                 pass
 
     def log_config(

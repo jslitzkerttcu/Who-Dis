@@ -177,24 +177,26 @@ class TokenRefreshService:
             except Exception as e:
                 logger.error(f"Error checking/refreshing Genesys cache: {str(e)}")
 
-            # Also check if data warehouse cache needs refresh
+            # Also check if employee profiles cache needs refresh
             try:
-                from app.services.data_warehouse_service import data_warehouse_service
+                from app.services.refresh_employee_profiles import (
+                    employee_profiles_service,
+                )
 
                 # Get cache stats to check if refresh is needed
-                cache_stats = data_warehouse_service.get_cache_status()
+                cache_stats = employee_profiles_service.get_cache_stats()
 
                 if cache_stats.get("needs_refresh", True):
                     logger.info(
-                        "Data warehouse cache needs refresh, starting refresh..."
+                        "Employee profiles cache needs refresh, starting refresh..."
                     )
-                    results = data_warehouse_service.refresh_cache()
-                    logger.info(f"Data warehouse cache refresh results: {results}")
+                    results = employee_profiles_service.refresh_all_profiles()
+                    logger.info(f"Employee profiles cache refresh results: {results}")
                 else:
-                    logger.debug("Data warehouse cache is up to date")
+                    logger.debug("Employee profiles cache is up to date")
             except Exception as e:
                 logger.error(
-                    f"Error checking/refreshing data warehouse cache: {str(e)}"
+                    f"Error checking/refreshing employee profiles cache: {str(e)}"
                 )
 
 

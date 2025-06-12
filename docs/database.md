@@ -2,9 +2,11 @@
 
 ## Table of Contents
 - [Initial Setup](#initial-setup)
+- [Consolidated Architecture](#consolidated-architecture)
 - [Table Descriptions](#table-descriptions)
 - [Configuration Management](#configuration-management)
 - [Session Management](#session-management)
+- [Migration from Legacy Tables](#migration-from-legacy-tables)
 - [Troubleshooting](#troubleshooting)
 - [Maintenance](#maintenance)
 - [Performance Tuning](#performance-tuning)
@@ -87,10 +89,84 @@ Check that all tables were created:
 -- Should show:
 -- api_tokens, users, configuration, configuration_history, audit_log, 
 -- error_log, access_attempts, genesys_groups, genesys_locations,
--- genesys_skills, search_cache, graph_photos, user_sessions, user_notes
+-- genesys_skills, search_cache, user_sessions, user_notes, employee_profiles
 ```
 
-### 5. Initial Table Analysis
+## Consolidated Architecture
+
+WhoDis uses a **consolidated employee data architecture** that centralizes employee information management:
+
+### Core Principle
+All employee profile data, photos, and Keystone information are now stored in a single `employee_profiles` table instead of separate legacy tables (`graph_photos`, `data_warehouse_cache`).
+
+### Benefits
+- **Unified Data Model**: Single source of truth for employee information
+- **Simplified Queries**: No complex joins across multiple tables  
+- **Better Performance**: Fewer database operations and improved caching
+- **Easier Maintenance**: Single table to backup, migrate, and optimize
+- **Atomic Updates**: Employee data changes are transactional
+
+### Architecture Components
+
+#### 1. Employee Profiles Service (`refresh_employee_profiles.py`)
+- **Purpose**: Central service for all employee data operations
+- **Responsibilities**: 
+  - Data warehouse integration (Keystone queries)
+  - Microsoft Graph photo fetching
+  - Profile creation and updates
+  - Cache management and statistics
+
+#### 2. Consolidated Storage (`employee_profiles` table)
+- **UPN**: Primary key and unique identifier
+- **Keystone Data**: User serial, login times, roles, job codes
+- **Photos**: Base64 photo data with content type
+- **Metadata**: Created/updated timestamps, raw JSON data
+
+#### 3. Legacy Migration
+- **Status**: Legacy tables `graph_photos` and `data_warehouse_cache` have been removed
+- **Migration Tool**: Use `scripts/drop_legacy_tables.py` to clean up existing installations
+- **Data Safety**: All data was migrated to `employee_profiles` before removal
+
+## Migration from Legacy Tables
+
+### For Existing Installations (Pre-2.0)
+
+If you're upgrading from a previous version that used separate `graph_photos` and `data_warehouse_cache` tables:
+
+#### 1. Backup Your Database
+```bash
+pg_dump -U whodis_user -h localhost whodis_db > backup_before_migration_$(date +%Y%m%d).sql
+```
+
+#### 2. Run Migration Script
+```bash
+# Preview what will be changed
+python scripts/drop_legacy_tables.py --dry-run
+
+# Execute the migration
+python scripts/drop_legacy_tables.py
+```
+
+#### 3. Verify Migration
+```bash
+# Check employee profiles are populated
+python scripts/refresh_employee_profiles.py refresh
+
+# Run comprehensive verification
+python scripts/verify_deployment.py
+```
+
+#### 4. Post-Migration Cleanup
+The migration script will:
+- ✅ Verify `employee_profiles` table exists and has data
+- ✅ Drop `graph_photos` and `data_warehouse_cache` tables
+- ✅ Update PostgreSQL statistics with `ANALYZE`
+- ✅ Provide detailed logging of all operations
+
+### For New Installations (2.0+)
+No migration needed - the consolidated architecture is used from the start.
+
+### 4. Initial Table Analysis
 
 For new installations, run ANALYZE to update PostgreSQL statistics:
 

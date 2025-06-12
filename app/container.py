@@ -128,7 +128,7 @@ def register_services(container: ServiceContainer) -> None:
     from app.services.token_refresh_service import TokenRefreshService
     from app.services.genesys_cache_db import GenesysCacheDB
     from app.services.encryption_service import EncryptionService
-    from app.services.data_warehouse_service import DataWarehouseService
+    # Legacy DataWarehouseService removed - use refresh_employee_profiles service
 
     # Configuration service (use singleton instance)
     container.register("config", lambda c: configuration_service)
@@ -148,7 +148,7 @@ def register_services(container: ServiceContainer) -> None:
     container.register("ldap_service", lambda c: LDAPService())
     container.register("genesys_service", lambda c: GenesysCloudService())
     container.register("graph_service", lambda c: GraphService())
-    container.register("data_warehouse_service", lambda c: DataWarehouseService())
+    # Legacy data_warehouse_service removed - use refresh_employee_profiles service
 
     # Token refresh service (depends on container for dynamic discovery)
     container.register("token_refresh", lambda c: TokenRefreshService(container))

@@ -84,6 +84,16 @@ python scripts/check_genesys_cache.py
 
 # Test Genesys locations cache (manual)
 python scripts/test_locations_cache.py
+
+# Refresh employee profiles (consolidated data)
+python scripts/refresh_employee_profiles.py refresh
+
+# Drop legacy tables (for migrations from pre-2.0)
+python scripts/drop_legacy_tables.py --dry-run  # Preview changes
+python scripts/drop_legacy_tables.py            # Execute migration
+
+# Verify deployment after migration
+python scripts/verify_deployment.py
 ```
 
 ## Architecture
@@ -108,7 +118,7 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
     - `AuditableModel`: Combines timestamps, user tracking, and JSON data
     - `CacheableModel`: For cache entries with expiration
     - `ServiceDataModel`: For external service data
-  - **Models** (using separate tables - no unified models):
+  - **Models** (consolidated architecture):
     - `user.py`: User management with roles (extends BaseModel + TimestampMixin)
     - `configuration.py`: Encrypted configuration storage (extends BaseModel)
     - `audit.py`: Audit log entries in `audit_log` table (extends AuditableModel)
@@ -117,10 +127,9 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
     - `api_token.py`: API token storage with expiration (extends BaseModel + ExpirableMixin)
     - `cache.py`: Search result caching in `search_cache` table (extends BaseModel + ExpirableMixin)
     - `genesys.py`: Genesys cache models - GenesysGroup, GenesysLocation, GenesysSkill (extends ServiceDataModel)
-    - `graph_photo.py`: Microsoft Graph photo caching (extends CacheableModel)
     - `session.py`: User session management with timeout tracking (extends BaseModel + ExpirableMixin)
     - `user_note.py`: Internal notes about users (extends BaseModel + TimestampMixin)
-    - `data_warehouse.py`: Data warehouse cache for user information - DataWarehouseCache (extends CacheableModel)
+    - `employee_profiles.py`: **CONSOLIDATED** employee data including photos and Keystone info (replaces graph_photo.py and data_warehouse.py)
 - **`app/services/`**: Service layer with base class hierarchy:
   - **Base Classes** (`base.py`):
     - `BaseConfigurableService`: Configuration management
@@ -132,7 +141,8 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
   - **Services**:
     - `ldap_service.py`: Active Directory/LDAP integration with fuzzy search and timeout handling
     - `genesys_service.py`: Genesys Cloud API integration for contact center data
-    - `graph_service.py`: Microsoft Graph API (beta) integration for enhanced Azure AD data and photos
+    - `graph_service.py`: Microsoft Graph API (beta) integration for enhanced Azure AD data
+    - `refresh_employee_profiles.py`: **CONSOLIDATED** employee data service (replaces data_warehouse_service and graph photo handling)
     - `audit_service_postgres.py`: PostgreSQL-based audit logging for all system events
     - `configuration_service.py`: Simplified configuration access (wraps simple_config)
     - `simple_config.py`: Core configuration service with encryption support
@@ -271,10 +281,26 @@ WhoDis features a modern, responsive interface built with Tailwind CSS and enhan
 
 ### Background Services
 - **Token Refresh Service**: Runs in background thread, checks tokens every 5 minutes
-- **Genesys Cache Service**: Refreshes groups, skills, locations every 6 hours
+- **Genesys Cache Service**: Refreshes groups, skills, locations every 6 hours or on-demand
 - **Session Cleanup**: Automatic removal of expired sessions on startup
 - **Audit Log Cleanup**: Removes logs older than 90 days (configurable)
 - **Session Monitoring**: Active monitoring of user sessions with inactivity tracking
+
+### Token Management Architecture
+WhoDis uses a unified token management system for consistent API access:
+
+#### **Token Flow**
+1. **Startup Validation**: All API services validate/refresh tokens during application startup
+2. **Service Integration**: Cache initialization uses the same validated service instances
+3. **Consistent Access**: All components use `service.get_access_token()` for token retrieval
+4. **Database Persistence**: Tokens stored encrypted in `api_tokens` table with expiration tracking
+5. **Background Refresh**: Automatic token renewal every 5 minutes via background service
+
+#### **Cache Initialization**
+- **Smart Startup**: Cache populates immediately if tokens are valid and cache needs refresh
+- **On-Demand Fallback**: If startup token access fails, cache initializes when first accessed
+- **Service Priority**: Uses validated service instances directly rather than database lookups
+- **Efficient Logic**: Skips unnecessary refresh if cache is current (< 6 hours old)
 
 ### Session Management
 - **Inactivity Timeout**: Configurable timeout (15min default) with 2min warning

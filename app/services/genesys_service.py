@@ -494,8 +494,12 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
             )
 
             data = self._handle_response(response)
-            logger.info(f"Retrieved {len(data.get('entities', []))} blocked numbers")
-            return data
+            if isinstance(data, dict):
+                logger.info(
+                    f"Retrieved {len(data.get('entities', []))} blocked numbers"
+                )
+                return data
+            return None
 
         except Exception as e:
             logger.error(f"Error getting blocked numbers: {str(e)}")
@@ -517,8 +521,10 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
             )
 
             result = self._handle_response(response)
-            logger.info(f"Added blocked number: {data.get('key')}")
-            return result
+            if isinstance(result, dict):
+                logger.info(f"Added blocked number: {data.get('key')}")
+                return result
+            return None
 
         except Exception as e:
             logger.error(f"Error adding blocked number: {str(e)}")
@@ -542,8 +548,10 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
             )
 
             result = self._handle_response(response)
-            logger.info(f"Updated blocked number: {ani} -> {data.get('key')}")
-            return result
+            if isinstance(result, dict):
+                logger.info(f"Updated blocked number: {ani} -> {data.get('key')}")
+                return result
+            return None
 
         except Exception as e:
             logger.error(f"Error updating blocked number: {str(e)}")

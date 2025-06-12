@@ -400,10 +400,10 @@ def test_genesys_connection():
 @require_role("admin")
 def test_data_warehouse_connection():
     """Test data warehouse connection."""
-    from app.services.data_warehouse_service import data_warehouse_service
+    from app.services.refresh_employee_profiles import employee_profiles_service
 
     try:
-        result = data_warehouse_service.test_connection()
+        result = employee_profiles_service.test_data_warehouse_connection()
         # Check if this is an Htmx request
         if request.headers.get("HX-Request"):
             message = (

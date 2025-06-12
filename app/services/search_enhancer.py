@@ -1,24 +1,24 @@
-"""Search enhancement service for adding data warehouse data to search results."""
+"""Search enhancement service for adding employee profile data to search results."""
 
 import logging
 from typing import Optional, Dict, Any
-from app.services.data_warehouse_service import data_warehouse_service
+from app.services.refresh_employee_profiles import employee_profiles_service
 
 logger = logging.getLogger(__name__)
 
 
 class SearchEnhancer:
-    """Service to enhance search results with data warehouse information."""
+    """Service to enhance search results with employee profile information."""
 
     def enhance_search_results(self, search_results: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Enhance search results with data warehouse information.
+        Enhance search results with employee profile information.
 
         Args:
             search_results: Dictionary containing azureAD and genesys search results
 
         Returns:
-            Enhanced search results with keystone data added
+            Enhanced search results with employee profile data added
         """
         enhanced_results = search_results.copy()
 
@@ -49,23 +49,30 @@ class SearchEnhancer:
             enhanced_results["keystone_multiple"] = False
             return enhanced_results
 
-        # Get data warehouse data from PostgreSQL cache
+        # Get employee profile data from consolidated table
         try:
-            keystone_data = data_warehouse_service.get_user_data(upn)
-            if keystone_data:
-                # Data is already formatted by the model's get_keystone_info method
+            employee_profile = employee_profiles_service.get_employee_profile(upn)
+            if employee_profile:
+                # Format the data for compatibility with existing search templates
+                keystone_data = self._format_employee_profile_for_search(
+                    employee_profile
+                )
                 enhanced_results["keystone"] = keystone_data
                 enhanced_results["keystone_error"] = None
             else:
                 enhanced_results["keystone"] = None
-                enhanced_results["keystone_error"] = f"No Keystone data found for {upn}"
+                enhanced_results["keystone_error"] = (
+                    f"No employee profile found for {upn}"
+                )
 
             enhanced_results["keystone_multiple"] = False
 
         except Exception as e:
-            logger.error(f"Error getting Keystone data for {upn}: {str(e)}")
+            logger.error(f"Error getting employee profile for {upn}: {str(e)}")
             enhanced_results["keystone"] = None
-            enhanced_results["keystone_error"] = "Error retrieving Keystone data from cache"
+            enhanced_results["keystone_error"] = (
+                "Error retrieving employee profile data"
+            )
             enhanced_results["keystone_multiple"] = False
 
         return enhanced_results
@@ -90,10 +97,84 @@ class SearchEnhancer:
 
         for field in upn_fields:
             upn = azure_result.get(field)
-            if upn and "@" in upn:  # Basic UPN validation
-                return upn.lower()  # Normalize to lowercase
+            if upn and isinstance(upn, str) and "@" in upn:  # Basic UPN validation
+                return str(upn).lower()  # Normalize to lowercase
 
         return None
+
+    def _format_employee_profile_for_search(
+        self, employee_profile: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Format employee profile data for search results display.
+
+        Args:
+            employee_profile: Employee profile data from the new service
+
+        Returns:
+            Formatted data compatible with existing search templates
+        """
+        # Map the new employee profile format to the expected keystone format
+        is_locked = employee_profile.get("is_locked", False)
+        lock_status = employee_profile.get("lock_status", "Unknown")
+
+        # Parse last login if it's a string
+        last_login = employee_profile.get("last_login")
+        last_login_formatted = None
+        if last_login:
+            try:
+                from datetime import datetime
+
+                if isinstance(last_login, str):
+                    # Parse ISO format
+                    dt = datetime.fromisoformat(last_login.replace("Z", "+00:00"))
+                    last_login_formatted = dt.strftime("%m/%d/%Y %I:%M %p")
+                else:
+                    last_login_formatted = str(last_login)
+            except Exception as e:
+                logger.warning(f"Error formatting datetime {last_login}: {str(e)}")
+                last_login_formatted = str(last_login) if last_login else None
+
+        # Determine role mismatch
+        live_role = employee_profile.get("live_role")
+        expected_role = employee_profile.get("expected_role")
+
+        role_mismatch = None
+        role_warning_level = None
+        role_warning_message = None
+
+        if expected_role and live_role:
+            if live_role != expected_role:
+                role_mismatch = True
+                role_warning_level = "high"
+                role_warning_message = f"Role mismatch: Expected '{expected_role}' but user has '{live_role}'. This is a security concern."
+            else:
+                # Roles match - this is good!
+                role_mismatch = False
+                role_warning_level = "success"
+                role_warning_message = f"Role assignment verified: User correctly has '{expected_role}' role."
+        elif live_role and not expected_role:
+            role_mismatch = True
+            role_warning_level = "medium"
+            role_warning_message = f"User has role '{live_role}' but no expected role is mapped for their job title. Job title may need role mapping configuration."
+
+        return {
+            "service": "keystone",
+            "upn": employee_profile.get("upn"),
+            "user_serial": employee_profile.get("user_serial"),
+            "last_login_time": last_login,
+            "last_login_formatted": last_login_formatted,
+            "login_locked": is_locked,
+            "lock_status": lock_status,
+            "live_role": live_role,
+            "test_role": employee_profile.get("test_role"),
+            "ukg_job_code": employee_profile.get("job_code"),
+            "expected_role": expected_role,
+            "role_mismatch": role_mismatch,
+            "role_warning_level": role_warning_level,
+            "role_warning_message": role_warning_message,
+            "last_cached": employee_profile.get("last_updated"),
+        }
 
     def _format_keystone_data(self, keystone_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -151,7 +232,7 @@ class SearchEnhancer:
         elif live_role and not expected_role:
             role_mismatch = True
             role_warning_level = "medium"
-            role_warning_message = f"Role '{live_role}' not found in role mapping list. Please verify role assignment."
+            role_warning_message = f"User has role '{live_role}' but no expected role is mapped for their job title. Job title may need role mapping configuration."
 
         return {
             "service": "keystone",

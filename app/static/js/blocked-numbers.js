@@ -223,7 +223,7 @@ class BlockedNumbersManager {
             const ani = this.escapeHtml(number.key || '');
             const reason = this.escapeHtml(number['Reason Blocked'] || '');
             const hasEditPermission = window.userRole === 'editor' || window.userRole === 'admin';
-            const hasDeletePermission = window.userRole === 'admin';
+            const hasDeletePermission = window.userRole === 'editor' || window.userRole === 'admin';
 
             return `
                 <tr class="hover:bg-gray-50">

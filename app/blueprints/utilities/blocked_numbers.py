@@ -184,7 +184,7 @@ def update_blocked_number(ani):
 
 @utilities.route("/api/blocked-numbers/<ani>", methods=["DELETE"])
 @auth_required
-@require_role("admin")
+@require_role("editor")
 def delete_blocked_number(ani):
     """Delete a blocked number."""
     try:
