@@ -4,26 +4,30 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 
 ---
 
-## 🚀 What's New in v2.1
+## 🚀 What's New in v2.0
 
-**WhoDis** continues to evolve with new features and improvements:
+**WhoDis 2.0** represents a major architectural overhaul with enterprise-grade features:
 
-- **📝 User Notes**: Admins can now add internal notes about users
-- **🖼️ Photo Caching**: Microsoft Graph photos are cached in PostgreSQL for performance
-- **🔧 Configuration Editor**: Web-based configuration management at `/admin/configuration`
-- **🔐 Session Management**: Enhanced session tracking with dedicated login page
-- **🎨 UI Improvements**: Lazy-loaded photos, user placeholders, and refined styling
-- **🏗️ DRY Architecture**: Base model and service classes eliminate code duplication
+### Core Platform
+- **🏗️ Consolidated Architecture**: Unified employee profiles replacing legacy models
+- **🐘 PostgreSQL Backend**: Full migration from SQLite with performance optimizations
+- **🔐 Encrypted Configuration**: Database-stored config with Fernet encryption
+- **📊 Comprehensive Audit Logging**: Complete activity tracking and monitoring
+- **🔄 Automatic Token Management**: Background service for API token refresh
 
-### Previously Added in v2.0:
-- **🐘 PostgreSQL Backend**: Migrated from SQLite to PostgreSQL
-- **🔐 Encrypted Configuration**: Sensitive credentials encrypted with Fernet
-- **📊 Comprehensive Audit Logging**: All system events logged to PostgreSQL
-- **👥 Database User Management**: Persistent user storage with roles
-- **🔄 Automatic Token Management**: Background token refresh service
-- **📦 Genesys Data Caching**: Groups, skills, locations cached in database
-- **⏱️ Session Timeout**: Configurable inactivity timeout with warning modal
-- **🚨 Enhanced Security**: Access tracking and configuration auditing
+### User Experience
+- **📝 User Notes**: Internal admin notes for user documentation
+- **🖼️ Photo Management**: Consolidated Microsoft Graph photo caching
+- **🔧 Configuration Editor**: Web-based configuration management
+- **⏱️ Session Management**: Smart timeout with inactivity warnings
+- **🎨 Modern UI**: HTMX-powered dynamic updates with Tailwind CSS
+- **📱 Phone Tooltips**: Detailed source information for phone numbers
+
+### Security & Compliance
+- **👥 Database User Management**: Persistent user storage with role-based access
+- **📦 Enhanced Caching**: Consolidated employee data with Genesys integration
+- **🚨 Security Monitoring**: Advanced access tracking and threat detection
+- **🔒 Azure AD Only**: Streamlined authentication removing basic auth
 
 ---
 
@@ -71,7 +75,7 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 | Backend | Flask 3.0.0 | Web framework |
 | Database | PostgreSQL 12+ | Data persistence |
 | Encryption | cryptography (Fernet) | Configuration encryption |
-| Authentication | Azure AD / Basic Auth | User authentication |
+| Authentication | Azure AD SSO | Single sign-on authentication |
 | LDAP | ldap3 | Active Directory integration |
 | Graph API | MSAL + requests | Microsoft Graph integration |
 | Genesys | OAuth2 + requests | Contact center data |
@@ -249,7 +253,7 @@ WhoDis/
 │   │   ├── configuration.py      # Configuration model
 │   │   ├── error.py              # Error log model
 │   │   ├── genesys.py            # Genesys cache models
-│   │   ├── graph_photo.py        # Microsoft Graph photo cache
+│   │   ├── employee_profiles.py  # Consolidated employee data with photos
 │   │   ├── session.py            # User session model with timeout support
 │   │   ├── user.py               # User management model
 │   │   └── user_note.py          # User notes model
@@ -293,9 +297,10 @@ WhoDis/
 
 ## 🔐 Authentication & Authorization
 
-### Authentication Methods
-1. **Azure AD (Primary)**: Checks `X-MS-CLIENT-PRINCIPAL-NAME` header from Azure App Service
-2. **Basic Auth (Fallback)**: Username/password with dedicated login page
+### Authentication Method
+**Azure AD SSO**: Checks `X-MS-CLIENT-PRINCIPAL-NAME` header from Azure App Service
+
+*Note: Basic authentication has been removed for enhanced security.*
 
 ### Role Hierarchy
 - **👀 Viewers**: Can search and view user information
@@ -326,7 +331,7 @@ WhoDis/
 - **Cache Management**: Genesys data refreshed every 6 hours
 - **Session Cleanup**: Expired sessions removed automatically
 - **Database Maintenance**: Old audit logs cleaned up periodically
-- **Photo Caching**: Microsoft Graph photos stored in database
+- **Photo Caching**: Consolidated photo storage in employee profiles
 
 ### Performance Optimizations
 - **Connection Pooling**: SQLAlchemy connection pool for PostgreSQL
@@ -500,14 +505,13 @@ pytest --cov=app
 - [x] User notes feature
 - [x] Configuration web editor
 - [x] Photo caching
-- [ ] Redis caching layer
-- [ ] REST API endpoints
-- [ ] Bulk user operations
-- [ ] Advanced search filters
-- [ ] Mobile responsive design
-- [ ] Dark mode theme
-- [ ] SAML authentication
-- [ ] Export functionality
+### Future Enhancements
+- [ ] Advanced search filters and bulk operations
+- [ ] REST API endpoints for external integrations
+- [ ] Enhanced mobile responsive design
+- [ ] Dark mode theme support
+- [ ] SAML authentication integration
+- [ ] Data export and reporting tools
 
 ---
 

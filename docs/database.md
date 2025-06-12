@@ -205,8 +205,9 @@ This prevents the `-1` row count issue in the admin interface.
 ### Cache & External Data Tables
 - **search_cache** (extends CacheableModel): Search result caching
   - Includes automatic expiration management
-- **graph_photos** (extends CacheableModel): User photos with 30-day expiration
-  - Includes `expires_at` for automatic cleanup
+- **employee_profiles** (extends CacheableModel): Consolidated employee data storage
+  - Contains: UPN, Keystone data, photos, metadata with automatic expiration
+  - Replaces legacy `graph_photos` and `data_warehouse_cache` tables
 - **genesys_groups/locations/skills** (extends ServiceDataModel): Genesys data cache
   - Includes: `service_id`, `service_name`, `is_active`, `created_at`, `updated_at`
 - **user_sessions** (extends BaseModel + TimestampMixin + ExpirableMixin): Session management

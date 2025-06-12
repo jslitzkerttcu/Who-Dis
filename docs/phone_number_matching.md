@@ -25,10 +25,20 @@ WhoDis integrates with multiple identity systems (LDAP/Active Directory, Genesys
 - `genesys_ext` → "Ext"
 - `genesys` → "Office"
 
-### Service Badges
-- Teams numbers: Blue "Teams" badge
-- Genesys numbers: Orange "Genesys" badge
-- AD numbers: Blue "AD" badge
+### Service Badges with Tooltips
+- Teams numbers: Blue "Teams" badge with tooltip showing raw AD field sources
+- Genesys numbers: Orange "Genesys" badge with tooltip showing both AD and Genesys field sources  
+- AD numbers: Blue "AD" badge with tooltip showing raw AD field sources
+- Legacy numbers: Gray "Legacy" badge with tooltip showing legacy field sources
+
+### Tooltip Content
+Each badge includes detailed tooltips showing raw field mappings:
+- **Format**: "[AD] fieldName; [Genesys] fieldName" for combined sources
+- **Examples**: 
+  - "[AD] telephoneNumber" for Teams DID
+  - "[AD] extensionAttribute4; [Genesys] primaryContactInfo[mediaType=PHONE].address" for Genesys DID
+  - "[AD] pager; [Genesys] addresses[type=WORK2].extension" for extensions
+  - "[AD] ExclaimerMobile; [Graph] mobilePhone; [Genesys] addresses[type=MOBILE].address" for mobile
 
 ## User Type Classification from LDAP/Active Directory
 
