@@ -166,7 +166,7 @@ def create_app():
 
     @app.context_processor
     def inject_user():
-        return dict(g=g)
+        return dict(g=g, min=min, max=max)
 
     from app.blueprints.home import home_bp
     from app.blueprints.search import search_bp

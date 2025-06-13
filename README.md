@@ -1,6 +1,6 @@
 # 🕵️‍♂️ WhoDis - Enterprise Identity Search Platform
 
-A comprehensive Flask-based identity lookup service that searches across Active Directory, Microsoft Graph, and Genesys Cloud. Features PostgreSQL database backend, encrypted configuration management, comprehensive audit logging, and a modern UI with role-based access control.
+A comprehensive Flask-based identity lookup service that provides unified search across Active Directory, Microsoft Graph, and Genesys Cloud with plans for advanced reporting, compliance management, and workflow automation. Features consolidated employee profiles, encrypted configuration, comprehensive audit logging, and a modern hybrid UI architecture.
 
 ---
 
@@ -58,13 +58,15 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 * **Error Tracking**: Comprehensive error logging with stack traces
 * **Configuration Management**: Web-based editor for runtime configuration changes
 
-### UI/UX Features
-* **Status Badges**: Visual indicators for Enabled/Disabled and Locked/Not Locked accounts
-* **Collapsible Groups**: AD and Genesys groups in expandable sections
-* **Profile Photos**: Centered display with status badges
-* **Modern Search Bar**: Pill-shaped design with subtle shadow effects
-* **Admin Dashboard**: User management, configuration editor, and audit log viewer
-* **Login Page**: Dedicated authentication page with SSO support
+### UI/UX Features (Hybrid Architecture)
+* **Progressive Enhancement**: Server-side Jinja2 templates enhanced with HTMX for dynamic updates
+* **Mobile-First Design**: Tailwind CSS responsive layouts with touch-friendly interfaces
+* **Real-Time Updates**: HTMX enables SPA-like interactions without page refreshes
+* **Modern Search Interface**: Two-column layout with pill-shaped search bar and real-time results
+* **Status Indicators**: Visual badges for account status with hover tooltips
+* **Card-Based Layouts**: Modern admin interface with interactive cache management
+* **Session Management**: Smart timeout with countdown warnings and activity tracking
+* **Profile Photos**: Lazy loading with Microsoft Graph integration
 
 ---
 
@@ -72,16 +74,18 @@ A comprehensive Flask-based identity lookup service that searches across Active 
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Backend | Flask 3.0.0 | Web framework |
-| Database | PostgreSQL 12+ | Data persistence |
-| Encryption | cryptography (Fernet) | Configuration encryption |
-| Authentication | Azure AD SSO | Single sign-on authentication |
-| LDAP | ldap3 | Active Directory integration |
-| Graph API | MSAL + requests | Microsoft Graph integration |
-| Genesys | OAuth2 + requests | Contact center data |
-| ORM | SQLAlchemy | Database abstraction |
-| Frontend | Bootstrap 5.3.0 | UI components |
-| Task Management | Background threads | Token refresh & cache updates |
+| Backend | Flask 3.0.0 | Web framework with blueprint architecture |
+| Database | PostgreSQL 12+ | Data persistence with encrypted configuration |
+| Encryption | cryptography (Fernet) | Configuration encryption with unique salts |
+| Authentication | Azure AD SSO | Single sign-on with role-based access control |
+| LDAP | ldap3 | Active Directory integration with fuzzy search |
+| Graph API | MSAL + requests | Microsoft Graph integration with enhanced profiles |
+| Genesys | OAuth2 + requests | Contact center data with cached groups/skills |
+| ORM | SQLAlchemy | Database abstraction with base model hierarchy |
+| Frontend | **Hybrid Architecture** | **Server-side Jinja2 + HTMX for dynamic updates** |
+| UI Framework | **Tailwind CSS** | **Utility-first responsive design** |
+| Icons | **FontAwesome** | **Visual hierarchy and recognition** |
+| Task Management | Background threads | Token refresh, cache updates, session cleanup |
 
 ---
 
@@ -505,13 +509,33 @@ pytest --cov=app
 - [x] User notes feature
 - [x] Configuration web editor
 - [x] Photo caching
-### Future Enhancements
-- [ ] Advanced search filters and bulk operations
-- [ ] REST API endpoints for external integrations
-- [ ] Enhanced mobile responsive design
-- [ ] Dark mode theme support
-- [ ] SAML authentication integration
-- [ ] Data export and reporting tools
+### Strategic Roadmap (High Priority - Next Phase)
+
+#### Phase 1: Enhanced Data Integration
+- [ ] **Expanded Profile Cards**: Leverage all available data fields from Azure AD, Graph APIs, and Genesys
+  - Department, cost center, employee ID, hire date, manager chain
+  - Sign-in activity, licenses, group memberships, device registrations
+  - Historical metrics, schedule adherence, skill proficiency, call logs
+- [ ] **Cross-System Correlation**: Improve data matching and conflict resolution
+- [ ] **Advanced Search & Export**: Multi-field search, filtering, CSV/Excel export
+
+#### Phase 2: Comprehensive Reporting Suite  
+- [ ] **Azure AD Reports**: License utilization, user activity, security posture, MFA adoption
+- [ ] **Security & Compliance**: Risk assessment, guest user management, secure score monitoring
+- [ ] **Communication Analytics**: Exchange mailbox stats, Teams usage, email security metrics
+- [ ] **Scheduled Reports**: Admin tools for automated report generation and alerting
+
+#### Phase 3: Job Role Compliance Matrix (Critical for Audit)
+- [ ] **Role Mapping**: Map job codes/titles to expected system roles across all platforms
+- [ ] **Compliance Checking**: Automated detection of missing or extra privileges
+- [ ] **Audit Dashboard**: Visual compliance matrix with actionable insights
+- [ ] **Data Warehouse Integration**: Pull actual roles from warehouse with sync capabilities
+
+#### Future Enhancements
+- [ ] Advanced user management and workflow automation
+- [ ] REST API endpoints for external ITSM/HR system integrations
+- [ ] AI-powered analytics and predictive insights
+- [ ] Self-service portal with approval workflows
 
 ---
 

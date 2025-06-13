@@ -1,0 +1,128 @@
+<!-- Compliance Overview Cards -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="flex items-center">
+        <div class="flex-shrink-0">
+            <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <i class="fas fa-shield-alt text-green-600"></i>
+            </div>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+            <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">
+                    Overall Compliance
+                </dt>
+                <dd class="flex items-baseline">
+                    <div class="text-2xl font-semibold text-gray-900">
+                        {{ "%.1f"|format(data.compliance_percentage) }}%
+                    </div>
+                    <div class="ml-2 flex items-baseline text-sm">
+                        {% if data.compliance_percentage >= 95 %}
+                        <span class="text-green-600 font-medium">Excellent</span>
+                        {% elif data.compliance_percentage >= 85 %}
+                        <span class="text-yellow-600 font-medium">Good</span>
+                        {% elif data.compliance_percentage >= 70 %}
+                        <span class="text-orange-600 font-medium">Fair</span>
+                        {% else %}
+                        <span class="text-red-600 font-medium">Poor</span>
+                        {% endif %}
+                    </div>
+                </dd>
+            </dl>
+        </div>
+    </div>
+    <div class="mt-4">
+        <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-green-600 h-2 rounded-full" style="width: {{ data.compliance_percentage }}%"></div>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="flex items-center">
+        <div class="flex-shrink-0">
+            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <i class="fas fa-users text-blue-600"></i>
+            </div>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+            <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">
+                    Total Employees
+                </dt>
+                <dd class="flex items-baseline">
+                    <div class="text-2xl font-semibold text-gray-900">
+                        {{ "{:,}"|format(data.total_employees) }}
+                    </div>
+                </dd>
+            </dl>
+        </div>
+    </div>
+    <div class="mt-2 text-sm text-gray-600">
+        {{ "{:,}"|format(data.total_employees - data.employees_with_violations) }} compliant
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="flex items-center">
+        <div class="flex-shrink-0">
+            <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                <i class="fas fa-exclamation-triangle text-red-600"></i>
+            </div>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+            <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">
+                    Total Violations
+                </dt>
+                <dd class="flex items-baseline">
+                    <div class="text-2xl font-semibold text-gray-900">
+                        {{ "{:,}"|format(data.total_violations) }}
+                    </div>
+                </dd>
+            </dl>
+        </div>
+    </div>
+    <div class="mt-2 text-sm text-gray-600">
+        {{ "{:,}"|format(data.employees_with_violations) }} employees affected
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="flex items-center">
+        <div class="flex-shrink-0">
+            <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                <i class="fas fa-chart-line text-yellow-600"></i>
+            </div>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+            <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">
+                    Critical Violations
+                </dt>
+                <dd class="flex items-baseline">
+                    <div class="text-2xl font-semibold text-gray-900">
+                        {{ "{:,}"|format(data.violation_stats.critical) }}
+                    </div>
+                </dd>
+            </dl>
+        </div>
+    </div>
+    <div class="mt-2 flex space-x-4 text-sm">
+        <span class="text-red-600">
+            <i class="fas fa-circle text-xs mr-1"></i>
+            Critical: {{ data.violation_stats.critical }}
+        </span>
+        <span class="text-orange-600">
+            <i class="fas fa-circle text-xs mr-1"></i>
+            High: {{ data.violation_stats.high }}
+        </span>
+        <span class="text-yellow-600">
+            <i class="fas fa-circle text-xs mr-1"></i>
+            Medium: {{ data.violation_stats.medium }}
+        </span>
+        <span class="text-gray-600">
+            <i class="fas fa-circle text-xs mr-1"></i>
+            Low: {{ data.violation_stats.low }}
+        </span>
+    </div>
+</div>

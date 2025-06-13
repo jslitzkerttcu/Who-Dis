@@ -376,6 +376,9 @@ BEGIN
     
     -- Clean up old Employee Profiles cache (older than 30 days)
     DELETE FROM employee_profiles WHERE updated_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
+    
+    -- Clean up job role compliance data (calls the specialized function)
+    PERFORM cleanup_old_compliance_data();
 END;
 $$ LANGUAGE plpgsql;
 
@@ -449,3 +452,255 @@ ON CONFLICT (category, setting_key) DO NOTHING;
 INSERT INTO users (email, role, is_active) VALUES
 ('admin@example.com', 'admin', TRUE)
 ON CONFLICT (email) DO NOTHING;
+
+-- ============================================================================
+-- Job Role Compliance Matrix Schema
+-- ============================================================================
+-- Added: 2025-06-12 - Complete job role compliance tracking system
+
+-- Job Codes table - stores all possible job codes from UKG/data warehouse
+CREATE TABLE IF NOT EXISTS job_codes (
+    id SERIAL PRIMARY KEY,
+    job_code VARCHAR(50) UNIQUE NOT NULL,
+    job_title VARCHAR(255) NOT NULL,
+    department VARCHAR(255),
+    job_family VARCHAR(100),
+    job_level VARCHAR(50),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    additional_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- System Roles table - stores all possible roles across systems (Keystone, AD groups, etc.)
+CREATE TABLE IF NOT EXISTS system_roles (
+    id SERIAL PRIMARY KEY,
+    role_name VARCHAR(255) NOT NULL,
+    system_name VARCHAR(100) NOT NULL, -- 'keystone', 'ad_groups', 'genesys', etc.
+    role_type VARCHAR(50) NOT NULL, -- 'application', 'security_group', 'distribution_list', etc.
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    additional_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(role_name, system_name, role_type)
+);
+
+-- Job Role Mappings table - defines expected roles for each job code
+CREATE TABLE IF NOT EXISTS job_role_mappings (
+    id SERIAL PRIMARY KEY,
+    job_code_id INTEGER NOT NULL REFERENCES job_codes(id) ON DELETE CASCADE,
+    system_role_id INTEGER NOT NULL REFERENCES system_roles(id) ON DELETE CASCADE,
+    mapping_type VARCHAR(50) NOT NULL DEFAULT 'required', -- 'required', 'optional', 'prohibited'
+    priority INTEGER DEFAULT 1, -- for ordering/importance
+    effective_date DATE DEFAULT CURRENT_DATE,
+    expiration_date DATE,
+    notes TEXT,
+    created_by VARCHAR(255) NOT NULL,
+    additional_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(job_code_id, system_role_id)
+);
+
+-- Job Role Mapping History table - tracks all changes to mappings
+CREATE TABLE IF NOT EXISTS job_role_mapping_history (
+    id SERIAL PRIMARY KEY,
+    mapping_id INTEGER REFERENCES job_role_mappings(id) ON DELETE CASCADE,
+    job_code VARCHAR(50) NOT NULL,
+    role_name VARCHAR(255) NOT NULL,
+    system_name VARCHAR(100) NOT NULL,
+    old_mapping_type VARCHAR(50),
+    new_mapping_type VARCHAR(50),
+    old_priority INTEGER,
+    new_priority INTEGER,
+    change_type VARCHAR(20) NOT NULL, -- 'created', 'updated', 'deleted'
+    changed_by VARCHAR(255) NOT NULL,
+    change_reason TEXT,
+    additional_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Compliance Checks table - stores results of compliance checking runs
+CREATE TABLE IF NOT EXISTS compliance_checks (
+    id SERIAL PRIMARY KEY,
+    check_run_id VARCHAR(100) NOT NULL, -- unique identifier for each check run
+    employee_upn VARCHAR(255) NOT NULL,
+    job_code VARCHAR(50) NOT NULL,
+    system_name VARCHAR(100) NOT NULL,
+    role_name VARCHAR(255) NOT NULL,
+    expected_mapping_type VARCHAR(50), -- what the mapping says it should be
+    actual_assignment BOOLEAN NOT NULL, -- whether they actually have the role
+    compliance_status VARCHAR(50) NOT NULL, -- 'compliant', 'missing_required', 'has_prohibited', 'unexpected_role'
+    violation_severity VARCHAR(20) DEFAULT 'medium', -- 'low', 'medium', 'high', 'critical'
+    notes TEXT,
+    remediation_action VARCHAR(100), -- 'add_role', 'remove_role', 'no_action', 'manual_review'
+    additional_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Compliance Check Runs table - metadata about each compliance checking run
+CREATE TABLE IF NOT EXISTS compliance_check_runs (
+    id SERIAL PRIMARY KEY,
+    run_id VARCHAR(100) UNIQUE NOT NULL,
+    run_type VARCHAR(50) NOT NULL DEFAULT 'manual', -- 'manual', 'scheduled', 'triggered'
+    scope VARCHAR(100) DEFAULT 'all', -- 'all', 'department', 'job_code', 'individual'
+    scope_filter VARCHAR(255), -- additional filter criteria
+    total_employees INTEGER DEFAULT 0,
+    total_checks INTEGER DEFAULT 0,
+    compliant_count INTEGER DEFAULT 0,
+    violation_count INTEGER DEFAULT 0,
+    error_count INTEGER DEFAULT 0,
+    duration_seconds INTEGER,
+    status VARCHAR(50) DEFAULT 'running', -- 'running', 'completed', 'failed', 'cancelled'
+    started_by VARCHAR(255) NOT NULL,
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    additional_data JSONB DEFAULT '{}'
+);
+
+-- Employee Role Assignments cache - current roles from all systems
+CREATE TABLE IF NOT EXISTS employee_role_assignments (
+    id SERIAL PRIMARY KEY,
+    employee_upn VARCHAR(255) NOT NULL,
+    system_name VARCHAR(100) NOT NULL,
+    role_name VARCHAR(255) NOT NULL,
+    assignment_type VARCHAR(50) DEFAULT 'direct', -- 'direct', 'inherited', 'nested_group'
+    assignment_source VARCHAR(255), -- source group/container if inherited
+    is_active BOOLEAN DEFAULT TRUE,
+    assigned_date TIMESTAMP WITH TIME ZONE,
+    last_verified TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    additional_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_upn, system_name, role_name)
+);
+
+-- Indexes for Job Role Compliance performance
+CREATE INDEX IF NOT EXISTS idx_job_codes_job_code ON job_codes(job_code);
+CREATE INDEX IF NOT EXISTS idx_job_codes_is_active ON job_codes(is_active);
+CREATE INDEX IF NOT EXISTS idx_job_codes_department ON job_codes(department);
+CREATE INDEX IF NOT EXISTS idx_job_codes_synced_at ON job_codes(synced_at);
+
+CREATE INDEX IF NOT EXISTS idx_system_roles_system_name ON system_roles(system_name);
+CREATE INDEX IF NOT EXISTS idx_system_roles_role_type ON system_roles(role_type);
+CREATE INDEX IF NOT EXISTS idx_system_roles_is_active ON system_roles(is_active);
+CREATE INDEX IF NOT EXISTS idx_system_roles_synced_at ON system_roles(synced_at);
+
+CREATE INDEX IF NOT EXISTS idx_job_role_mappings_job_code_id ON job_role_mappings(job_code_id);
+CREATE INDEX IF NOT EXISTS idx_job_role_mappings_system_role_id ON job_role_mappings(system_role_id);
+CREATE INDEX IF NOT EXISTS idx_job_role_mappings_mapping_type ON job_role_mappings(mapping_type);
+CREATE INDEX IF NOT EXISTS idx_job_role_mappings_effective_date ON job_role_mappings(effective_date);
+CREATE INDEX IF NOT EXISTS idx_job_role_mappings_created_by ON job_role_mappings(created_by);
+
+CREATE INDEX IF NOT EXISTS idx_job_role_mapping_history_mapping_id ON job_role_mapping_history(mapping_id);
+CREATE INDEX IF NOT EXISTS idx_job_role_mapping_history_changed_by ON job_role_mapping_history(changed_by);
+CREATE INDEX IF NOT EXISTS idx_job_role_mapping_history_created_at ON job_role_mapping_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_job_role_mapping_history_change_type ON job_role_mapping_history(change_type);
+
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_check_run_id ON compliance_checks(check_run_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_employee_upn ON compliance_checks(employee_upn);
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_job_code ON compliance_checks(job_code);
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_compliance_status ON compliance_checks(compliance_status);
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_violation_severity ON compliance_checks(violation_severity);
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_system_name ON compliance_checks(system_name);
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_created_at ON compliance_checks(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_compliance_check_runs_run_id ON compliance_check_runs(run_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_check_runs_status ON compliance_check_runs(status);
+CREATE INDEX IF NOT EXISTS idx_compliance_check_runs_started_by ON compliance_check_runs(started_by);
+CREATE INDEX IF NOT EXISTS idx_compliance_check_runs_started_at ON compliance_check_runs(started_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_employee_role_assignments_employee_upn ON employee_role_assignments(employee_upn);
+CREATE INDEX IF NOT EXISTS idx_employee_role_assignments_system_name ON employee_role_assignments(system_name);
+CREATE INDEX IF NOT EXISTS idx_employee_role_assignments_role_name ON employee_role_assignments(role_name);
+CREATE INDEX IF NOT EXISTS idx_employee_role_assignments_is_active ON employee_role_assignments(is_active);
+CREATE INDEX IF NOT EXISTS idx_employee_role_assignments_last_verified ON employee_role_assignments(last_verified);
+
+-- Job Role Compliance Views for common queries
+CREATE OR REPLACE VIEW compliance_violations AS
+SELECT 
+    cc.employee_upn,
+    cc.job_code,
+    cc.system_name,
+    cc.role_name,
+    cc.compliance_status,
+    cc.violation_severity,
+    cc.remediation_action,
+    cc.created_at,
+    ccr.started_by as check_run_by,
+    ccr.started_at as check_run_date
+FROM compliance_checks cc
+JOIN compliance_check_runs ccr ON cc.check_run_id = ccr.run_id
+WHERE cc.compliance_status != 'compliant'
+ORDER BY cc.violation_severity DESC, cc.created_at DESC;
+
+CREATE OR REPLACE VIEW latest_compliance_status AS
+WITH latest_runs AS (
+    SELECT employee_upn, system_name, role_name, 
+           MAX(created_at) as latest_check
+    FROM compliance_checks
+    GROUP BY employee_upn, system_name, role_name
+)
+SELECT cc.*
+FROM compliance_checks cc
+JOIN latest_runs lr ON cc.employee_upn = lr.employee_upn 
+                   AND cc.system_name = lr.system_name 
+                   AND cc.role_name = lr.role_name 
+                   AND cc.created_at = lr.latest_check;
+
+CREATE OR REPLACE VIEW compliance_summary_by_job_code AS
+SELECT 
+    jc.job_code,
+    jc.job_title,
+    jc.department,
+    COUNT(DISTINCT cc.employee_upn) as employees_checked,
+    COUNT(cc.id) as total_checks,
+    COUNT(CASE WHEN cc.compliance_status = 'compliant' THEN 1 END) as compliant_count,
+    COUNT(CASE WHEN cc.compliance_status != 'compliant' THEN 1 END) as violation_count,
+    ROUND(
+        (COUNT(CASE WHEN cc.compliance_status = 'compliant' THEN 1 END)::DECIMAL / COUNT(cc.id)) * 100, 
+        2
+    ) as compliance_percentage
+FROM job_codes jc
+LEFT JOIN compliance_checks cc ON jc.job_code = cc.job_code
+GROUP BY jc.job_code, jc.job_title, jc.department
+ORDER BY compliance_percentage ASC, violation_count DESC;
+
+-- Job Role Compliance cleanup function
+CREATE OR REPLACE FUNCTION cleanup_old_compliance_data() RETURNS void AS $$
+BEGIN
+    -- Delete compliance checks older than 90 days (keep latest run per employee)
+    DELETE FROM compliance_checks 
+    WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '90 days'
+    AND id NOT IN (
+        SELECT DISTINCT cc.id
+        FROM compliance_checks cc
+        JOIN (
+            SELECT employee_upn, MAX(created_at) as latest_check
+            FROM compliance_checks
+            GROUP BY employee_upn
+        ) latest ON cc.employee_upn = latest.employee_upn 
+                 AND cc.created_at = latest.latest_check
+    );
+    
+    -- Delete completed check runs older than 180 days
+    DELETE FROM compliance_check_runs 
+    WHERE completed_at < CURRENT_TIMESTAMP - INTERVAL '180 days'
+    AND status = 'completed';
+    
+    -- Delete mapping history older than 1 year
+    DELETE FROM job_role_mapping_history 
+    WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '1 year';
+    
+    -- Clean up old employee role assignments (older than 30 days and not active)
+    DELETE FROM employee_role_assignments 
+    WHERE last_verified < CURRENT_TIMESTAMP - INTERVAL '30 days'
+    AND is_active = FALSE;
+END;
+$$ LANGUAGE plpgsql;

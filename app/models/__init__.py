@@ -10,6 +10,15 @@ from .user import User
 from .user_note import UserNote
 from .employee_profiles import EmployeeProfiles
 from .configuration import Configuration
+from .job_role_compliance import (
+    JobCode,
+    SystemRole,
+    JobRoleMapping,
+    JobRoleMappingHistory,
+    ComplianceCheckRun,
+    ComplianceCheck,
+    EmployeeRoleAssignment,
+)
 
 __all__ = [
     # Core models
@@ -26,4 +35,12 @@ __all__ = [
     "UserNote",
     "EmployeeProfiles",
     "Configuration",
+    # Job Role Compliance models
+    "JobCode",
+    "SystemRole",
+    "JobRoleMapping",
+    "JobRoleMappingHistory",
+    "ComplianceCheckRun",
+    "ComplianceCheck",
+    "EmployeeRoleAssignment",
 ]

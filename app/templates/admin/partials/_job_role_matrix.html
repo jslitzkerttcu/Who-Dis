@@ -1,0 +1,291 @@
+<!-- Optimized Job Role Matrix with Filters -->
+<div class="job-role-matrix">
+    <!-- Filter Controls -->
+    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label for="matrix-job-search" class="block text-sm font-medium text-gray-700 mb-1">Search Job Codes</label>
+                <input
+                    type="text"
+                    id="matrix-job-search"
+                    placeholder="Search job codes..."
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    onkeyup="filterMatrix()"
+                >
+            </div>
+            <div>
+                <label for="matrix-department" class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <select
+                    id="matrix-department"
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    onchange="filterMatrix()"
+                >
+                    <option value="">All Departments</option>
+                    {% for dept in data.departments %}
+                    <option value="{{ dept }}">{{ dept }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="matrix-system" class="block text-sm font-medium text-gray-700 mb-1">System</label>
+                <select
+                    id="matrix-system"
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    onchange="filterMatrix()"
+                >
+                    <option value="">All Systems</option>
+                    {% for system in data.systems %}
+                    <option value="{{ system }}">{{ system }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="matrix-mapping-type" class="block text-sm font-medium text-gray-700 mb-1">Mapping Type</label>
+                <select
+                    id="matrix-mapping-type"
+                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    onchange="filterMatrix()"
+                >
+                    <option value="">All Mappings</option>
+                    <option value="required">Required</option>
+                    <option value="optional">Optional</option>
+                    <option value="prohibited">Prohibited</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="flex justify-between items-center mt-4">
+            <div class="flex items-center space-x-4 text-sm">
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-green-500 rounded mr-2"></div>
+                    <span>Required</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-blue-500 rounded mr-2"></div>
+                    <span>Optional</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-3 h-3 bg-red-500 rounded mr-2"></div>
+                    <span>Prohibited</span>
+                </div>
+            </div>
+            
+            <button
+                onclick="clearMatrixFilters()"
+                class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+                <i class="fas fa-times mr-2"></i>
+                Clear Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Summary -->
+    <div id="matrix-summary" class="mb-4 text-sm text-gray-600">
+        Showing <span id="visible-mappings">{{ data.total_mappings }}</span> of {{ data.total_mappings }} existing mappings
+        <span class="text-gray-400">({{ data.total_possible }} total possible combinations)</span>
+    </div>
+
+    <!-- Mapping Table (only existing mappings) -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Job Code
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Department
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            System Role
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Mapping Type
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Priority
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="matrix-table-body" class="bg-white divide-y divide-gray-200">
+                    {% for mapping in data.mapping_rows %}
+                    <tr class="mapping-row hover:bg-gray-50" 
+                        data-job-code="{{ mapping.job_code|lower }}" 
+                        data-job-title="{{ mapping.job_title|lower if mapping.job_title else '' }}"
+                        data-department="{{ mapping.department|lower if mapping.department else '' }}"
+                        data-system="{{ mapping.system_name|lower }}"
+                        data-role="{{ mapping.role_name|lower }}"
+                        data-mapping-type="{{ mapping.mapping_type }}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ mapping.job_code }}</div>
+                            <div class="text-sm text-gray-500 max-w-xs truncate" title="{{ mapping.job_title }}">{{ mapping.job_title }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ mapping.department or '-' }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ mapping.system_name }}</div>
+                            <div class="text-sm text-gray-500">{{ mapping.role_name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if mapping.mapping_type == 'required' %}bg-green-100 text-green-800
+                                {% elif mapping.mapping_type == 'optional' %}bg-blue-100 text-blue-800
+                                {% elif mapping.mapping_type == 'prohibited' %}bg-red-100 text-red-800
+                                {% endif %}">
+                                {% if mapping.mapping_type == 'required' %}
+                                    <i class="fas fa-check mr-1"></i>
+                                {% elif mapping.mapping_type == 'optional' %}
+                                    <i class="fas fa-plus mr-1"></i>
+                                {% elif mapping.mapping_type == 'prohibited' %}
+                                    <i class="fas fa-times mr-1"></i>
+                                {% endif %}
+                                {{ mapping.mapping_type|title }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                            {{ mapping.priority }}
+                            {% if mapping.priority > 1 %}
+                                <i class="fas fa-exclamation-triangle text-yellow-500 ml-1" title="High priority"></i>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                            <button
+                                onclick="openMappingModal({{ mapping.job_code_id }}, {{ mapping.system_role_id }}, '{{ mapping.job_code }}', '{{ mapping.system_name }} - {{ mapping.role_name }}', {{ mapping | tojson | safe }})"
+                                class="text-blue-600 hover:text-blue-900 mr-2"
+                                title="Edit mapping"
+                            >
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button
+                                onclick="deleteMappingConfirm({{ mapping.mapping_id }}, '{{ mapping.job_code }}', '{{ mapping.role_name }}')"
+                                class="text-red-600 hover:text-red-900"
+                                title="Delete mapping"
+                            >
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Add New Mapping Button -->
+        <div class="p-4 text-center border-t border-gray-200">
+            <button
+                onclick="openCreateMappingModal()"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            >
+                <i class="fas fa-plus mr-2"></i>
+                Create New Mapping
+            </button>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="no-results" class="text-center py-8 hidden">
+        <div class="text-gray-500 mb-4">
+            <i class="fas fa-search text-4xl"></i>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No Mappings Found</h3>
+        <p class="text-gray-500">Try adjusting your filters or create new mappings.</p>
+    </div>
+</div>
+
+<script>
+let allMappingRows = [];
+let visibleMappingRows = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    allMappingRows = Array.from(document.querySelectorAll('.mapping-row'));
+    visibleMappingRows = allMappingRows;
+    updateMatrixDisplay();
+});
+
+function filterMatrix() {
+    const jobSearch = document.getElementById('matrix-job-search').value.toLowerCase();
+    const department = document.getElementById('matrix-department').value.toLowerCase();
+    const system = document.getElementById('matrix-system').value.toLowerCase();
+    const mappingType = document.getElementById('matrix-mapping-type').value;
+
+    visibleMappingRows = allMappingRows.filter(row => {
+        const matchesJob = !jobSearch || 
+            row.dataset.jobCode.includes(jobSearch) || 
+            row.dataset.jobTitle.includes(jobSearch);
+        const matchesDept = !department || row.dataset.department.includes(department);
+        const matchesSystem = !system || row.dataset.system.includes(system);
+        const matchesType = !mappingType || row.dataset.mappingType === mappingType;
+
+        return matchesJob && matchesDept && matchesSystem && matchesType;
+    });
+
+    updateMatrixDisplay();
+}
+
+function updateMatrixDisplay() {
+    // Hide all rows first
+    allMappingRows.forEach(row => row.style.display = 'none');
+    
+    // Show filtered rows
+    visibleMappingRows.forEach(row => row.style.display = '');
+    
+    // Update summary
+    document.getElementById('visible-mappings').textContent = visibleMappingRows.length;
+    
+    // Show/hide no results message
+    const noResults = document.getElementById('no-results');
+    if (visibleMappingRows.length === 0) {
+        noResults.classList.remove('hidden');
+    } else {
+        noResults.classList.add('hidden');
+    }
+}
+
+function clearMatrixFilters() {
+    document.getElementById('matrix-job-search').value = '';
+    document.getElementById('matrix-department').value = '';
+    document.getElementById('matrix-system').value = '';
+    document.getElementById('matrix-mapping-type').value = '';
+    
+    visibleMappingRows = allMappingRows;
+    updateMatrixDisplay();
+}
+
+function deleteMappingConfirm(mappingId, jobCode, roleName) {
+    if (confirm(`Are you sure you want to delete the mapping for ${jobCode} -> ${roleName}?`)) {
+        // Call the delete API
+        fetch('/admin/job-role-compliance/api/delete-mapping', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mapping_id: mappingId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the matrix view
+                htmx.trigger('#matrix-container', 'refresh');
+            } else {
+                alert('Error deleting mapping: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            alert('Error deleting mapping: ' + error);
+        });
+    }
+}
+
+function openCreateMappingModal() {
+    // This would open a modal to select job code and system role to create a new mapping
+    alert('Create new mapping modal would open here');
+}
+</script>

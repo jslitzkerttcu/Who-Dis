@@ -17,3 +17,8 @@ pytz==2024.1
 ruff
 mypy
 types-tabulate
+types-flask
+types-requests
+types-psycopg2
+types-pytz
+types-cryptography

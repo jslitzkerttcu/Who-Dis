@@ -119,6 +119,38 @@
             </div>
         </div>
 
+        <!-- Job Role Compliance -->
+        <div class="bg-white rounded-2xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-200 hover:scale-105">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0">
+                        <div class="inline-flex items-center justify-center w-12 h-12 bg-yellow-100 rounded-lg transition-all duration-150 hover:bg-yellow-200">
+                            <i class="fas fa-shield-alt text-yellow-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Job Role Compliance</h3>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <i class="fas fa-star mr-1"></i>New
+                        </span>
+                    </div>
+                </div>
+                <p class="text-gray-600 mb-4">Manage job role mappings and monitor compliance across all systems.</p>
+                <div class="flex space-x-2">
+                    <a href="{{ url_for('admin.compliance_dashboard') }}" 
+                       class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-white border-2 border-yellow-600 text-yellow-600 font-medium rounded-lg hover:bg-yellow-50 transition-all duration-150 hover:scale-105 text-sm">
+                        <i class="fas fa-chart-line mr-1"></i>
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('admin.job_role_compliance') }}" 
+                       class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-white border-2 border-yellow-600 text-yellow-600 font-medium rounded-lg hover:bg-yellow-50 transition-all duration-150 hover:scale-105 text-sm">
+                        <i class="fas fa-table mr-1"></i>
+                        Matrix
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <!-- Database -->
         <div class="bg-white rounded-2xl shadow-md border border-gray-200 hover:shadow-lg transition-all duration-200 hover:scale-105">
             <div class="p-6">

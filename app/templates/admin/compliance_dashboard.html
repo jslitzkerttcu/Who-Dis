@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Compliance Dashboard - Admin{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Compliance Dashboard</h1>
+        <p class="text-gray-600">Monitor job role compliance across all systems and employees.</p>
+    </div>
+
+    <!-- Quick Actions Bar -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-3">
+                <button
+                    onclick="runComplianceCheck()"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    <i class="fas fa-play mr-2"></i>
+                    Run Compliance Check
+                </button>
+                <button
+                    onclick="exportComplianceReport()"
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    <i class="fas fa-download mr-2"></i>
+                    Export Report
+                </button>
+                <a
+                    href="{{ url_for('admin.job_role_compliance') }}"
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    <i class="fas fa-table mr-2"></i>
+                    Manage Matrix
+                </a>
+            </div>
+            <div class="flex items-center text-sm text-gray-500">
+                <i class="fas fa-clock mr-2"></i>
+                <span id="last-updated">Loading...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compliance Overview Cards -->
+    <div id="compliance-overview" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="flex items-center justify-center py-8 col-span-full">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-3 text-gray-600">Loading compliance overview...</span>
+        </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Violations by Severity -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Violations by Severity</h2>
+                <button
+                    onclick="refreshViolationChart()"
+                    class="text-gray-400 hover:text-gray-600"
+                    title="Refresh"
+                >
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div id="violations-by-severity" class="h-64">
+                <div class="flex items-center justify-center h-full">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span class="ml-3 text-gray-600">Loading chart...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Violation Types -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Top Violation Types</h2>
+                <button
+                    onclick="refreshTopViolations()"
+                    class="text-gray-400 hover:text-gray-600"
+                    title="Refresh"
+                >
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div id="top-violations" class="space-y-3">
+                <div class="flex items-center justify-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span class="ml-3 text-gray-600">Loading violations...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compliance Trends -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Compliance Trends</h2>
+                <select id="trend-period" class="text-sm border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+            <div id="compliance-trends" class="h-64">
+                <div class="flex items-center justify-center h-full">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span class="ml-3 text-gray-600">Loading trends...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Department Breakdown -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Department Breakdown</h2>
+                <button
+                    onclick="refreshDepartmentBreakdown()"
+                    class="text-gray-400 hover:text-gray-600"
+                    title="Refresh"
+                >
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div id="department-breakdown" class="space-y-3">
+                <div class="flex items-center justify-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span class="ml-3 text-gray-600">Loading departments...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Violations -->
+    <div class="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Recent Violations</h2>
+            <div class="flex items-center space-x-3">
+                <select id="violations-filter" class="text-sm border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500">
+                    <option value="">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
+                <a
+                    href="{{ url_for('admin.compliance_violations') }}"
+                    class="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                    View All →
+                </a>
+            </div>
+        </div>
+        <div id="recent-violations">
+            <div class="flex items-center justify-center py-8">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span class="ml-3 text-gray-600">Loading recent violations...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Dashboard initialization
+document.addEventListener('DOMContentLoaded', function() {
+    loadComplianceOverview();
+    loadRecentViolations();
+    updateLastUpdated();
+    
+    // Set up auto-refresh every 5 minutes
+    setInterval(function() {
+        loadComplianceOverview();
+        updateLastUpdated();
+    }, 5 * 60 * 1000);
+    
+    // Set up filter change listener
+    document.getElementById('violations-filter').addEventListener('change', function() {
+        loadRecentViolations();
+    });
+});
+
+function loadComplianceOverview() {
+    htmx.ajax('GET', '{{ url_for('admin.api_compliance_overview') }}', {
+        target: '#compliance-overview'
+    });
+}
+
+function loadRecentViolations() {
+    const severity = document.getElementById('violations-filter').value;
+    const params = severity ? `?severity=${severity}&per_page=10` : '?per_page=10';
+    
+    htmx.ajax('GET', '{{ url_for('admin.api_compliance_violations') }}' + params, {
+        target: '#recent-violations'
+    });
+}
+
+function runComplianceCheck() {
+    if (!confirm('This will run a full compliance check across all employees. This may take several minutes. Continue?')) {
+        return;
+    }
+    
+    // Show loading state
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Running Check...';
+    button.disabled = true;
+    
+    fetch('{{ url_for('admin.api_run_compliance_check') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Compliance check completed successfully!\n\nChecked: ${data.checked_employees} employees\nViolations found: ${data.violations_found}\nViolations resolved: ${data.violations_resolved}`);
+            // Refresh dashboard data
+            loadComplianceOverview();
+            loadRecentViolations();
+        } else {
+            alert('Error running compliance check: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error running compliance check');
+    })
+    .finally(() => {
+        // Restore button state
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+function exportComplianceReport() {
+    // Implementation for report export
+    console.log('Export compliance report functionality');
+    alert('Report export functionality will be implemented in the next phase.');
+}
+
+function refreshViolationChart() {
+    document.getElementById('violations-by-severity').innerHTML = '<div class="flex items-center justify-center h-full"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div><span class="ml-3 text-gray-600">Refreshing chart...</span></div>';
+    // Load chart data
+    loadViolationChart();
+}
+
+function refreshTopViolations() {
+    document.getElementById('top-violations').innerHTML = '<div class="flex items-center justify-center py-8"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div><span class="ml-3 text-gray-600">Refreshing violations...</span></div>';
+    // Load top violations data
+    loadTopViolations();
+}
+
+function refreshDepartmentBreakdown() {
+    document.getElementById('department-breakdown').innerHTML = '<div class="flex items-center justify-center py-8"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div><span class="ml-3 text-gray-600">Refreshing departments...</span></div>';
+    // Load department data
+    loadDepartmentBreakdown();
+}
+
+function loadViolationChart() {
+    // Placeholder for violation chart implementation
+    // This would integrate with Chart.js or similar library
+    setTimeout(() => {
+        document.getElementById('violations-by-severity').innerHTML = `
+            <div class="text-center py-8">
+                <div class="text-gray-500 mb-2">
+                    <i class="fas fa-chart-pie text-2xl"></i>
+                </div>
+                <p class="text-sm text-gray-600">Chart implementation coming soon</p>
+            </div>
+        `;
+    }, 1000);
+}
+
+function loadTopViolations() {
+    // Placeholder for top violations implementation
+    setTimeout(() => {
+        document.getElementById('top-violations').innerHTML = `
+            <div class="text-center py-8">
+                <div class="text-gray-500 mb-2">
+                    <i class="fas fa-list text-2xl"></i>
+                </div>
+                <p class="text-sm text-gray-600">Top violations list coming soon</p>
+            </div>
+        `;
+    }, 1000);
+}
+
+function loadDepartmentBreakdown() {
+    // Placeholder for department breakdown implementation
+    setTimeout(() => {
+        document.getElementById('department-breakdown').innerHTML = `
+            <div class="text-center py-8">
+                <div class="text-gray-500 mb-2">
+                    <i class="fas fa-building text-2xl"></i>
+                </div>
+                <p class="text-sm text-gray-600">Department breakdown coming soon</p>
+            </div>
+        `;
+    }, 1000);
+}
+
+function updateLastUpdated() {
+    const now = new Date();
+    document.getElementById('last-updated').textContent = `Last updated: ${now.toLocaleTimeString()}`;
+}
+</script>
+{% endblock %}

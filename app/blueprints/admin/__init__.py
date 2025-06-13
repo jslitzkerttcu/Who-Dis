@@ -7,7 +7,15 @@ from flask import Blueprint, render_template, request, jsonify, render_template_
 from app.middleware.auth import require_role
 
 # Import all module functions
-from . import users, database, config, cache, audit, admin_employee_profiles
+from . import (
+    users,
+    database,
+    config,
+    cache,
+    audit,
+    admin_employee_profiles,
+    job_role_compliance,
+)
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -382,3 +390,40 @@ def api_employee_profile_photo(upn: str):
             "Content-Length": str(len(profile.photo_data)),
         },
     )
+
+
+# Job Role Compliance management routes
+admin_bp.route("/job-role-compliance")(job_role_compliance.job_role_compliance)
+admin_bp.route("/api/job-codes")(job_role_compliance.api_job_codes)
+admin_bp.route("/api/system-roles")(job_role_compliance.api_system_roles)
+admin_bp.route("/api/job-role-matrix")(job_role_compliance.api_job_role_matrix)
+admin_bp.route("/api/job-role-mapping", methods=["POST"])(
+    job_role_compliance.api_create_job_role_mapping
+)
+admin_bp.route("/api/job-role-mapping/delete", methods=["POST"])(
+    job_role_compliance.api_delete_job_role_mapping
+)
+admin_bp.route("/api/sync-job-codes", methods=["POST"])(
+    job_role_compliance.api_sync_job_codes
+)
+admin_bp.route("/api/sync-system-roles", methods=["POST"])(
+    job_role_compliance.api_sync_system_roles
+)
+
+# Compliance Dashboard routes
+admin_bp.route("/compliance-dashboard")(job_role_compliance.compliance_dashboard)
+admin_bp.route("/api/compliance-overview")(job_role_compliance.api_compliance_overview)
+admin_bp.route("/api/compliance-violations")(
+    job_role_compliance.api_compliance_violations
+)
+admin_bp.route("/api/run-compliance-check", methods=["POST"])(
+    job_role_compliance.api_run_compliance_check
+)
+
+
+# Compliance Violations Management routes
+@admin_bp.route("/compliance-violations")
+@require_role("admin")
+def compliance_violations():
+    """Compliance violations management page."""
+    return render_template("admin/compliance_violations.html")
