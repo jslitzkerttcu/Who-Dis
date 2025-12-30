@@ -43,369 +43,367 @@ black .
 ### Testing
 No test framework is currently configured. When implementing tests, add pytest to requirements.txt.
 
-### Dependencies
-Key dependencies in requirements.txt:
-```
-Flask==3.0.0                 # Web framework
-Flask-SQLAlchemy==3.1.1      # Database ORM
-psycopg2-binary==2.9.10      # PostgreSQL adapter
-requests==2.31.0             # HTTP client for API integrations
-msal==1.24.1                 # Microsoft Graph authentication
-ldap3==2.9.1                 # LDAP/Active Directory integration
-cryptography==42.0.5         # Encryption for sensitive data
-pytz==2024.1                 # Timezone handling for token expiration
-tabulate==0.9.0              # Table formatting for CLI tools
-pyodbc==5.2.0                # SQL Server connectivity for data warehouse
-ruff                         # Python linting
-mypy                         # Type checking
-```
-
-Frontend dependencies are delivered via CDN:
-- **HTMX**: Dynamic content updates and AJAX interactions
-- **Tailwind CSS**: Utility-first CSS framework for styling
-- **FontAwesome**: Icon library for visual elements
-
-### Database Management
+### Key Database Management Scripts
 ```bash
-# Check configuration status
-python scripts/check_config_status.py
+# Configuration management
+python scripts/check_config_status.py       # Check status
+python scripts/verify_encrypted_config.py   # Verify encryption
+python scripts/diagnose_config.py           # Diagnose problems
 
-# Verify encrypted configuration
-python scripts/verify_encrypted_config.py
+# Data synchronization
+python scripts/refresh_employee_profiles.py refresh  # Sync employee data
 
-# Diagnose configuration problems
-python scripts/diagnose_config.py
-
-# Export configuration for backup
-python scripts/export_config.py
-
-# Test Genesys cache functionality
-python scripts/check_genesys_cache.py
-
-# Test Genesys locations cache (manual)
-python scripts/test_locations_cache.py
-
-# Refresh employee profiles (consolidated data)
-python scripts/refresh_employee_profiles.py refresh
-
-# Drop legacy tables (for migrations from pre-2.0)
-python scripts/drop_legacy_tables.py --dry-run  # Preview changes
-python scripts/drop_legacy_tables.py            # Execute migration
-
-# Verify deployment after migration
-python scripts/verify_deployment.py
+# Cache management
+python scripts/check_genesys_cache.py       # Test Genesys cache
 ```
 
-## Architecture
+See [Database Documentation](docs/database.md) for complete database setup and troubleshooting.
+
+## Architecture Overview
+
+WhoDis is a Flask-based identity lookup service with PostgreSQL backend and integrated search across multiple identity providers using a modern hybrid server-side + HTMX architecture.
 
 ### Application Structure
-WhoDis is a Flask-based identity lookup service with PostgreSQL backend and integrated search across multiple identity providers using a modern hybrid server-side + HTMX architecture:
 
-- **`app/__init__.py`**: Application factory that initializes Flask, database, configuration service, and registers blueprints
-- **`app/database.py`**: Database configuration and connection management
-- **`app/blueprints/`**: Contains four main blueprints:
-  - `home`: Landing page with product branding and login interface
-  - `search`: Identity search interface with real-time results (requires 'viewer' role minimum)
-  - `admin`: Admin panel with user management, configuration editor, and audit logs (requires 'admin' role)
-  - `session`: Session management endpoints for timeout tracking and extension
-- **`app/middleware/auth.py`**: Implements role-based authentication with database users, encrypted config fallback, and basic auth
-- **`app/models/`**: SQLAlchemy models with base class hierarchy:
-  - **Base Classes** (`base.py`):
-    - `BaseModel`: Common CRUD operations
-    - `TimestampMixin`: Provides created_at/updated_at
-    - `UserTrackingMixin`: Provides user_email/ip_address/user_agent/session_id
-    - `ExpirableMixin`: Provides expires_at and expiration management
-    - `AuditableModel`: Combines timestamps, user tracking, and JSON data
-    - `CacheableModel`: For cache entries with expiration
-    - `ServiceDataModel`: For external service data
-  - **Models** (consolidated architecture):
-    - `user.py`: User management with roles (extends BaseModel + TimestampMixin)
-    - `configuration.py`: Encrypted configuration storage (extends BaseModel)
-    - `audit.py`: Audit log entries in `audit_log` table (extends AuditableModel)
-    - `access.py`: Access attempt tracking in `access_attempts` table (extends AuditableModel)
-    - `error.py`: Error logging in `error_log` table (extends AuditableModel)
-    - `api_token.py`: API token storage with expiration (extends BaseModel + ExpirableMixin)
-    - `cache.py`: Search result caching in `search_cache` table (extends BaseModel + ExpirableMixin)
-    - `genesys.py`: Genesys cache models - GenesysGroup, GenesysLocation, GenesysSkill (extends ServiceDataModel)
-    - `session.py`: User session management with timeout tracking (extends BaseModel + ExpirableMixin)
-    - `user_note.py`: Internal notes about users (extends BaseModel + TimestampMixin)
-    - `employee_profiles.py`: **CONSOLIDATED** employee data including photos and Keystone info (replaces graph_photo.py and data_warehouse.py)
-- **`app/services/`**: Service layer with base class hierarchy:
-  - **Base Classes** (`base.py`):
-    - `BaseConfigurableService`: Configuration management
-    - `BaseAPIService`: HTTP request handling and error management
-    - `BaseTokenService`: OAuth2 token management
-    - `BaseSearchService`: User search functionality
-    - `BaseCacheService`: Database caching patterns
-    - `BaseAPITokenService`: Composite class for API services
-  - **Services**:
-    - `ldap_service.py`: Active Directory/LDAP integration with fuzzy search and timeout handling
-    - `genesys_service.py`: Genesys Cloud API integration for contact center data
-    - `graph_service.py`: Microsoft Graph API (beta) integration for enhanced Azure AD data
-    - `refresh_employee_profiles.py`: **CONSOLIDATED** employee data service (replaces data_warehouse_service and graph photo handling)
-    - `audit_service_postgres.py`: PostgreSQL-based audit logging for all system events
-    - `configuration_service.py`: Simplified configuration access (wraps simple_config)
-    - `simple_config.py`: Core configuration service with encryption support
-    - `encryption_service.py`: Fernet-based encryption utilities
-    - `genesys_cache_db.py`: PostgreSQL caching for Genesys groups, skills, locations
-    - `token_refresh_service.py`: Background service for automatic API token renewal
+**Core Components:**
+- **`app/__init__.py`**: Application factory with Flask initialization
+- **`app/container.py`**: Dependency injection container for service management
+- **`app/database.py`**: Database configuration and connection pooling
+- **`run.py`**: Application entry point
+
+**Blueprints** (`app/blueprints/`):
+- `home`: Landing page and login
+- `search`: Identity search interface (requires 'viewer' role)
+- `admin`: User management, config editor, audit logs, job role compliance (requires 'admin')
+- `session`: Session timeout management
+- `utilities`: Blocked numbers management (role-based)
+
+**Middleware** (`app/middleware/`):
+- `authentication_handler.py`: Azure AD header processing
+- `role_resolver.py`: Role determination from database/config
+- `user_provisioner.py`: Auto-provision users on first login
+- `session_manager.py`: Session lifecycle and timeout tracking
+- `auth.py`: Authentication orchestration with `@auth_required` decorator
+- `csrf.py`, `security_headers.py`, `errors.py`, `audit_logger.py`
+
+**Models** (`app/models/`):
+- Base classes with mixins for common patterns (timestamps, user tracking, expiration)
+- Core: User, Configuration, ApiToken, Session
+- Logging: AuditLog, AccessAttempt, ErrorLog
+- Cache: SearchCache, EmployeeProfile, Genesys* models
+- Features: UserNote, JobCode, SystemRole, JobRoleMapping
+
+**Services** (`app/services/`):
+- Identity providers: LDAPService, GenesysCloudService, GraphService
+- Search coordination: SearchOrchestrator, ResultMerger, SearchEnhancer
+- Infrastructure: ConfigurationService, EncryptionService, AuditServicePostgres
+- Job role compliance: JobRoleMappingService, JobRoleWarehouseService, ComplianceCheckingService
+
+**Detailed architecture documentation:** See [docs/architecture.md](docs/architecture.md)
 
 ### Frontend Architecture
-WhoDis uses a hybrid server-side rendering approach that combines traditional Jinja2 templating with modern interactive elements:
 
-#### **Tech Stack**
-- **Jinja2 Templates**: Server-side templating for initial page structure and SEO-friendly content
-- **HTMX**: Dynamic content updates and AJAX interactions without complex JavaScript frameworks
-- **Tailwind CSS**: Utility-first CSS framework for responsive, modern styling
-- **FontAwesome**: Icon library for visual hierarchy
-- **Vanilla JavaScript**: Minimal client-side code for enhanced functionality
+**Hybrid server-side + HTMX approach:**
+- Jinja2 templates for initial page structure and SEO-friendly content
+- HTMX for dynamic content updates without page refreshes
+- Tailwind CSS for responsive, mobile-first styling
+- Minimal vanilla JavaScript for enhanced functionality
 
-#### **Architecture Benefits**
-- **Progressive Enhancement**: Works without JavaScript, enhanced with HTMX for better UX
-- **Server-Side Rendering**: SEO-friendly, fast initial loads, no large JS bundles
-- **Dynamic Updates**: HTMX enables SPA-like interactions without full page refreshes
-- **Simple Debugging**: Server returns HTML fragments, not complex JSON APIs
-- **Mobile-First Design**: Tailwind CSS provides responsive, touch-friendly interfaces
+**Benefits:**
+- Progressive enhancement (works without JavaScript)
+- Fast initial loads with no large JS bundles
+- Server returns HTML fragments, not JSON APIs
+- Simple debugging
 
-#### **File Structure**
-- **`app/templates/`**: Jinja2 templates for page structure
-  - `base.html`: Base template with Tailwind CSS and HTMX integration
-  - `admin/`: Admin interface templates with modern card-based layouts
-  - `search/`: Search interface with real-time result updates
-- **`app/static/`**: Static assets
-  - `js/`: Vanilla JavaScript with HTMX helpers and event handlers
-  - `css/`: Minimal custom CSS alongside Tailwind utilities
-  - `img/`: Application icons and branding assets
+### Key Technologies
 
-#### **Interaction Pattern**
-1. **Initial Load**: Jinja2 renders complete HTML page with Tailwind styling
-2. **Dynamic Updates**: HTMX makes requests that return HTML fragments
-3. **Real-time Features**: Server-sent HTML updates via HTMX triggers
-4. **Progressive Enhancement**: Core functionality works without JavaScript
+- **Backend**: Flask 3.0.0, SQLAlchemy, PostgreSQL 12+
+- **Auth**: Azure AD SSO (X-MS-CLIENT-PRINCIPAL-NAME header)
+- **APIs**: ldap3, MSAL (Graph), requests (Genesys)
+- **Frontend**: Jinja2, HTMX, Tailwind CSS, FontAwesome
+- **Encryption**: cryptography (Fernet)
+- **Background**: Threading for token refresh and cache updates
 
-### Database Architecture
-- **PostgreSQL 12+** for all data persistence
-- **Connection pooling** via SQLAlchemy
-- **Encrypted storage** for sensitive configuration using Fernet
-- **Automatic migrations** handled through SQL scripts
-- **Thread-safe operations** with proper locking
+For complete tech stack details, see [README.md](README.md#-tech-stack).
 
-### Authentication Flow
-1. Primary authentication via Azure AD (`X-MS-CLIENT-PRINCIPAL-NAME` header)
-2. Users are managed in PostgreSQL `users` table with roles
-3. Role hierarchy: Admin > Editor > Viewer
-4. Session management with configurable timeout and warning modal
-5. All authentication events and access denials are logged to PostgreSQL
-6. Snarky denial messages for unauthorized access attempts
-7. Note: Basic authentication has been disabled for security reasons - only Azure AD SSO is supported
+## Critical Implementation Patterns
 
-### Configuration Management
-- **Minimal .env**: Only contains database connection and WHODIS_ENCRYPTION_KEY
-- **Database storage**: All other configuration stored encrypted in PostgreSQL
-- **Runtime updates**: Configuration can be changed without restart
-- **Audit trail**: All configuration changes tracked in history table
-- **Categories**: auth, flask, ldap, genesys, graph, search, session
-- **Encryption**: Sensitive values encrypted with Fernet using PBKDF2-derived key
+### Dependency Injection
 
-### Search Features
-- **Concurrent Search**: Searches LDAP, Genesys, and Graph APIs simultaneously with configurable timeouts
-- **Smart Matching**: Automatically matches users across services by email when single/multiple results exist
-- **Fuzzy Search**: LDAP supports wildcard searches for partial matches
-- **Multiple Results Handling**: Clean UI for selecting from multiple matches with detailed previews
-- **Data Merging**: Combines LDAP and Graph data with Graph taking priority for enhanced fields
-- **Result Caching**: Search results cached in PostgreSQL with expiration
+**Retrieve services from container, never use global imports:**
+```python
+# Correct
+ldap_service = current_app.container.get("ldap_service")
 
-### UI/UX Features
-WhoDis features a modern, responsive interface built with Tailwind CSS and enhanced with HTMX for seamless interactions:
-
-#### **Search Interface**
-- **Two-Column Layout**: Azure AD (LDAP + Graph) and Genesys Cloud results side-by-side
-- **Modern Search Bar**: Rounded pill-style search with shadow effects and real-time results
-- **Status Indicators**: Visual badges for account status (Enabled/Disabled, Locked/Not Locked)
-- **Phone Number Formatting**: Consistent +1 XXX-XXX-XXXX format with service tags
-- **Date Formatting**: Clean M/D/YYYY format with 24-hour time and smart relative dates (e.g., "6Yr 8Mo ago")
-- **Profile Photos**: Fetched from Microsoft Graph API with lazy loading and placeholder
-- **Collapsible Groups**: AD and Genesys groups shown in expandable sections
-
-#### **Admin Interface**
-- **Modern Dashboard**: Card-based layout with real-time statistics and controls
-- **Cache Management**: Interactive cards showing API token status with hover tooltips, cache statistics with refresh controls
-- **User Management**: Clean table interface with role-based access controls
-- **Configuration Editor**: Form-based config management with validation
-- **Audit Log Viewer**: Searchable, filterable log interface with detail modals
-
-#### **Mobile-First Design**
-- **Responsive Grid**: Adaptive layouts (1 column mobile, 2 tablet, 3+ desktop)
-- **Touch-Friendly**: Proper button sizing and spacing for mobile devices
-- **Progressive Enhancement**: Core functionality works without JavaScript
-- **Fast Loading**: Minimal JavaScript bundle, server-side rendering
-
-#### **Visual Design**
-- **Custom Branding**: TTCU colors (#007c59 for Azure AD, #FF4F1F for Genesys, #f2c655 for buttons)
-- **Icon System**: FontAwesome icons for visual hierarchy and recognition
-- **Color Coding**: Consistent status colors (green=good, yellow=warning, red=error)
-- **Smooth Animations**: HTMX-powered transitions without complex JavaScript
-
-#### **Interactive Features**
-- **Session Timeout Warning**: Modal with countdown timer and extension option
-- **Real-time Updates**: HTMX enables dynamic content updates without page refreshes
-- **Hover Tooltips**: Contextual information on token expiration and status details
-- **Confirmation Dialogs**: Prevent accidental destructive actions
-- **User Notes**: Admin ability to add internal notes about users
-- **Live Search**: Results update as you type with debounced requests
-
-### API Integrations
-
-#### LDAP Configuration
-- Host, port, bind DN, and base DN stored encrypted in database
-- Supports SSL/TLS connections
-- Configurable timeouts for connection and operations
-- Password expiration and last set date retrieval
-- Credentials encrypted in configuration table
-
-#### Genesys Cloud
-- OAuth2 client credentials flow with automatic token refresh
-- User search by name, email, or username
-- Retrieves skills, queues, locations, groups, and contact information
-- Tokens persisted in `api_tokens` table with automatic refresh
-- Background caching of groups, skills, locations every 6 hours
-- Credentials encrypted in configuration table
-
-#### Microsoft Graph (Beta API)
-- MSAL authentication with client credentials
-- Enhanced user profile data including hire dates, password policies
-- Binary photo retrieval with base64 encoding
-- Fallback from user ID to UPN for photo fetching
-- Tokens persisted and auto-refreshed
-- Credentials encrypted in configuration table
-
-### Background Services
-- **Token Refresh Service**: Runs in background thread, checks tokens every 5 minutes
-- **Genesys Cache Service**: Refreshes groups, skills, locations every 6 hours or on-demand
-- **Session Cleanup**: Automatic removal of expired sessions on startup
-- **Audit Log Cleanup**: Removes logs older than 90 days (configurable)
-- **Session Monitoring**: Active monitoring of user sessions with inactivity tracking
-
-### Token Management Architecture
-WhoDis uses a unified token management system for consistent API access:
-
-#### **Token Flow**
-1. **Startup Validation**: All API services validate/refresh tokens during application startup
-2. **Service Integration**: Cache initialization uses the same validated service instances
-3. **Consistent Access**: All components use `service.get_access_token()` for token retrieval
-4. **Database Persistence**: Tokens stored encrypted in `api_tokens` table with expiration tracking
-5. **Background Refresh**: Automatic token renewal every 5 minutes via background service
-
-#### **Cache Initialization**
-- **Smart Startup**: Cache populates immediately if tokens are valid and cache needs refresh
-- **On-Demand Fallback**: If startup token access fails, cache initializes when first accessed
-- **Service Priority**: Uses validated service instances directly rather than database lookups
-- **Efficient Logic**: Skips unnecessary refresh if cache is current (< 6 hours old)
-
-### Session Management
-- **Inactivity Timeout**: Configurable timeout (15min default) with 2min warning
-- **Warning Modal**: Shows countdown timer before session expiration
-- **Activity Tracking**: Mouse, keyboard, scroll, and touch events reset timer
-- **Session Extension**: Users can extend their session from warning modal
-- **SSO Integration**: Seamless re-authentication through Azure AD
-- **JavaScript Client**: Handles client-side tracking and warning display
-
-### Key Implementation Notes
-
-#### **Backend Services**
-- All services implement timeout handling to prevent hanging searches
-- Graph API uses beta endpoints for additional fields
-- Phone numbers from different sources are tagged (Genesys/Teams)
-- Password fields prioritize LDAP data over Graph data
-- Smart date calculations handle years, months, and days with abbreviations
-- Memoryview/buffer objects from PostgreSQL BYTEA properly handled for encryption
-- API token expiration includes timezone-aware handling for Central Daylight Time
-
-#### **Frontend Architecture**
-- **Hybrid Rendering**: Server-side Jinja2 templates enhanced with HTMX for dynamic updates
-- **Progressive Enhancement**: Core functionality works without JavaScript, enhanced with HTMX
-- **Mobile-First**: Tailwind CSS provides responsive design with touch-friendly interfaces
-- **Performance**: Minimal JavaScript bundle (~10KB HTMX), fast server-side rendering
-- **SEO-Friendly**: Complete HTML content served on initial load for search engine indexing
-- **Debug-Friendly**: Server returns HTML fragments, making debugging straightforward
-
-#### **UI/UX Patterns**
-- **Card-Based Layouts**: Modern admin interface with interactive cache management cards
-- **Real-Time Updates**: HTMX enables seamless content updates without page refreshes
-- **Hover Tooltips**: Native browser tooltips show token expiration times and status details
-- **Confirmation Dialogs**: JavaScript confirms prevent accidental destructive actions
-- **Color-Coded Status**: Consistent visual indicators (green=good, yellow=warning, red=error)
-- **Responsive Grids**: Adaptive layouts that stack on mobile, expand on desktop
-
-### Audit Logging
-- **Database**: PostgreSQL-based audit logging with comprehensive tracking
-- **Event Types**:
-  - `search`: All identity searches with query, results count, services used
-  - `access`: Access denials with user, IP, and requested resource
-  - `admin`: User management actions (add, update, delete users)
-  - `config`: Configuration changes with before/after values
-  - `error`: Application errors and exceptions with stack traces
-- **Admin Panel**: View and search audit logs at `/admin/audit-logs`
-- **Features**:
-  - Dynamic filtering by date, user, search query, IP address
-  - Real-time data loading with pagination
-  - Detail view for each log entry
-  - Color-coded event types
-  - Export to CSV functionality
-- **Performance**:
-  - Indexed on timestamp, user_email, event_type, search_query, ip_address
-  - Connection pooling for concurrent access
-  - Automatic cleanup of old logs
-
-### Security Considerations
-- `SECRET_KEY` stored encrypted in database
-- All API credentials encrypted at rest using Fernet with unique per-installation salt
-- WHODIS_ENCRYPTION_KEY must be kept secure and backed up
-- Unique salt file generated per installation (stored in project root for development, system directories for production)
-- Graph client secrets with special characters handled properly
-- All unauthorized access attempts are logged with full context
-- No sensitive data logged in plaintext
-- Database connections use connection pooling with SSL in production
-- Failed login attempts tracked in `access_attempts` table
-- CSRF protection via Flask sessions
-- Session hijacking prevention with timeout and activity tracking
-- Basic authentication disabled - only Azure AD SSO supported
-- XSS protection through comprehensive input escaping with `escapeHtml()` function
-- Content Security Policy (CSP) headers to prevent XSS attacks
-- Security headers: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
-- Permissions Policy to disable unnecessary browser features
-
-### Environment Variables (Minimal)
-After migration, only these are needed in .env:
-```
-# PostgreSQL Configuration
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=whodis_db
-POSTGRES_USER=whodis_user
-POSTGRES_PASSWORD=your-secure-password
-
-# Encryption key for configuration
-WHODIS_ENCRYPTION_KEY=your-generated-encryption-key
+# Also correct (in services)
+@property
+def ldap_service(self):
+    if self._ldap_service is None:
+        self._ldap_service = current_app.container.get("ldap_service")
+    return self._ldap_service
 ```
 
-All other configuration is stored encrypted in the database and can be managed through the configuration service.
+See [docs/architecture.md#dependency-injection-container](docs/architecture.md#dependency-injection-container) for details.
 
-### Important Database Notes
-- PostgreSQL credentials MUST remain in environment variables (bootstrap problem)
-- Use `os.getenv()` for database connection, not `config_get()`
+### Authentication & Authorization
+
+**Always use decorators on routes:**
+```python
+@blueprint.route("/my-route")
+@auth_required
+@require_role("editor")  # or "viewer", "admin"
+def my_route():
+    user_email = g.user  # Current user email
+    ip_address = format_ip_info()  # IP from headers
+    # Route logic
+```
+
+**Role hierarchy:** Admin > Editor > Viewer
+
+### Model Patterns
+
+**Extend appropriate base classes:**
+```python
+from app.models.base import BaseModel, TimestampMixin
+
+class MyModel(BaseModel, TimestampMixin):
+    __tablename__ = "my_table"
+
+    # Fields
+    name = db.Column(db.String(255), nullable=False)
+
+    # Use inherited methods
+    def custom_logic(self):
+        self.update(name="new name")  # From BaseModel
+```
+
+**Available mixins:**
+- `TimestampMixin`: `created_at`, `updated_at`
+- `UserTrackingMixin`: `user_email`, `ip_address`, `user_agent`, `session_id`
+- `ExpirableMixin`: `expires_at`, `is_expired` property
+- `JSONDataMixin`: `data` JSONB field with helpers
+
+### Service Patterns
+
+**Implement appropriate interfaces and extend base classes:**
+```python
+from app.interfaces.search_service import ISearchService
+from app.services.base import BaseSearchService
+
+class MySearchService(BaseSearchService, ISearchService):
+    def __init__(self):
+        super().__init__("my_service")  # Config category
+
+    def search_user(self, term: str) -> Optional[Dict[str, Any]]:
+        # Implementation with timeout handling
+        pass
+```
+
+**Register in container** (`app/container.py`):
+```python
+container.register("my_service", lambda c: MySearchService())
+```
+
+### Error Handling
+
+**Use decorator for service methods:**
+```python
+from app.utils.error_handler import handle_service_errors
+
+@handle_service_errors(raise_errors=False)
+def my_service_method(self):
+    # Service logic
+    # Errors automatically logged and handled
+```
+
+**Log and audit errors:**
+```python
+try:
+    # Operation
+except Exception as e:
+    logger.error(f"Operation failed: {str(e)}", exc_info=True)
+    audit_service.log_error(
+        error_type="operation_error",
+        message=str(e),
+        user_email=g.user
+    )
+```
+
+### Concurrent Operations
+
+**Use SearchOrchestrator pattern for parallel API calls:**
+```python
+from concurrent.futures import ThreadPoolExecutor
+from flask import copy_current_request_context
+
+with ThreadPoolExecutor(max_workers=3) as executor:
+    future1 = executor.submit(
+        copy_current_request_context(service1.method),
+        arg
+    )
+    future2 = executor.submit(
+        copy_current_request_context(service2.method),
+        arg
+    )
+
+    result1 = future1.result(timeout=3)
+    result2 = future2.result(timeout=5)
+```
+
+## Common Development Tasks
+
+### Adding a New Service
+
+1. Create service class implementing appropriate interface
+2. Extend base service class for common functionality
+3. Register factory in `app/container.py`'s `register_services()` function
+4. Access via `current_app.container.get("service_name")`
+
+### Adding a New Model
+
+1. Create model class extending appropriate base/mixins
+2. Define relationships using SQLAlchemy conventions
+3. Add migration SQL to `database/create_tables.sql`
+4. Run `ANALYZE table_name` after first data insertion for proper statistics
+
+### Adding a New Blueprint Route
+
+1. Create route in appropriate blueprint
+2. Apply auth decorators: `@auth_required` and `@require_role("role_name")`
+3. Use `g.user` for current user email, `format_ip_info()` for IP address
+4. Log actions with `audit_service.log_search()` or `audit_service.log_admin_action()`
+5. Return HTMX fragments for partial updates, full templates for initial loads
+
+### Adding a New Configuration Value
+
+1. Add to encrypted configuration via admin UI or script
+2. Access with `config_get("category", "key", "default")`
+3. Never hardcode sensitive values
+
+## Performance Guidelines
+
+### Database Optimization
+
+1. **Avoid N+1 Queries**: Use `joinedload()` or bulk queries
+   ```python
+   # Bad
+   for job_code in job_codes:
+       count = job_code.mappings.count()  # N+1 query
+
+   # Good
+   mapping_counts = db.session.query(
+       JobRoleMapping.job_code_id,
+       func.count(JobRoleMapping.id)
+   ).group_by(JobRoleMapping.job_code_id).all()
+   ```
+
+2. **Client-Side Filtering**: For datasets < 1000 rows, filter in JavaScript to reduce server load
+
+3. **Progressive Loading**: Use pagination or "Load More" patterns for tables with 100+ rows
+
+4. **Lazy Loading**: Default to lazy loading for expensive operations (photos, large text fields)
+
+5. **Index Strategically**: Add indexes on foreign keys and frequently filtered columns
+
+6. **Cache Aggressively**: Use PostgreSQL cache with appropriate TTLs
+   - Search results: 30 minutes
+   - API tokens: Auto-managed by expiration
+   - Employee profiles: 24 hours
+
+### Frontend Performance
+
+1. **HTMX Fragments**: Return minimal HTML, not full pages
+2. **Lazy Images**: Use lazy loading for profile photos
+3. **Client-Side State**: Use JavaScript for UI state, HTMX for data
+4. **Debounce Input**: Debounce search inputs to reduce server requests
+
+## Important Database Notes
+
+### Environment Variables Bootstrap Problem
+
+- PostgreSQL credentials MUST remain in `.env` file (chicken-and-egg problem)
+- Use `os.getenv()` for database connection, NOT `config_get()`
 - Configuration service requires database connection to function
-- Always handle memoryview objects from BYTEA columns properly
-- Use thread-safe operations when accessing shared resources
 
-### Development Tips
-- Use `ruff` for linting (already configured)
-- Use `mypy` for type checking (types-tabulate installed)
-- Check configuration status before starting app
-- Monitor audit logs for debugging
-- Use background services for long-running operations
-- Implement proper error handling with audit logging
-- Test encryption/decryption after any configuration changes
-- Run ANALYZE on new tables to prevent -1 row counts in admin UI
-- Test session timeout behavior with different configurations
-- See [Database Documentation](docs/database.md) for detailed troubleshooting
+### Encryption Key Management
+
+- `WHODIS_ENCRYPTION_KEY` encrypts all configuration values
+- Changing this key makes all encrypted data unreadable
+- Always export config before key changes: `python scripts/export_config.py`
+
+### Memory Objects
+
+- PostgreSQL BYTEA columns return memoryview/buffer objects
+- Always handle with: `bytes(memoryview_object)` before encryption/decryption
+
+### Table Statistics
+
+- Run `ANALYZE table_name` after creating and populating new tables
+- Prevents -1 row counts in admin UI
+- PostgreSQL needs statistics for query planning
+
+## Security Considerations
+
+### What's Protected
+
+- All API credentials encrypted at rest using Fernet
+- `SECRET_KEY` stored encrypted in database
+- Unique salt per installation (.whodis_salt file)
+- All authentication events logged
+- CSRF protection on state-changing operations
+- Security headers (CSP, X-Frame-Options, etc.)
+- Session hijacking prevention with timeout tracking
+
+### What to Avoid
+
+- Never commit `.env` file (contains POSTGRES_PASSWORD and WHODIS_ENCRYPTION_KEY)
+- Never commit `.whodis_salt` file in production
+- Never log sensitive data in plaintext
+- Never use basic auth (Azure AD SSO only)
+- Never skip authentication decorators on routes
+- Never trust user input (use escapeHtml() in templates)
+
+For complete security details, see [README.md#-security-best-practices](README.md#-security-best-practices).
+
+## Key Features Documentation
+
+- **Search Architecture**: See [docs/architecture.md#search-architecture](docs/architecture.md#search-architecture)
+- **Job Role Compliance**: See [docs/job-role-compliance.md](docs/job-role-compliance.md)
+- **Database Management**: See [docs/database.md](docs/database.md)
+- **API Integrations**: See [README.md#-api-integrations](README.md#-api-integrations)
+- **Configuration Management**: See [README.md#-configuration-management](README.md#-configuration-management)
+
+## Troubleshooting Quick Reference
+
+### Configuration Issues
+```bash
+python scripts/check_config_status.py        # Check configuration
+python scripts/verify_encrypted_config.py    # Verify encryption
+python scripts/diagnose_config.py            # Diagnose problems
+```
+
+### Common Problems
+
+**"Error decrypting configuration"**
+- Check `WHODIS_ENCRYPTION_KEY` in `.env`
+- Run `python scripts/verify_encrypted_config.py`
+
+**"Database connection failed"**
+- Verify PostgreSQL is running
+- Check credentials in `.env`
+- Ensure database exists
+
+**"No search results"**
+- Check service credentials in configuration
+- Review audit logs: `SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT 10`
+
+For detailed troubleshooting, see [docs/database.md#troubleshooting](docs/database.md#troubleshooting).
+
+## Additional Resources
+
+- **README.md**: User-facing documentation, installation, features
+- **docs/architecture.md**: Detailed architecture and design patterns
+- **docs/database.md**: Database setup, configuration, maintenance
+- **docs/job-role-compliance.md**: Job role compliance matrix documentation
+- **docs/PLANNING.md**: Project roadmap and strategic planning
+- **CHANGELOG.md**: Version history and release notes

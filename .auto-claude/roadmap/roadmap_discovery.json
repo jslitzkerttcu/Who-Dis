@@ -1,0 +1,131 @@
+{
+  "project_name": "WhoDis - Enterprise Identity Search Platform",
+  "project_type": "web-app",
+  "tech_stack": {
+    "primary_language": "Python",
+    "frameworks": ["Flask 3.0.0", "SQLAlchemy", "HTMX", "Tailwind CSS"],
+    "key_dependencies": [
+      "Flask-SQLAlchemy",
+      "psycopg2-binary",
+      "ldap3",
+      "msal",
+      "cryptography",
+      "requests",
+      "pyodbc"
+    ]
+  },
+  "target_audience": {
+    "primary_persona": "IT Help Desk staff and system administrators at TTCU (Tinker Federal Credit Union) who need to quickly look up employee/user information across multiple identity systems",
+    "secondary_personas": [
+      "IT Security personnel conducting access audits",
+      "HR administrators verifying employee system access",
+      "Contact center managers checking agent configurations in Genesys"
+    ],
+    "pain_points": [
+      "Searching multiple identity systems separately (AD, Azure AD, Genesys) is time-consuming",
+      "Correlating user data across systems manually is error-prone",
+      "Tracking who has access to what systems for compliance audits is difficult",
+      "No single view of employee identity and system access",
+      "Manual verification of job role to system role compliance"
+    ],
+    "goals": [
+      "Quickly find any employee across all identity systems with a single search",
+      "View consolidated employee profile with data from multiple sources",
+      "Audit user access and role compliance across systems",
+      "Reduce time spent on identity lookups from minutes to seconds",
+      "Maintain security and compliance with role-based access control"
+    ],
+    "usage_context": "Used during IT support calls, security audits, HR onboarding/offboarding, and compliance reviews in an enterprise environment with Azure AD SSO authentication"
+  },
+  "product_vision": {
+    "one_liner": "A comprehensive Flask-based identity lookup service that provides unified search across Active Directory, Microsoft Graph, and Genesys Cloud with enterprise-grade security and compliance features.",
+    "problem_statement": "Enterprise IT teams waste significant time searching multiple disconnected identity systems when supporting employees, conducting audits, or verifying access - leading to slower support resolution, inconsistent data, and compliance gaps.",
+    "value_proposition": "WhoDis consolidates identity data from LDAP, Microsoft Graph, and Genesys Cloud into a single, secure, audited interface - enabling IT staff to find any user in seconds with complete context across all systems.",
+    "success_metrics": [
+      "Time to find user information reduced from minutes to seconds",
+      "100% of identity searches audited and traceable",
+      "Zero unauthorized access incidents (role-based access working)",
+      "Job role compliance violations detected and reported",
+      "High user adoption rate among IT staff"
+    ]
+  },
+  "current_state": {
+    "maturity": "growth",
+    "existing_features": [
+      "Multi-source identity search (LDAP, Graph API, Genesys Cloud)",
+      "Concurrent search with timeout protection",
+      "Fuzzy search with wildcard support",
+      "Smart result merging across identity providers",
+      "User profile photos from Microsoft Graph",
+      "Role-based access control (Viewer/Editor/Admin)",
+      "Azure AD SSO authentication",
+      "PostgreSQL backend with encrypted configuration",
+      "Comprehensive audit logging",
+      "Session management with timeout warnings",
+      "Admin dashboard with user management",
+      "Configuration editor with runtime updates",
+      "Job role compliance matrix for access auditing",
+      "Background token refresh service",
+      "Genesys data caching (groups, skills, locations)",
+      "User notes feature for internal documentation",
+      "Modern HTMX + Tailwind CSS interface",
+      "Mobile-responsive design"
+    ],
+    "known_gaps": [
+      "No automated test framework configured",
+      "No REST API endpoints for external integrations",
+      "Limited reporting/analytics capabilities",
+      "No scheduled report generation",
+      "No self-service portal for employees",
+      "No workflow automation for access requests",
+      "No AI-powered analytics or insights"
+    ],
+    "technical_debt": [
+      "Test framework not implemented (pytest mentioned but not configured)",
+      "Some SQLAlchemy models detected in venv (project index parsing issue)",
+      "License file not specified in README"
+    ]
+  },
+  "competitive_context": {
+    "alternatives": [
+      "Microsoft Identity Manager (MIM)",
+      "SailPoint IdentityNow",
+      "Okta Identity Cloud",
+      "Azure AD Admin Center",
+      "Individual system admin consoles (AD, Genesys, etc.)"
+    ],
+    "differentiators": [
+      "Purpose-built for credit union/TTCU environment with specific integrations",
+      "Unified search across AD, Graph, AND Genesys (contact center specific)",
+      "Lightweight Flask-based solution vs. heavy enterprise platforms",
+      "Self-hosted with encrypted configuration",
+      "Job role compliance matrix specifically for audit requirements",
+      "Modern HTMX interface vs. legacy admin consoles"
+    ],
+    "market_position": "Internal enterprise tool optimized for credit union IT operations, combining identity management with contact center integration - a niche not well-served by generic IAM platforms or contact center tools alone.",
+    "competitor_pain_points": [],
+    "competitor_analysis_available": false
+  },
+  "constraints": {
+    "technical": [
+      "Requires PostgreSQL 12+ database",
+      "Depends on Azure AD for authentication (SSO via App Service headers)",
+      "Requires network access to LDAP, Microsoft Graph API, and Genesys Cloud APIs",
+      "Python 3.8+ runtime required",
+      "Encryption key management (WHODIS_ENCRYPTION_KEY must be secured)"
+    ],
+    "resources": [
+      "Appears to be maintained by single developer or small team (based on git history)",
+      "Internal TTCU tool - likely limited development resources",
+      "No dedicated QA or testing infrastructure currently"
+    ],
+    "dependencies": [
+      "Microsoft Graph API access and credentials",
+      "Genesys Cloud OAuth2 credentials",
+      "Active Directory/LDAP connectivity",
+      "Azure App Service for SSO header injection",
+      "SQL Server data warehouse (for job role compliance sync)"
+    ]
+  },
+  "created_at": "2025-12-29T16:45:00Z"
+}

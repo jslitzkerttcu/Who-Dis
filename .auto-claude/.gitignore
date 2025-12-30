@@ -1,0 +1,8 @@
+# Exclude sensitive environment files
+.env
+
+# Exclude any credentials or secrets
+*.key
+*.pem
+*.crt
+secrets/

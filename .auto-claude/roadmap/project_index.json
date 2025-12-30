@@ -1,0 +1,469 @@
+{
+  "project_root": "/Users/jslitzker/Repos/Who-Dis",
+  "project_type": "single",
+  "services": {
+    "main": {
+      "name": "main",
+      "path": "/Users/jslitzker/Repos/Who-Dis",
+      "language": "Python",
+      "framework": "Flask",
+      "type": "backend",
+      "package_manager": "pip",
+      "default_port": 5000,
+      "orm": "SQLAlchemy",
+      "key_directories": {
+        "app": {
+          "path": "app",
+          "purpose": "Application code"
+        }
+      },
+      "dependencies": [
+        "Flask",
+        "Flask-SQLAlchemy",
+        "Flask-WTF",
+        "SQLAlchemy",
+        "psycopg2-binary",
+        "python-dotenv",
+        "ldap3",
+        "requests",
+        "httpx",
+        "msal",
+        "psutil",
+        "cryptography",
+        "tabulate",
+        "pyodbc",
+        "pytz",
+        "ruff",
+        "mypy",
+        "types-tabulate",
+        "types-flask",
+        "types-requests"
+      ],
+      "database": {
+        "models": {
+          "User": {
+            "table": "users",
+            "fields": {
+              "attrname": {
+                "type": "Integer",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/mypy/apply.py",
+            "orm": "SQLAlchemy"
+          },
+          "Slide": {
+            "table": "slide",
+            "fields": {
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/orderinglist.py",
+            "orm": "SQLAlchemy"
+          },
+          "Bullet": {
+            "table": "slide",
+            "fields": {
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "slide_id": {
+                "type": "Integer",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "position": {
+                "type": "Integer",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "text": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/orderinglist.py",
+            "orm": "SQLAlchemy"
+          },
+          "Person": {
+            "table": "person",
+            "fields": {
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "data": {
+                "type": "JSON",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/indexable.py",
+            "orm": "SQLAlchemy"
+          },
+          "Employee": {
+            "table": "employee",
+            "fields": {
+              "employee_id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "manager_data": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/declarative/extensions.py",
+            "orm": "SQLAlchemy"
+          },
+          "TableB": {
+            "table": "user",
+            "fields": {
+              "_table_a": {
+                "type": "Unknown",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "email": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "user_id": {
+                "type": "Unknown",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/automap.py",
+            "orm": "SQLAlchemy"
+          },
+          "Address": {
+            "table": "user",
+            "fields": {
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "email": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "user_id": {
+                "type": "Unknown",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/automap.py",
+            "orm": "SQLAlchemy"
+          },
+          "Part": {
+            "table": "part",
+            "fields": {
+              "part": {
+                "type": "String",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "sub_part": {
+                "type": "String",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "quantity": {
+                "type": "Integer",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/orm/query.py",
+            "orm": "SQLAlchemy"
+          },
+          "File": {
+            "table": "files",
+            "fields": {
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "extension": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/orm/properties.py",
+            "orm": "SQLAlchemy"
+          },
+          "MyClass": {
+            "table": "mytable",
+            "fields": {
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "data": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/dialects/mysql/base.py",
+            "orm": "SQLAlchemy"
+          },
+          "UnitPrice": {
+            "table": "my_table",
+            "fields": {
+              "unit_id": {
+                "type": "Integer",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "price": {
+                "type": "Unknown",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/orm/_orm_constructors.py",
+            "orm": "SQLAlchemy"
+          },
+          "MyModel": {
+            "table": "my_table",
+            "fields": {
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/orm/decl_api.py",
+            "orm": "SQLAlchemy"
+          },
+          "MyMappedClass": {
+            "table": "my_table",
+            "fields": {
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/orm/decl_api.py",
+            "orm": "SQLAlchemy"
+          },
+          "Venue": {
+            "table": "venue",
+            "fields": {
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/sql/functions.py",
+            "orm": "SQLAlchemy"
+          },
+          "SomeOrmClass": {
+            "table": "someormclasss",
+            "fields": {
+              "data": {
+                "type": "Integer",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/array.py",
+            "orm": "SQLAlchemy"
+          },
+          "Base": {
+            "table": "employee",
+            "fields": {
+              "employee_id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "manager_data": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/declarative/extensions.py",
+            "orm": "SQLAlchemy"
+          },
+          "Company": {
+            "table": "employee",
+            "fields": {
+              "id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "employee_id": {
+                "type": "Integer",
+                "primary_key": true,
+                "unique": false,
+                "nullable": true
+              },
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              },
+              "manager_data": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/ext/declarative/extensions.py",
+            "orm": "SQLAlchemy"
+          },
+          "TestTable": {
+            "table": "test",
+            "fields": {
+              "name": {
+                "type": "String",
+                "primary_key": false,
+                "unique": false,
+                "nullable": true
+              }
+            },
+            "file": ".venv/lib/python3.12/site-packages/sqlalchemy/dialects/mssql/base.py",
+            "orm": "SQLAlchemy"
+          }
+        },
+        "total_models": 18,
+        "model_names": [
+          "User",
+          "Slide",
+          "Bullet",
+          "Person",
+          "Employee",
+          "TableB",
+          "Address",
+          "Part",
+          "File",
+          "MyClass",
+          "UnitPrice",
+          "MyModel",
+          "MyMappedClass",
+          "Venue",
+          "SomeOrmClass",
+          "Base",
+          "Company",
+          "TestTable"
+        ]
+      },
+      "services": {
+        "databases": [
+          {
+            "type": "postgresql",
+            "client": "psycopg2-binary"
+          }
+        ]
+      }
+    }
+  },
+  "infrastructure": {},
+  "conventions": {}
+}

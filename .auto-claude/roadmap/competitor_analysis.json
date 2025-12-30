@@ -1,0 +1,452 @@
+{
+  "project_context": {
+    "project_name": "WhoDis - Enterprise Identity Search Platform",
+    "project_type": "web-app",
+    "target_audience": "IT Help Desk staff and system administrators at TTCU (Tinker Federal Credit Union) who need to quickly look up employee/user information across multiple identity systems"
+  },
+  "competitors": [
+    {
+      "id": "competitor-sailpoint",
+      "name": "SailPoint IdentityNow / Identity Security Cloud",
+      "url": "https://www.sailpoint.com/products/identitynow",
+      "description": "Enterprise-grade SaaS identity governance and administration (IGA) platform for managing user access, provisioning, and compliance across cloud and on-premises systems.",
+      "relevance": "medium",
+      "pain_points": [
+        {
+          "id": "pain-sp-1",
+          "description": "Performance delays increasing as more SaaS customers are added to the shared platform",
+          "source": "PeerSpot user reviews (https://www.peerspot.com/questions/what-needs-improvement-with-sailpoint-identitynow)",
+          "severity": "medium",
+          "frequency": "Multiple mentions in 2024 reviews",
+          "opportunity": "WhoDis is self-hosted with dedicated PostgreSQL - no shared infrastructure performance concerns"
+        },
+        {
+          "id": "pain-sp-2",
+          "description": "Expensive pricing with steep learning curve requiring weeks of administrator training",
+          "source": "Software reviews on Capterra, G2, PeerSpot",
+          "severity": "high",
+          "frequency": "Commonly cited across multiple review platforms",
+          "opportunity": "WhoDis is internal/free to use with minimal training needed for IT staff familiar with basic search interfaces"
+        },
+        {
+          "id": "pain-sp-3",
+          "description": "Technical support has been described as 'a big disappointment' and unfriendly to customers",
+          "source": "PeerSpot reviews and SoftwareReviews.com",
+          "severity": "medium",
+          "frequency": "Recurring complaint",
+          "opportunity": "WhoDis is internally maintained with direct access to developers and full audit trail"
+        },
+        {
+          "id": "pain-sp-4",
+          "description": "Search feature requires technical skills to use effectively and documentation is not readily available",
+          "source": "PeerSpot user reviews",
+          "severity": "medium",
+          "frequency": "Mentioned by multiple users",
+          "opportunity": "WhoDis offers simple search bar with fuzzy matching - no query language to learn"
+        },
+        {
+          "id": "pain-sp-5",
+          "description": "Onboarding 450-500 applications takes enormous time - not suitable for quick lookups",
+          "source": "PeerSpot user reviews",
+          "severity": "high",
+          "frequency": "Enterprise deployment concern",
+          "opportunity": "WhoDis focuses on quick identity lookup vs full governance - much faster time-to-value"
+        },
+        {
+          "id": "pain-sp-6",
+          "description": "Requires far too much customization and is not 'full featured' out of the box compared to competitors",
+          "source": "SoftwareReviews.com user feedback",
+          "severity": "medium",
+          "frequency": "Common implementation feedback",
+          "opportunity": "WhoDis works out-of-box once configured with API credentials"
+        }
+      ],
+      "strengths": [
+        "Industry-leading identity governance capabilities",
+        "Strong automation for user lifecycle management",
+        "Comprehensive compliance reporting",
+        "Wide ecosystem of integrations"
+      ],
+      "market_position": "Market leader in IGA (#1 in multiple categories), positioned for large enterprises needing full identity governance"
+    },
+    {
+      "id": "competitor-okta",
+      "name": "Okta Identity Cloud",
+      "url": "https://www.okta.com",
+      "description": "Enterprise identity and access management (IAM) platform providing SSO, MFA, and adaptive access control for workforce and customer identity.",
+      "relevance": "medium",
+      "pain_points": [
+        {
+          "id": "pain-okta-1",
+          "description": "Security vulnerabilities including 52-character username bypass that allowed authentication without passwords (July-Oct 2024)",
+          "source": "Okta security advisories and VentureBeat security analysis (https://venturebeat.com/security/what-oktas-failures-say-about-the-future-of-identity-security-in-2025/)",
+          "severity": "high",
+          "frequency": "Multiple security incidents in 2024",
+          "opportunity": "WhoDis is read-only lookup tool - no authentication bypass risks, uses Azure AD SSO only"
+        },
+        {
+          "id": "pain-okta-2",
+          "description": "High costs without clear benefits compared to alternatives; aggressive sales tactics reported",
+          "source": "MedhaCloud review and user feedback (https://medhacloud.com/blog/okta-review-is-it-the-best-identity-management-solution-for-you/)",
+          "severity": "high",
+          "frequency": "Frequent pricing complaints across reviews",
+          "opportunity": "WhoDis is free internal tool with no per-user licensing"
+        },
+        {
+          "id": "pain-okta-3",
+          "description": "Mobile app-based MFA forces users to have 24/7 phone access, slow and inefficient login processes",
+          "source": "User reviews and MedhaCloud analysis",
+          "severity": "medium",
+          "frequency": "Usability complaint",
+          "opportunity": "WhoDis uses existing Azure AD SSO - no separate MFA enrollment needed"
+        },
+        {
+          "id": "pain-okta-4",
+          "description": "Unreliable customer support with lack of responsiveness from sales and support teams",
+          "source": "Multiple review platforms and user feedback",
+          "severity": "medium",
+          "frequency": "Recurring theme",
+          "opportunity": "Internal tool with direct developer access for support"
+        },
+        {
+          "id": "pain-okta-5",
+          "description": "Real-time session tracking and robust auditing tools still under development as of late 2024",
+          "source": "VentureBeat security analysis",
+          "severity": "medium",
+          "frequency": "Noted by security analysts",
+          "opportunity": "WhoDis has comprehensive audit logging built-in from day one"
+        }
+      ],
+      "strengths": [
+        "Strong SSO and MFA capabilities",
+        "Large ecosystem with 7,000+ integrations",
+        "Developer-friendly with Auth0 acquisition",
+        "Adaptive access control with contextual policies"
+      ],
+      "market_position": "Enterprise IAM leader, competing with Microsoft Entra for large-scale workforce identity"
+    },
+    {
+      "id": "competitor-mim",
+      "name": "Microsoft Identity Manager (MIM)",
+      "url": "https://learn.microsoft.com/en-us/microsoft-identity-manager/",
+      "description": "Microsoft's on-premises identity management solution for synchronizing identities, provisioning users, and managing self-service password reset.",
+      "relevance": "medium",
+      "pain_points": [
+        {
+          "id": "pain-mim-1",
+          "description": "Deprecated product - in extended support until 2029 with no new features, key components like Azure MFA Server already end-of-life (Sep 2024)",
+          "source": "Microsoft Learn documentation (https://learn.microsoft.com/en-us/microsoft-identity-manager/microsoft-identity-manager-2016-deprecated-features)",
+          "severity": "high",
+          "frequency": "Official deprecation announcement",
+          "opportunity": "WhoDis is actively developed with modern architecture, not a sunset product"
+        },
+        {
+          "id": "pain-mim-2",
+          "description": "Complex setup and configuration requiring specialized expertise and external consultants",
+          "source": "Kloudify blog and One Identity analysis (https://kloudify.com/blog/guide/microsoft-identity-manager/)",
+          "severity": "high",
+          "frequency": "Widely cited implementation challenge",
+          "opportunity": "WhoDis simple configuration in database with encrypted credentials - no SharePoint dependencies"
+        },
+        {
+          "id": "pain-mim-3",
+          "description": "MIM Portal breaks after SharePoint security updates, becoming unresponsive or displaying errors",
+          "source": "Microsoft Support KB and Q&A forums (https://support.microsoft.com/en-us/topic/mim-portal-error-unable-to-process-your-request-after-applying-sharepoint-server-updates)",
+          "severity": "high",
+          "frequency": "Multiple reported incidents",
+          "opportunity": "WhoDis uses modern Flask/HTMX stack with no SharePoint dependencies"
+        },
+        {
+          "id": "pain-mim-4",
+          "description": "Integration issues with diverse IT environments create compatibility problems hindering seamless operations",
+          "source": "Kloudify and SearchInform analysis",
+          "severity": "medium",
+          "frequency": "Common implementation challenge",
+          "opportunity": "WhoDis designed specifically for AD + Graph + Genesys integration"
+        },
+        {
+          "id": "pain-mim-5",
+          "description": "Hybrid reporting feature deprecated in Nov 2025, requiring migration to Azure Arc",
+          "source": "Microsoft documentation on deprecated features",
+          "severity": "medium",
+          "frequency": "Scheduled deprecation",
+          "opportunity": "WhoDis has PostgreSQL-based audit logging with no cloud dependencies"
+        }
+      ],
+      "strengths": [
+        "Deep integration with on-premises Active Directory",
+        "Self-service password reset capabilities",
+        "Established enterprise deployment base"
+      ],
+      "market_position": "Legacy on-premises solution being phased out, customers migrating to Entra ID"
+    },
+    {
+      "id": "competitor-entra",
+      "name": "Azure AD Admin Center / Microsoft Entra Admin Center",
+      "url": "https://entra.microsoft.com",
+      "description": "Microsoft's cloud-based admin portal for managing Azure Active Directory, now rebranded as Microsoft Entra, for identity and access management.",
+      "relevance": "high",
+      "pain_points": [
+        {
+          "id": "pain-entra-1",
+          "description": "Constant rebranding and relocation of features causes admins to spend minutes trying to find things that were somewhere else before",
+          "source": "Office 365 IT Pros blog (https://office365itpros.com/2022/08/19/azure-ad-admin-center-issues/)",
+          "severity": "high",
+          "frequency": "Ongoing frustration, multiple mentions",
+          "opportunity": "WhoDis has stable, purpose-built interface designed specifically for identity lookup"
+        },
+        {
+          "id": "pain-entra-2",
+          "description": "License assignments moved to M365 admin center (Sep 2024) but can't see assignment paths or group-based license errors in new portal",
+          "source": "Office 365 IT Pros blog user comments (https://office365itpros.com/2024/08/09/license-assignments-move/)",
+          "severity": "high",
+          "frequency": "Recent change causing active complaints",
+          "opportunity": "WhoDis focuses on user lookup, not license management - simpler scope"
+        },
+        {
+          "id": "pain-entra-3",
+          "description": "Inconsistencies between Azure AD and M365 admin centers - groups created in one portal may not work in the other",
+          "source": "Office 365 IT Pros analysis",
+          "severity": "medium",
+          "frequency": "Known architectural issue",
+          "opportunity": "WhoDis unifies data from multiple sources into single consistent view"
+        },
+        {
+          "id": "pain-entra-4",
+          "description": "Preview changes appeared in production with no warning, breaking critical user-facing features",
+          "source": "Petri IT Knowledgebase (https://petri.com/azuread-sign-changes-cause-problems-office-365/)",
+          "severity": "medium",
+          "frequency": "Historical pattern",
+          "opportunity": "WhoDis is internally controlled - changes deployed when organization is ready"
+        },
+        {
+          "id": "pain-entra-5",
+          "description": "Assignable roles available out-of-the-box can't accomplish specific organizational tasks, requiring workarounds",
+          "source": "One Identity blog on Azure AD challenges (https://www.oneidentity.com/community/blogs/b/one-identity/posts/5-challenges-of-azure-ad-integration-1041895618)",
+          "severity": "medium",
+          "frequency": "Common enterprise limitation",
+          "opportunity": "WhoDis has customizable role-based access (Viewer/Editor/Admin) designed for credit union needs"
+        }
+      ],
+      "strengths": [
+        "Native integration with Microsoft 365 ecosystem",
+        "Free with Azure AD licenses",
+        "Comprehensive identity management capabilities",
+        "Global scale and reliability"
+      ],
+      "market_position": "Primary admin console for Azure AD, but complex and constantly changing UX"
+    },
+    {
+      "id": "competitor-genesys",
+      "name": "Genesys Cloud CX Admin Console",
+      "url": "https://www.genesys.com/genesys-cloud",
+      "description": "Admin interface for Genesys Cloud contact center platform, used to manage agents, skills, queues, and user configurations.",
+      "relevance": "high",
+      "pain_points": [
+        {
+          "id": "pain-gen-1",
+          "description": "Support is slow, lacks expertise, and often fails to resolve issues efficiently, especially post-implementation",
+          "source": "GetApp reviews and Nextiva analysis (https://www.nextiva.com/blog/genesys-reviews.html)",
+          "severity": "high",
+          "frequency": "Widely reported across multiple review platforms",
+          "opportunity": "WhoDis provides quick visibility into Genesys user data without needing Genesys support"
+        },
+        {
+          "id": "pain-gen-2",
+          "description": "Admin experience leaves a lot to be desired for power users and supervisors - interface not optimized for rapid changes",
+          "source": "Nextiva analysis and user reviews",
+          "severity": "medium",
+          "frequency": "Common supervisor complaint",
+          "opportunity": "WhoDis provides read-only quick lookup - no complex admin navigation required"
+        },
+        {
+          "id": "pain-gen-3",
+          "description": "Deployments are not automated - everything is manual despite DevOps being standard practice",
+          "source": "Reddit/user feedback cited in Nextiva review",
+          "severity": "medium",
+          "frequency": "Developer/admin concern",
+          "opportunity": "WhoDis caches Genesys data locally for fast access without manual Genesys console work"
+        },
+        {
+          "id": "pain-gen-4",
+          "description": "Weak workforce management forecasting and scheduling compared to competitors like Verint",
+          "source": "Reddit r/workforcemanagement discussions cited in reviews",
+          "severity": "medium",
+          "frequency": "Specific WFM weakness",
+          "opportunity": "WhoDis focuses on identity lookup, not WFM - different scope"
+        },
+        {
+          "id": "pain-gen-5",
+          "description": "Reporting customization is limited and some features require further development",
+          "source": "Software Advice reviews (https://www.softwareadvice.com/call-center/genesys-contact-centre-profile/reviews/)",
+          "severity": "medium",
+          "frequency": "Feature limitation",
+          "opportunity": "WhoDis provides focused user lookup with audit logging - specialized for identity not analytics"
+        },
+        {
+          "id": "pain-gen-6",
+          "description": "Backend calculations are opaque - 'They can never give you a solid explanation of how things are calculated'",
+          "source": "User feedback in reviews",
+          "severity": "low",
+          "frequency": "Trust/transparency concern",
+          "opportunity": "WhoDis shows data directly from source APIs with clear provenance"
+        }
+      ],
+      "strengths": [
+        "Powerful AWS-based infrastructure with high uptime",
+        "Highly customizable for contact center needs",
+        "Strong omnichannel capabilities",
+        "Good integration ecosystem"
+      ],
+      "market_position": "Leading CCaaS platform, but admin experience secondary to agent/customer experience"
+    },
+    {
+      "id": "competitor-admanager",
+      "name": "ManageEngine ADManager Plus / ADSelfService Plus",
+      "url": "https://www.manageengine.com/products/ad-manager/",
+      "description": "Active Directory management and help desk tools for user provisioning, reporting, and self-service password reset.",
+      "relevance": "high",
+      "pain_points": [
+        {
+          "id": "pain-adm-1",
+          "description": "Focused solely on Active Directory - no integration with Genesys or other contact center platforms",
+          "source": "Product documentation analysis (https://www.ittsystems.com/best-free-active-directory-tools/)",
+          "severity": "medium",
+          "frequency": "Architectural limitation",
+          "opportunity": "WhoDis combines AD + Graph + Genesys in single search"
+        },
+        {
+          "id": "pain-adm-2",
+          "description": "Requires separate products for different functions - ADManager Plus, ADSelfService Plus, etc.",
+          "source": "ManageEngine product lineup analysis",
+          "severity": "medium",
+          "frequency": "Product fragmentation",
+          "opportunity": "WhoDis is single unified tool for multi-source identity lookup"
+        },
+        {
+          "id": "pain-adm-3",
+          "description": "Legacy on-premises focus - cloud/SaaS identity integration requires additional tools",
+          "source": "Product reviews and comparisons",
+          "severity": "medium",
+          "frequency": "Hybrid environment challenge",
+          "opportunity": "WhoDis natively integrates Graph API for cloud identity data"
+        }
+      ],
+      "strengths": [
+        "Comprehensive AD management and reporting",
+        "Free tools available for basic AD queries",
+        "Self-service password reset reduces help desk tickets",
+        "Role-based delegation for help desk staff"
+      ],
+      "market_position": "Popular mid-market AD management tool, strong in traditional on-prem environments"
+    }
+  ],
+  "market_gaps": [
+    {
+      "id": "gap-1",
+      "description": "No unified identity lookup tool that combines Active Directory, Microsoft Graph, AND contact center (Genesys) user data in a single search",
+      "affected_competitors": ["competitor-entra", "competitor-genesys", "competitor-admanager"],
+      "opportunity_size": "high",
+      "suggested_feature": "WhoDis's core value proposition - continue enhancing the unified search across all three platforms"
+    },
+    {
+      "id": "gap-2",
+      "description": "Enterprise IAM tools (SailPoint, Okta) are expensive and complex for simple identity lookup use cases at IT help desk",
+      "affected_competitors": ["competitor-sailpoint", "competitor-okta"],
+      "opportunity_size": "high",
+      "suggested_feature": "Position WhoDis as lightweight, focused alternative for lookup (not full governance) - emphasize simplicity and speed"
+    },
+    {
+      "id": "gap-3",
+      "description": "Admin consoles constantly change UX (Microsoft) or have poor admin experience (Genesys), frustrating IT staff",
+      "affected_competitors": ["competitor-entra", "competitor-genesys"],
+      "opportunity_size": "medium",
+      "suggested_feature": "Maintain stable, purpose-built interface focused on IT help desk workflow - resist feature creep"
+    },
+    {
+      "id": "gap-4",
+      "description": "Legacy identity tools (MIM) being deprecated with no clear lightweight replacement for on-prem + cloud hybrid lookup",
+      "affected_competitors": ["competitor-mim"],
+      "opportunity_size": "medium",
+      "suggested_feature": "Ensure strong LDAP/on-prem AD support alongside cloud Graph API for hybrid environments"
+    },
+    {
+      "id": "gap-5",
+      "description": "Credit union/financial services specific compliance requirements (job role compliance matrix) not addressed by generic IAM tools",
+      "affected_competitors": ["competitor-sailpoint", "competitor-okta", "competitor-admanager"],
+      "opportunity_size": "medium",
+      "suggested_feature": "Continue developing job role compliance matrix with data warehouse integration for audit requirements"
+    },
+    {
+      "id": "gap-6",
+      "description": "Most identity tools lack real-time concurrent search across multiple identity providers with intelligent result merging",
+      "affected_competitors": ["competitor-entra", "competitor-admanager"],
+      "opportunity_size": "medium",
+      "suggested_feature": "Highlight search orchestrator capabilities - concurrent timeout-protected searches with smart merging"
+    }
+  ],
+  "insights_summary": {
+    "top_pain_points": [
+      "Enterprise IAM tools are expensive and complex for simple identity lookup use cases",
+      "Admin consoles constantly change (Microsoft rebranding) causing workflow disruption",
+      "Support quality is poor across major vendors (SailPoint, Okta, Genesys)",
+      "No single tool combines AD, Azure AD/Graph, and contact center data",
+      "Legacy tools (MIM) being deprecated with complex migration paths",
+      "Security concerns with major IAM vendors (Okta vulnerabilities in 2024)"
+    ],
+    "differentiator_opportunities": [
+      "Unified search across AD + Graph + Genesys (unique combination)",
+      "Lightweight focused tool vs. heavyweight governance platforms",
+      "Self-hosted with encrypted config (no vendor security breaches)",
+      "Stable purpose-built UI (no constant Microsoft rebranding)",
+      "Credit union-specific job role compliance matrix",
+      "Fast simple search interface requiring minimal training"
+    ],
+    "market_trends": [
+      "Organizations need 'single pane of glass' for identity data across multiple systems",
+      "Shift from on-prem (MIM) to cloud identity management (Entra)",
+      "Concern about IAM vendor security (Okta breaches driving caution)",
+      "IT help desk tools evolving to support hybrid AD + cloud environments",
+      "Increased focus on audit trails and compliance logging"
+    ]
+  },
+  "research_metadata": {
+    "search_queries_used": [
+      "SailPoint IdentityNow reviews complaints 2024",
+      "Okta Identity Cloud user complaints issues 2024",
+      "Microsoft Identity Manager MIM problems issues reddit",
+      "identity management software alternatives 2024 comparison",
+      "Azure AD Admin Center complaints frustrations IT admin 2024",
+      "Genesys Cloud admin user management issues complaints",
+      "enterprise identity lookup unified search help desk tools",
+      "Active Directory user lookup tool IT help desk alternatives",
+      "multiple identity systems frustration single pane of glass IT admin",
+      "Genesys Cloud reviews problems complaints site:reddit.com",
+      "SailPoint IdentityNow problems complaints site:reddit.com"
+    ],
+    "sources_consulted": [
+      "PeerSpot user reviews",
+      "Capterra software reviews",
+      "G2 product reviews",
+      "TrustRadius reviews",
+      "Software Advice reviews",
+      "Office 365 IT Pros blog",
+      "Petri IT Knowledgebase",
+      "Microsoft Learn documentation",
+      "VentureBeat security analysis",
+      "Nextiva Genesys review",
+      "ITT Systems Active Directory tools list",
+      "ManageEngine product documentation",
+      "Gartner Peer Insights",
+      "ConductorOne IAM guides",
+      "JumpCloud single pane of glass guide"
+    ],
+    "limitations": [
+      "Reddit-specific searches did not return direct results via WebSearch tool",
+      "Some pain points are from 2022-2023 reviews (still relevant but not 2024-specific)",
+      "WhoDis is internal tool so direct competitive positioning is limited",
+      "Unable to find user reviews of internal IT help desk tools at other credit unions for direct comparison"
+    ]
+  },
+  "created_at": "2025-12-29T17:15:00Z"
+}
