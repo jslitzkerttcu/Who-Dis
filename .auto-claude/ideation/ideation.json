@@ -1,0 +1,750 @@
+{
+  "id": "ideation-20251229-225806",
+  "project_id": "/Users/jslitzker/Repos/Who-Dis",
+  "config": {
+    "enabled_types": [
+      "code_improvements",
+      "ui_ux_improvements",
+      "security_hardening",
+      "documentation_gaps",
+      "performance_optimizations",
+      "code_quality"
+    ],
+    "include_roadmap_context": true,
+    "include_kanban_context": true,
+    "max_ideas_per_type": 5
+  },
+  "ideas": [
+    {
+      "id": "ci-001",
+      "type": "code_improvements",
+      "title": "Aggregate Service Health Check Endpoint",
+      "description": "Add a /api/health endpoint that aggregates connection status from all registered services (LDAP, Genesys, Graph) into a single health check response. Returns detailed status per service plus overall system health.",
+      "rationale": "Each service already implements test_connection() method via the ISearchService interface. The ServiceContainer has get_all_by_interface() method to discover services. The pattern for aggregating service calls exists in SearchOrchestrator. This is just combining existing patterns into a new endpoint.",
+      "builds_upon": [
+        "ISearchService.test_connection()",
+        "ServiceContainer.get_all_by_interface()",
+        "SearchOrchestrator concurrent pattern"
+      ],
+      "estimated_effort": "small",
+      "affected_files": [
+        "app/blueprints/admin/__init__.py",
+        "app/blueprints/admin/health.py"
+      ],
+      "existing_patterns": [
+        "Service interface pattern in app/interfaces/search_service.py",
+        "Container discovery in app/container.py",
+        "Concurrent execution in app/services/search_orchestrator.py"
+      ],
+      "implementation_approach": "Create new admin route that uses container.get_all_by_interface(ISearchService) to get all search services, runs test_connection() concurrently using ThreadPoolExecutor (same pattern as SearchOrchestrator), and returns aggregated JSON response with per-service status and overall health indicator.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "ci-002",
+      "type": "code_improvements",
+      "title": "Add Audit Log Archival Using ExpirableMixin Pattern",
+      "description": "Extend audit log management with automatic archival of old logs using the ExpirableMixin pattern. Add cleanup_old_logs() method to AuditLog model and admin UI controls for log retention management.",
+      "rationale": "The ExpirableMixin already provides cleanup_expired() and extends_expiration() methods. CacheableModel uses this for cache cleanup. AuditLog extends AuditableModel but doesn't have log retention/archival. The pattern for bulk cleanup exists and can be directly applied.",
+      "builds_upon": [
+        "ExpirableMixin.cleanup_expired()",
+        "CacheableModel pattern",
+        "Admin database management UI"
+      ],
+      "estimated_effort": "medium",
+      "affected_files": [
+        "app/models/audit.py",
+        "app/services/audit_service_postgres.py",
+        "app/blueprints/admin/admin_audit.py",
+        "app/templates/admin/audit_logs.html"
+      ],
+      "existing_patterns": [
+        "ExpirableMixin in app/models/base.py",
+        "CacheableModel.cleanup_and_get_stats() in app/models/base.py",
+        "Admin cache management UI in app/templates/admin/database.html"
+      ],
+      "implementation_approach": "Add a LogArchivableMixin or extend AuditLog with cleanup_old_logs(days_to_keep) class method following the same pattern as cleanup_expired(). Add archive_logs() method to PostgresAuditService. Add admin UI controls similar to cache management with configurable retention period and manual cleanup button. Follow the existing pattern of returning stats dict from cleanup operations.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "ci-003",
+      "type": "code_improvements",
+      "title": "Add Bulk Operations to Blocked Numbers Management",
+      "description": "Extend the blocked numbers CRUD blueprint to support bulk add/delete operations. Allow importing multiple blocked numbers from CSV/JSON and bulk deletion of selected entries.",
+      "rationale": "ServiceDataModel already has sync_from_service_data() for bulk synchronization. The blocked_numbers.py has complete single-record CRUD with proper validation and audit logging. The Genesys service pattern supports batch operations. Simply extending the existing pattern to handle arrays of records.",
+      "builds_upon": [
+        "Blocked numbers CRUD in blocked_numbers.py",
+        "ServiceDataModel.sync_from_service_data()",
+        "Genesys service API methods"
+      ],
+      "estimated_effort": "medium",
+      "affected_files": [
+        "app/blueprints/utilities/blocked_numbers.py",
+        "app/services/genesys_service.py",
+        "app/templates/utilities/blocked_numbers.html"
+      ],
+      "existing_patterns": [
+        "CRUD pattern in app/blueprints/utilities/blocked_numbers.py",
+        "Batch sync in app/models/base.py ServiceDataModel.sync_from_service_data()",
+        "Validation pattern for single records"
+      ],
+      "implementation_approach": "Add POST /api/blocked-numbers/bulk endpoint accepting array of {key, reason} objects. Reuse existing validation logic per item. Add DELETE /api/blocked-numbers/bulk accepting array of ANIs. Add audit logging summarizing bulk operations. Extend template with file upload for CSV import and multi-select for bulk delete. Follow existing error response patterns.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "ci-004",
+      "type": "code_improvements",
+      "title": "Implement Complete LogRepository with Interface",
+      "description": "Complete the LogRepository implementation to fully implement ILogRepository interface, similar to how CacheRepository implements ICacheRepository. Add proper abstraction for all log operations.",
+      "rationale": "The ILogRepository interface exists in app/interfaces/log_repository.py. CacheRepository shows the complete implementation pattern with interface implementation. LogRepository exists but may not fully implement the interface. This is about completing an existing pattern.",
+      "builds_upon": [
+        "ILogRepository interface",
+        "CacheRepository implementation pattern",
+        "LogRepository existing code"
+      ],
+      "estimated_effort": "small",
+      "affected_files": [
+        "app/repositories/log_repository.py",
+        "app/interfaces/log_repository.py",
+        "app/container.py"
+      ],
+      "existing_patterns": [
+        "ICacheRepository interface in app/interfaces/cache_repository.py",
+        "CacheRepository implementation in app/repositories/cache_repository.py",
+        "Container service registration in app/container.py"
+      ],
+      "implementation_approach": "Review ILogRepository interface for all required methods. Ensure LogRepository implements all interface methods following CacheRepository patterns. Register log_repository in container if not already done. Update any direct model access in services to use repository instead.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "ci-005",
+      "type": "code_improvements",
+      "title": "Add Search Result Export Capability",
+      "description": "Add ability to export search results to CSV format. When a search returns results, provide a download button that exports the visible data to a CSV file.",
+      "rationale": "The blocked_numbers blueprint already returns JSON data via API endpoints. SearchCache stores result_data as JSONB. The SerializableMixin provides to_dict() for all models. Flask can easily serve CSV content. This combines existing patterns into a new feature.",
+      "builds_upon": [
+        "SerializableMixin.to_dict()",
+        "JSON API responses pattern",
+        "Search result display"
+      ],
+      "estimated_effort": "small",
+      "affected_files": [
+        "app/blueprints/search/search_refactored.py",
+        "app/templates/search/index.html"
+      ],
+      "existing_patterns": [
+        "SerializableMixin.to_dict() in app/models/base.py",
+        "JSON API response pattern in app/blueprints/utilities/blocked_numbers.py",
+        "Search result rendering in app/templates/search/index.html"
+      ],
+      "implementation_approach": "Add GET /search/export endpoint that accepts the same search parameters. Use existing search orchestrator to get results. Convert results to CSV using Python csv module. Return as file download with proper Content-Disposition header. Add export button to search results UI that triggers download via JavaScript. Audit log the export action using existing audit_service.log_search() pattern.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-001",
+      "type": "ui_ux_improvements",
+      "title": "Add Skip-to-Content Link for Screen Reader Accessibility",
+      "description": "Add a visually hidden skip link at the top of the page that becomes visible on focus, allowing keyboard and screen reader users to skip the navigation and jump directly to main content.",
+      "rationale": "Skip links are a WCAG 2.1 Level A requirement. Currently, keyboard users must tab through all navigation items before reaching main content, which is frustrating and time-consuming for users with motor impairments or those using screen readers.",
+      "category": "accessibility",
+      "affected_components": [
+        "app/templates/base.html"
+      ],
+      "screenshots": [],
+      "current_state": "No skip-to-content link exists. Keyboard users must tab through Home, Search, Utilities dropdown, Admin links, and user info before reaching main content - approximately 8-12 tab stops per page.",
+      "proposed_change": "Add a visually hidden skip link as the first focusable element in the body: <a href='#main-content' class='sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded-md focus:shadow-lg'>Skip to main content</a>. Add id='main-content' to the <main> element.",
+      "user_benefit": "Screen reader users and keyboard navigators can skip repetitive navigation on every page, improving efficiency and reducing frustration. Essential for users with motor impairments who find repeated tabbing difficult.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-002",
+      "type": "ui_ux_improvements",
+      "title": "Add Keyboard Shortcut for Global Search",
+      "description": "Implement a keyboard shortcut (Cmd/Ctrl + K or /) that focuses the search input from any page, enabling power users to quickly initiate searches without mouse interaction.",
+      "rationale": "IT Help Desk staff perform repeated searches throughout the day. Keyboard shortcuts significantly improve productivity for repetitive actions. This pattern is standard in modern applications (GitHub, Slack, VS Code).",
+      "category": "usability",
+      "affected_components": [
+        "app/templates/base.html",
+        "app/templates/search/index.html"
+      ],
+      "screenshots": [],
+      "current_state": "Users must click on the Search navigation link, wait for page load, then click or tab to the search input. No keyboard-driven quick access exists.",
+      "proposed_change": "Add a global keyboard listener in base.html that: 1) Listens for Cmd/Ctrl+K or / key, 2) If on search page, focuses the search input directly, 3) If on another page, navigates to search page with autofocus. Add a visual indicator (e.g., 'Press / to search') near navigation. Implementation: document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); focusOrNavigateSearch(); } });",
+      "user_benefit": "Power users can initiate searches instantly from any page without moving hands from keyboard. Reduces time-to-search by 3-5 seconds per lookup, saving significant time over hundreds of daily searches.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-003",
+      "type": "ui_ux_improvements",
+      "title": "Add Sticky Table Headers for Long Data Tables",
+      "description": "Implement sticky headers on data tables (User Management, Audit Logs, Employee Profiles, Blocked Numbers) so column headers remain visible when scrolling through many rows.",
+      "rationale": "Admin pages often display 50+ rows of data. When scrolling, users lose context of which column contains what data. This is especially problematic in Audit Logs where multiple similar-looking columns exist (timestamps, IPs, emails).",
+      "category": "usability",
+      "affected_components": [
+        "app/templates/admin/users.html",
+        "app/templates/admin/audit_logs.html",
+        "app/templates/admin/employee_profiles.html",
+        "app/templates/utilities/blocked_numbers.html"
+      ],
+      "screenshots": [],
+      "current_state": "Table headers scroll out of view when viewing rows below the fold. Users must scroll back up to remember column meanings, especially for tables with 6+ columns like the User Management and Audit Logs tables.",
+      "proposed_change": "Add sticky positioning to thead elements: <thead class='bg-gray-50 sticky top-0 z-10 shadow-sm'>. For tables within scrollable containers, ensure the container has 'overflow-y-auto max-h-[calc(100vh-300px)]' and the thead has 'sticky top-0'. Add a subtle shadow on scroll for visual separation.",
+      "user_benefit": "Administrators can scroll through large datasets while always knowing which column they're viewing. Reduces errors when editing or reviewing data and improves efficiency by eliminating scroll-up-to-check-column behavior.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-004",
+      "type": "ui_ux_improvements",
+      "title": "Add Breadcrumb Navigation for Admin Section",
+      "description": "Implement breadcrumb navigation in admin pages to show hierarchical context (e.g., Admin > User Management > Edit User) and enable quick navigation to parent sections.",
+      "rationale": "The admin section has multiple levels (Admin Index > Feature Page > Detail/Modal). Currently users can only navigate back using the 'Back to Admin' button. Breadcrumbs provide clear location context and multiple navigation options.",
+      "category": "usability",
+      "affected_components": [
+        "app/templates/admin/users.html",
+        "app/templates/admin/audit_logs.html",
+        "app/templates/admin/configuration.html",
+        "app/templates/admin/database.html",
+        "app/templates/admin/job_role_compliance.html",
+        "app/templates/admin/compliance_dashboard.html",
+        "app/templates/admin/employee_profiles.html",
+        "app/templates/admin/error_logs.html",
+        "app/templates/admin/sessions.html"
+      ],
+      "screenshots": [],
+      "current_state": "Admin pages show page title and a 'Back to Admin' button. No visual hierarchy or path is shown. When deep in a feature (e.g., viewing a specific audit log detail), users lack context of their location in the app structure.",
+      "proposed_change": "Add a breadcrumb component below the navigation bar on all admin pages: <nav class='text-sm mb-4' aria-label='Breadcrumb'><ol class='flex items-center space-x-2 text-gray-500'><li><a href='/admin' class='hover:text-ttcu-green'>Admin</a></li><li><span class='mx-2'>/</span></li><li class='text-gray-900 font-medium'>Current Page</li></ol></nav>. For nested views, add intermediate levels dynamically.",
+      "user_benefit": "Admins always know where they are in the application hierarchy. Enables one-click navigation to any parent level without using browser back button. Especially valuable when deep-linking to specific pages from notifications or emails.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-005",
+      "type": "ui_ux_improvements",
+      "title": "Add Escape Key Handler for All Modals",
+      "description": "Implement consistent keyboard escape key handling for all modal dialogs, allowing users to close modals by pressing Escape in addition to clicking the close button or clicking outside.",
+      "rationale": "Multiple modals exist (Edit User, Note Modal, Audit Detail, Add Blocked Number, Delete Confirm) that only close on click-outside or close button click. Keyboard users expect Escape to close modals - this is standard UX and a WCAG accessibility recommendation.",
+      "category": "interaction",
+      "affected_components": [
+        "app/templates/search/index.html",
+        "app/templates/admin/users.html",
+        "app/templates/admin/audit_logs.html",
+        "app/templates/utilities/blocked_numbers.html",
+        "app/templates/admin/job_role_compliance.html"
+      ],
+      "screenshots": [],
+      "current_state": "Modals can be closed by: 1) Clicking the close X button, 2) Clicking outside the modal overlay. No keyboard escape handling exists. The noteModal, editUserModal, auditDetailModal, number-modal, and delete-modal all lack escape key functionality.",
+      "proposed_change": "Add a global modal escape handler in base.html or create a reusable modal component: document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const openModals = document.querySelectorAll('[id$=\"Modal\"]:not(.hidden), [id$=\"-modal\"]:not(.hidden)'); openModals.forEach(m => m.classList.add('hidden')); } }); Also add focus trapping within modals to prevent tabbing outside the modal while open.",
+      "user_benefit": "Keyboard users can quickly dismiss modals without reaching for mouse. Improves workflow speed for power users who work primarily via keyboard. Creates consistent, predictable modal behavior matching user expectations from other applications.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "sec-001",
+      "type": "security_hardening",
+      "title": "Enable HTTP Strict Transport Security (HSTS) Header",
+      "description": "The Strict-Transport-Security header is currently commented out in app/middleware/security_headers.py (line 47). Without HSTS, browsers may still accept HTTP connections initially before being redirected to HTTPS, creating a window for SSL stripping attacks.",
+      "rationale": "HSTS ensures that browsers only connect via HTTPS after the first visit, preventing man-in-the-middle attacks where an attacker could intercept the initial HTTP request and redirect users to a malicious site. For an identity lookup service handling employee PII, this is a critical protection.",
+      "category": "configuration",
+      "severity": "high",
+      "affectedFiles": [
+        "app/middleware/security_headers.py"
+      ],
+      "vulnerability": "CWE-319: Cleartext Transmission of Sensitive Information",
+      "currentRisk": "SSL stripping attacks possible on first connection; browsers may accept HTTP before redirect to HTTPS",
+      "remediation": "Uncomment line 47 in security_headers.py: `response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'`. Consider adding 'preload' directive and submitting to HSTS preload list for maximum protection.",
+      "references": [
+        "https://owasp.org/www-project-secure-headers/",
+        "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security"
+      ],
+      "compliance": [
+        "SOC2",
+        "PCI-DSS"
+      ]
+    },
+    {
+      "id": "sec-002",
+      "type": "security_hardening",
+      "title": "Implement Rate Limiting on Authentication and Search Endpoints",
+      "description": "The application lacks rate limiting on critical endpoints including authentication (/login, auth decorators), search (/search/user), and admin API routes. This was confirmed by searching for 'rate_limit' or 'throttl' which returned no matches in the app directory.",
+      "rationale": "Without rate limiting, attackers can perform brute-force attacks on authentication, enumerate users through the search API, or cause denial-of-service by overwhelming the LDAP, Graph, and Genesys services with concurrent requests. The ThreadPoolExecutor pattern already shows search operations are computationally expensive.",
+      "category": "authentication",
+      "severity": "high",
+      "affectedFiles": [
+        "app/middleware/auth.py",
+        "app/blueprints/search/search_refactored.py",
+        "app/blueprints/admin/admin_config.py"
+      ],
+      "vulnerability": "CWE-307: Improper Restriction of Excessive Authentication Attempts",
+      "currentRisk": "No limits on authentication attempts; search API can be abused for enumeration or DoS; admin APIs unprotected from rapid exploitation",
+      "remediation": "Implement Flask-Limiter or a similar rate limiting library. Suggested limits: Authentication - 5 attempts per minute per IP; Search - 30 requests per minute per user; Admin APIs - 10 requests per minute. Store rate limit counters in PostgreSQL or Redis for consistency across workers.",
+      "references": [
+        "https://flask-limiter.readthedocs.io/",
+        "https://owasp.org/www-community/controls/Blocking_Brute_Force_Attacks"
+      ],
+      "compliance": [
+        "SOC2",
+        "NIST"
+      ]
+    },
+    {
+      "id": "sec-003",
+      "type": "security_hardening",
+      "title": "Sanitize Sensitive Data from Error Logs",
+      "description": "The error handling middleware (app/middleware/errors.py) logs form data directly: `'form': dict(request.form) if request.form else None`. Additionally, configuration values aren't filtered before being logged. This creates risk of credentials or PII appearing in logs.",
+      "rationale": "Error logs are often stored with less stringent access controls than production databases and may be shipped to third-party logging services. Logging sensitive form fields (passwords, tokens) or configuration values violates data protection principles and could lead to credential exposure.",
+      "category": "data_protection",
+      "severity": "medium",
+      "affectedFiles": [
+        "app/middleware/errors.py",
+        "app/__init__.py"
+      ],
+      "vulnerability": "CWE-532: Insertion of Sensitive Information into Log File",
+      "currentRisk": "Form data including potential passwords/tokens logged in error handlers; sensitive configuration values may appear in debug logs",
+      "remediation": "1. Create a sanitization function that removes/masks fields like 'password', 'token', 'secret', 'key', 'authorization' before logging. 2. Replace `dict(request.form)` with `sanitize_form_data(request.form)`. 3. Never log decrypted configuration values, especially those marked `is_sensitive=True` in the database.",
+      "references": [
+        "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/10-Business_Logic_Testing/09-Test_Upload_of_Malicious_Files",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"
+      ],
+      "compliance": [
+        "SOC2",
+        "GDPR",
+        "PCI-DSS"
+      ]
+    },
+    {
+      "id": "sec-004",
+      "type": "security_hardening",
+      "title": "Restrict Debug Mode Configuration in Production",
+      "description": "Debug mode can be enabled through the database configuration (flask.debug) via the admin UI. In debug mode, the error handler at app/middleware/errors.py (lines 68-70, 75-77) exposes full exception messages to users, which can leak internal paths, database schema, and API details.",
+      "rationale": "If an attacker gains admin access or if debug mode is accidentally enabled, they can trigger errors to gather reconnaissance information about the application's internals. This information disclosure accelerates exploitation of other vulnerabilities.",
+      "category": "configuration",
+      "severity": "medium",
+      "affectedFiles": [
+        "app/middleware/errors.py",
+        "app/__init__.py",
+        "app/blueprints/admin/config_helpers.py"
+      ],
+      "vulnerability": "CWE-215: Insertion of Sensitive Information Into Debugging Code",
+      "currentRisk": "Debug mode exposes full exception details including file paths, database queries, and internal state to end users when enabled",
+      "remediation": "1. Add environment-based guard that prevents enabling debug mode in production: `if os.getenv('WHODIS_PRODUCTION') == 'true': debug_mode = False`. 2. Add a warning banner in admin UI when debug mode is enabled. 3. Consider removing debug mode toggle from admin UI entirely in production deployments.",
+      "references": [
+        "https://flask.palletsprojects.com/en/3.0.x/config/#DEBUG",
+        "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server"
+      ],
+      "compliance": [
+        "SOC2",
+        "NIST"
+      ]
+    },
+    {
+      "id": "sec-005",
+      "type": "security_hardening",
+      "title": "Add Input Validation and Length Limits on Search Terms",
+      "description": "The search endpoint at app/blueprints/search/search_refactored.py accepts search terms with only `.strip()` applied. While LDAP injection is prevented by escape_filter_chars() in ldap_service.py, there are no length limits or character restrictions on search input, which could cause resource exhaustion.",
+      "rationale": "Extremely long search terms or search terms with special patterns could cause denial of service through: 1) Memory exhaustion when processing very long strings, 2) Expensive regex operations in wildcard LDAP searches, 3) Backend API timeouts from complex queries. A 3-character minimum is enforced for fuzzy LDAP search but no maximum exists.",
+      "category": "input_validation",
+      "severity": "medium",
+      "affectedFiles": [
+        "app/blueprints/search/search_refactored.py",
+        "app/services/ldap_service.py"
+      ],
+      "vulnerability": "CWE-400: Uncontrolled Resource Consumption",
+      "currentRisk": "Search API accepts unlimited length search terms; complex wildcard patterns expand to large LDAP filters consuming server resources",
+      "remediation": "1. Add maximum length validation (e.g., 100 characters) on search terms before processing. 2. Validate search terms contain only allowed characters (alphanumeric, common symbols). 3. Consider implementing query complexity limits in LDAP filter construction.",
+      "references": [
+        "https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html"
+      ],
+      "compliance": [
+        "SOC2"
+      ]
+    },
+    {
+      "id": "doc-001",
+      "type": "documentation_gaps",
+      "title": "Add CONTRIBUTING.md with developer onboarding guide",
+      "description": "The project lacks a CONTRIBUTING.md file to guide new developers or contributors. There is no documented process for setting up a development environment, running tests, submitting changes, or understanding code review expectations. CLAUDE.md exists but is AI-focused rather than human-developer focused.",
+      "rationale": "New team members need to quickly understand how to contribute code. Without a CONTRIBUTING.md, onboarding takes longer as developers must discover conventions through trial and error or by asking others. This is critical for team scaling and reducing institutional knowledge dependency.",
+      "category": "readme",
+      "targetAudience": "contributors",
+      "affectedAreas": [
+        "CONTRIBUTING.md (new file)",
+        "README.md (reference to CONTRIBUTING.md)"
+      ],
+      "currentDocumentation": "CLAUDE.md provides AI-focused guidance. README.md has basic setup but no contribution workflow.",
+      "proposedContent": "Create CONTRIBUTING.md covering: development environment setup, code style guidelines (ruff/mypy/black), branch naming conventions, PR requirements, testing expectations (when implemented), commit message format, code review process, and how to add new services/models/routes following existing patterns.",
+      "priority": "high",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-002",
+      "type": "documentation_gaps",
+      "title": "Document scripts with --help and usage examples",
+      "description": "The scripts/ directory contains 8 utility scripts (check_config_status.py, diagnose_config.py, refresh_employee_profiles.py, etc.) but none have argparse/--help documentation. Users must read source code to understand script arguments, options, and expected behavior.",
+      "rationale": "IT administrators and developers frequently use these scripts for maintenance tasks. Without proper CLI documentation, users may run scripts incorrectly or miss important options. The refresh_employee_profiles.py script is particularly critical as it has a 'refresh' argument that isn't self-documenting.",
+      "category": "examples",
+      "targetAudience": "maintainers",
+      "affectedAreas": [
+        "scripts/check_config_status.py",
+        "scripts/verify_encrypted_config.py",
+        "scripts/diagnose_config.py",
+        "scripts/refresh_employee_profiles.py",
+        "scripts/export_config.py",
+        "scripts/clear_encrypted_config.py",
+        "scripts/drop_legacy_tables.py",
+        "scripts/verify_deployment.py"
+      ],
+      "currentDocumentation": "Scripts have basic module docstrings but no command-line help. CLAUDE.md shows example invocations but not all options.",
+      "proposedContent": "Add argparse to each script with: --help documentation, positional and optional arguments, usage examples in docstring header, exit code documentation. Create docs/scripts.md as a reference guide for all maintenance scripts.",
+      "priority": "high",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-003",
+      "type": "documentation_gaps",
+      "title": "Create HTMX interaction patterns documentation",
+      "description": "The application uses a hybrid Jinja2 + HTMX architecture but there's no documentation explaining how HTMX fragments work, which endpoints return partials vs full pages, or patterns for adding new HTMX-enabled features. Developers must reverse-engineer existing templates.",
+      "rationale": "HTMX is central to the modern UI architecture. Without documentation, developers may incorrectly implement endpoints (returning full pages instead of fragments) or miss important patterns like hx-target, hx-swap, and request context preservation. This slows feature development.",
+      "category": "architecture",
+      "targetAudience": "developers",
+      "affectedAreas": [
+        "docs/frontend.md (new file)",
+        "app/templates/",
+        "app/blueprints/",
+        "docs/architecture.md (cross-reference)"
+      ],
+      "currentDocumentation": "docs/architecture.md mentions 'Hybrid server-side + HTMX approach' but doesn't explain implementation patterns. CLAUDE.md mentions HTMX fragments briefly.",
+      "proposedContent": "Create docs/frontend.md covering: HTMX response patterns (fragments vs full pages), template inheritance structure, JavaScript utilities (escapeHtml, session timeout modal), Tailwind CSS conventions, adding new dynamic features, handling HTMX errors (HX-Redirect patterns), and form submission patterns.",
+      "priority": "medium",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-004",
+      "type": "documentation_gaps",
+      "title": "Expand troubleshooting with common error solutions",
+      "description": "The current troubleshooting section in README.md and docs/database.md covers only 3 common problems. There's no FAQ, no error message reference, and no debugging guide for service integration issues (LDAP connection failures, Genesys OAuth errors, Graph API permission problems).",
+      "rationale": "Help desk staff and administrators encounter various errors in production. Without comprehensive troubleshooting documentation, they escalate to developers for routine issues. A good troubleshooting guide reduces support burden and improves incident response time.",
+      "category": "troubleshooting",
+      "targetAudience": "maintainers",
+      "affectedAreas": [
+        "docs/troubleshooting.md (new file)",
+        "README.md (link to troubleshooting docs)"
+      ],
+      "currentDocumentation": "README.md has 'Troubleshooting' section with 3 issues. docs/database.md has basic PostgreSQL troubleshooting.",
+      "proposedContent": "Create docs/troubleshooting.md with: comprehensive FAQ section, common error messages with solutions, service-specific debugging (LDAP/Graph/Genesys), log analysis guide, health check procedures, performance troubleshooting (slow searches), cache issues, and escalation procedures.",
+      "priority": "medium",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-005",
+      "type": "documentation_gaps",
+      "title": "Add docstrings to middleware components for auth flow clarity",
+      "description": "The middleware components (authentication_handler.py, role_resolver.py, user_provisioner.py, session_manager.py) lack comprehensive docstrings explaining their purpose, dependencies, and interaction patterns. The auth.py file uses these but the flow isn't clearly documented inline.",
+      "rationale": "Authentication is a critical security boundary. Developers modifying auth behavior need to understand the complete middleware pipeline. Without clear docstrings, there's risk of introducing security vulnerabilities by misunderstanding the authentication flow.",
+      "category": "api_docs",
+      "targetAudience": "developers",
+      "affectedAreas": [
+        "app/middleware/authentication_handler.py",
+        "app/middleware/role_resolver.py",
+        "app/middleware/user_provisioner.py",
+        "app/middleware/session_manager.py",
+        "app/middleware/audit_logger.py"
+      ],
+      "currentDocumentation": "docs/architecture.md explains middleware pipeline conceptually. Individual files have minimal docstrings (e.g., auth.py has 'DEPRECATED' notes but no module-level explanation).",
+      "proposedContent": "Add module-level docstrings to each middleware component explaining: purpose, when it executes in the pipeline, what it reads/modifies on g/request, configuration dependencies, error handling behavior, and example usage. Add inline comments for non-obvious security decisions.",
+      "priority": "medium",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "perf-001",
+      "type": "performance_optimizations",
+      "title": "Fix N+1 Query Pattern in System Roles API",
+      "description": "The api_system_roles() function in job_role_compliance.py has an N+1 query pattern where len(role.role_mappings) is called for each role in the paginated results, triggering a separate database query for each role to fetch its mappings count.",
+      "rationale": "Each time the system roles API is called with 20 roles per page, 21 database queries are executed (1 for the roles + 20 for mapping counts). This pattern mirrors the already-fixed job_codes endpoint which properly uses a bulk mapping_count query. Applying the same pattern would reduce queries from O(n+1) to O(2).",
+      "category": "database",
+      "impact": "high",
+      "affectedAreas": [
+        "app/blueprints/admin/job_role_compliance.py"
+      ],
+      "currentMetric": "21 database queries per page load for system roles (1 + 20 N+1 queries)",
+      "expectedImprovement": "Reduce to 2 queries per page load (~90% query reduction), ~100-500ms faster API response",
+      "implementation": "1. Add bulk mapping count query similar to api_job_codes():\n   mapping_count_query = db.session.query(\n       JobRoleMapping.system_role_id,\n       db.func.count(JobRoleMapping.id).label('count')\n   ).filter(JobRoleMapping.system_role_id.in_(role_ids)).group_by(JobRoleMapping.system_role_id).all()\n2. Create dictionary: mapping_counts = {row[0]: row[1] for row in mapping_count_query}\n3. Replace len(role.role_mappings) with mapping_counts.get(role.id, 0)",
+      "tradeoffs": "Minor code refactoring required, but the pattern already exists in api_job_codes()",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "perf-002",
+      "type": "performance_optimizations",
+      "title": "Optimize Compliance Overview Statistics with Database Aggregation",
+      "description": "The api_compliance_overview() function loads ALL compliance violations into memory and then iterates through them multiple times to calculate statistics (grouping by severity, counting violation types). This is extremely inefficient for large datasets.",
+      "rationale": "When compliance checks run on hundreds or thousands of employees, loading all violations into Python memory and iterating multiple times (once for employee UPN extraction, once for each severity level, once for violation types) causes significant memory pressure and slow response times. Database aggregation is orders of magnitude more efficient.",
+      "category": "database",
+      "impact": "high",
+      "affectedAreas": [
+        "app/blueprints/admin/job_role_compliance.py"
+      ],
+      "currentMetric": "Loads all violations into memory, O(n) memory usage, multiple O(n) iterations",
+      "expectedImprovement": "Reduce memory usage by ~95%, reduce API response time by 50-80% for large datasets",
+      "implementation": "1. Replace Python list comprehension with SQL aggregation:\n   severity_stats = db.session.query(\n       ComplianceCheck.violation_severity,\n       func.count(ComplianceCheck.id)\n   ).filter(ComplianceCheck.compliance_status != 'compliant'\n   ).group_by(ComplianceCheck.violation_severity).all()\n\n2. Similarly for violation types:\n   violation_types = db.session.query(\n       ComplianceCheck.compliance_status,\n       func.count(ComplianceCheck.id)\n   ).filter(ComplianceCheck.compliance_status != 'compliant'\n   ).group_by(ComplianceCheck.compliance_status).order_by(desc('count')).limit(5).all()\n\n3. Use COUNT(DISTINCT employee_upn) for employees_with_violations",
+      "tradeoffs": "More complex SQL queries, but leverages PostgreSQL's optimized aggregation",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "perf-003",
+      "type": "performance_optimizations",
+      "title": "Batch Genesys Cache Lookups to Eliminate N+1 Queries",
+      "description": "When processing user data in genesys_service.py, individual database queries are made for each skill, group, and location in a user's profile via get_skill_name(), get_group_name(), and get_location_info() methods. A user with 5 skills, 3 groups, and 2 locations causes 10 additional database queries.",
+      "rationale": "The Genesys cache lookup methods are called inside loops in _process_expanded_user_data() and get_user_by_id(). Each call performs a separate database query. With typical users having multiple skills/groups/locations, this compounds quickly and adds 50-200ms to search results.",
+      "category": "database",
+      "impact": "medium",
+      "affectedAreas": [
+        "app/services/genesys_cache_db.py",
+        "app/services/genesys_service.py"
+      ],
+      "currentMetric": "10+ database queries per user for skills/groups/locations cache lookups",
+      "expectedImprovement": "Reduce to 3 queries max (one per type), ~50-150ms faster user data processing",
+      "implementation": "1. Add batch lookup methods to GenesysCacheDB:\n   def get_skills_by_ids(self, skill_ids: List[str]) -> Dict[str, str]:\n       skills = ExternalServiceData.query.filter(\n           ExternalServiceData.service_name == 'genesys',\n           ExternalServiceData.data_type == 'skill',\n           ExternalServiceData.service_id.in_(skill_ids)\n       ).all()\n       return {s.service_id: s.name for s in skills}\n\n2. Similar methods for groups and locations\n\n3. Update genesys_service.py to collect all IDs first, batch fetch, then map",
+      "tradeoffs": "Requires refactoring lookup pattern but significantly reduces database roundtrips",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "perf-004",
+      "type": "performance_optimizations",
+      "title": "Add Resource Hints for CDN-Loaded Assets",
+      "description": "The base.html template loads Tailwind CSS (cdn.tailwindcss.com), Font Awesome (cdnjs.cloudflare.com), and HTMX (unpkg.com) from CDNs without any resource hints. Adding preconnect and dns-prefetch hints can reduce connection establishment time.",
+      "rationale": "Browser needs to perform DNS lookup, TCP connection, and TLS negotiation for each CDN domain before downloading assets. Preconnect hints allow this to happen in parallel with HTML parsing, reducing blocking time by 100-300ms on initial page loads.",
+      "category": "network",
+      "impact": "medium",
+      "affectedAreas": [
+        "app/templates/base.html"
+      ],
+      "currentMetric": "3 sequential CDN connections on initial page load (~300-600ms blocking)",
+      "expectedImprovement": "~100-300ms faster initial page load by parallelizing DNS/TCP/TLS",
+      "implementation": "Add these resource hints to <head> before the CSS/JS loads:\n\n<link rel=\"preconnect\" href=\"https://cdn.tailwindcss.com\">\n<link rel=\"preconnect\" href=\"https://cdnjs.cloudflare.com\" crossorigin>\n<link rel=\"preconnect\" href=\"https://unpkg.com\">\n<link rel=\"dns-prefetch\" href=\"https://cdn.tailwindcss.com\">\n<link rel=\"dns-prefetch\" href=\"https://cdnjs.cloudflare.com\">\n<link rel=\"dns-prefetch\" href=\"https://unpkg.com\">",
+      "tradeoffs": "Minimal overhead, no downsides. Could also consider self-hosting these assets for better reliability.",
+      "estimatedEffort": "trivial"
+    },
+    {
+      "id": "perf-005",
+      "type": "performance_optimizations",
+      "title": "Implement LDAP Connection Pooling",
+      "description": "Each LDAP search operation creates a new Server and Connection object, performs the search, then closes the connection. Connection establishment to LDAP servers involves TCP handshake, TLS negotiation, and BIND authentication, adding ~50-200ms per request.",
+      "rationale": "LDAP connections are expensive to establish. The ldap3 library supports connection pooling which maintains a pool of authenticated connections ready for reuse. This eliminates connection overhead for subsequent requests and is particularly valuable for the concurrent search pattern where LDAP, Genesys, and Graph run simultaneously.",
+      "category": "network",
+      "impact": "medium",
+      "affectedAreas": [
+        "app/services/ldap_service.py"
+      ],
+      "currentMetric": "~100-200ms connection overhead per LDAP search",
+      "expectedImprovement": "~100-150ms faster LDAP searches after initial connection, reduced TCP/TLS overhead",
+      "implementation": "1. Use ldap3 Server Pool or lazy connection strategy:\n   from ldap3 import ServerPool, Connection, ROUND_ROBIN\n\n2. Create a class-level connection pool:\n   self._server_pool = ServerPool([Server(self.host, ...)], ROUND_ROBIN)\n   self._connection_pool = Connection(self._server_pool, pool_size=5, ...)\n\n3. Use context manager for connection reuse:\n   with self._connection_pool.bind() as conn:\n       conn.search(...)\n\n4. Consider ldap3's auto_bind=False with explicit bind for better control",
+      "tradeoffs": "Requires careful connection lifecycle management, must handle connection timeouts and reconnection. Pool size needs tuning based on concurrent load.",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "cq-001",
+      "type": "code_quality",
+      "title": "Split monolithic database.py into domain-specific modules",
+      "description": "The file app/blueprints/admin/database.py has grown to 2532 lines with 43+ functions handling unrelated concerns: database health, table stats, session management, cache operations, error logs, API token management, and extensive HTML rendering. This violates single responsibility and makes the code difficult to navigate, test, and maintain.",
+      "rationale": "This 'god module' pattern increases cognitive load, makes code reviews extremely difficult, leads to merge conflicts, and prevents modular testing. Functions for cache management have no logical connection to error logging functions, yet they share the same file.",
+      "category": "large_files",
+      "severity": "critical",
+      "affectedFiles": [
+        "app/blueprints/admin/database.py"
+      ],
+      "currentState": "Single 2532-line file handling: database health (lines 19-120), table stats (124-284), error stats (285-309), session stats (310-331), cache status (332-358), cache refresh (359-498), cache clearing (499-603), database optimization (604-681), audit export (682-756), error logs (757-837), sessions (838-949), token status (950-1007), plus 14 HTML rendering functions (1008-2532)",
+      "proposedChange": "Split into focused modules:\n- app/blueprints/admin/db/__init__.py (blueprint, routes)\n- app/blueprints/admin/db/health.py (database_health, database_tables, optimize)\n- app/blueprints/admin/db/cache.py (cache_status, refresh_cache, clear_caches)\n- app/blueprints/admin/db/sessions.py (session management)\n- app/blueprints/admin/db/tokens.py (API token operations)\n- app/blueprints/admin/db/errors.py (error log viewing)\n- Move all _render_* functions to Jinja2 templates",
+      "codeExample": "# Current structure:\n# database.py (2532 lines, 43+ functions)\n\n# Proposed structure:\n# db/\n#   __init__.py (imports and blueprint registration)\n#   health.py (~150 lines)\n#   cache.py (~300 lines)\n#   sessions.py (~150 lines)\n#   tokens.py (~200 lines)\n#   errors.py (~100 lines)\n# templates/admin/db/\n#   _health_stats.html\n#   _cache_status.html\n#   _table_stats.html\n#   (etc.)",
+      "bestPractice": "Single Responsibility Principle - each module should have one reason to change. Flask blueprints can be nested for better organization.",
+      "metrics": {
+        "lineCount": 2532,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": 0
+      },
+      "estimatedEffort": "large",
+      "breakingChange": false,
+      "prerequisites": [
+        "Create comprehensive test coverage before refactoring to prevent regressions",
+        "Extract _render_* functions to templates first"
+      ]
+    },
+    {
+      "id": "cq-002",
+      "type": "code_quality",
+      "title": "Extract inline HTML rendering to Jinja2 templates",
+      "description": "There are 26+ _render_* functions across the codebase generating HTML strings directly in Python code. The largest offenders are in search/__init__.py (15 functions, ~1400 lines of HTML) and admin/database.py (10 functions, ~800 lines of HTML). This violates separation of concerns and makes the HTML difficult to maintain.",
+      "rationale": "Inline HTML in Python is an anti-pattern that: 1) Makes HTML changes require Python expertise, 2) Prevents IDE HTML syntax highlighting/validation, 3) Complicates template inheritance and reuse, 4) Makes XSS vulnerabilities harder to spot, 5) Bloats Python files unnecessarily. The project already uses Jinja2 templates for other views.",
+      "category": "code_smells",
+      "severity": "major",
+      "affectedFiles": [
+        "app/blueprints/search/__init__.py",
+        "app/blueprints/admin/database.py",
+        "app/blueprints/admin/users.py",
+        "app/blueprints/admin/config.py",
+        "app/blueprints/admin/audit.py",
+        "app/blueprints/session/__init__.py"
+      ],
+      "currentState": "26 functions generating HTML via f-strings:\n- _render_azure_ad_card (~200 lines)\n- _render_genesys_card (~230 lines)\n- _render_keystone_card (~190 lines)\n- _render_unified_profile (~180 lines)\n- _render_cache_status (~280 lines)\n- _render_table_statistics (~45 lines)\n- etc.",
+      "proposedChange": "Create partial templates in templates/partials/ or templates/htmx/:\n- templates/htmx/search/_azure_ad_card.html\n- templates/htmx/search/_genesys_card.html\n- templates/htmx/admin/_cache_status.html\n- templates/htmx/admin/_table_stats.html\n\nReplace _render_* calls with render_template('htmx/...', data=data)",
+      "codeExample": "# Current:\ndef _render_azure_ad_card(user_data):\n    display_name = user_data.get('displayName', 'Unknown')\n    html = f'''\n    <div class=\"bg-white rounded-lg...\">\n        <h3>{display_name}</h3>\n    </div>\n    '''\n    return html\n\n# Proposed:\ndef _render_azure_ad_card(user_data):\n    return render_template(\n        'htmx/search/_azure_ad_card.html',\n        user=user_data\n    )",
+      "bestPractice": "Separation of Concerns - presentation logic belongs in templates, not Python code. HTMX-specific fragments should use Jinja2 for consistency with full-page templates.",
+      "metrics": {
+        "lineCount": null,
+        "complexity": null,
+        "duplicateLines": 2200,
+        "testCoverage": 0
+      },
+      "estimatedEffort": "large",
+      "breakingChange": false,
+      "prerequisites": [
+        "Create templates/htmx/ directory structure",
+        "Ensure all existing Jinja2 macros are reusable"
+      ]
+    },
+    {
+      "id": "cq-003",
+      "type": "code_quality",
+      "title": "Implement automated test suite for critical services",
+      "description": "The project has zero test files despite having complex services handling LDAP authentication, Genesys Cloud API, Microsoft Graph integration, encryption, and compliance checking. The CLAUDE.md file notes 'No test framework is currently configured. When implementing tests, add pytest to requirements.txt.'",
+      "rationale": "Without tests: 1) Refactoring is extremely risky - no way to verify changes don't break functionality, 2) Bug regression is likely, 3) New developers can't understand expected behavior, 4) CI/CD cannot validate deployments. The codebase has 260 'except Exception' catches that may be hiding bugs.",
+      "category": "testing",
+      "severity": "critical",
+      "affectedFiles": [
+        "app/services/ldap_service.py",
+        "app/services/genesys_service.py",
+        "app/services/graph_service.py",
+        "app/services/encryption_service.py",
+        "app/services/configuration_service.py",
+        "app/services/search_orchestrator.py",
+        "app/services/compliance_checking_service.py"
+      ],
+      "currentState": "Zero test files. No pytest in requirements.txt. No tests/ directory. Critical services like encryption, authentication, and compliance have no test coverage.",
+      "proposedChange": "Create test infrastructure:\n1. Add pytest, pytest-cov, pytest-flask to requirements.txt\n2. Create tests/ directory with:\n   - tests/conftest.py (fixtures, test database)\n   - tests/unit/services/ (service unit tests)\n   - tests/integration/ (API integration tests)\n3. Start with highest-risk services:\n   - tests/unit/services/test_encryption_service.py\n   - tests/unit/services/test_configuration_service.py\n   - tests/unit/services/test_ldap_service.py",
+      "codeExample": "# tests/unit/services/test_encryption_service.py\nimport pytest\nfrom app.services.encryption_service import EncryptionService\n\nclass TestEncryptionService:\n    def test_encrypt_decrypt_roundtrip(self):\n        service = EncryptionService()\n        plaintext = 'sensitive_api_key'\n        encrypted = service.encrypt(plaintext)\n        decrypted = service.decrypt(encrypted)\n        assert decrypted == plaintext\n\n    def test_encrypt_returns_different_ciphertext(self):\n        service = EncryptionService()\n        encrypted1 = service.encrypt('test')\n        encrypted2 = service.encrypt('test')\n        assert encrypted1 != encrypted2  # IV should differ",
+      "bestPractice": "Test-Driven Development - critical security and data handling code should have comprehensive test coverage. Aim for 80%+ coverage on services layer.",
+      "metrics": {
+        "lineCount": null,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": 0
+      },
+      "estimatedEffort": "large",
+      "breakingChange": false,
+      "prerequisites": [
+        "Set up test database configuration",
+        "Configure pytest in pyproject.toml or setup.cfg"
+      ]
+    },
+    {
+      "id": "cq-004",
+      "type": "code_quality",
+      "title": "Refine overly broad exception handling across 42 files",
+      "description": "The codebase contains 260 instances of 'except Exception' across 42 files. Many of these catch-all handlers silently swallow errors or log generic messages, making debugging difficult and potentially hiding important failures. The worst offenders are audit_service_postgres.py (21), genesys_cache_db.py (12), ldap_service.py (12), and simple_config.py (10).",
+      "rationale": "Broad exception handling: 1) Hides specific error types that callers might want to handle differently, 2) Makes debugging harder when logs show only 'Error occurred', 3) Can mask programming errors like AttributeError or KeyError, 4) Violates the principle of 'fail fast' for unexpected conditions. Some errors should propagate to trigger proper error handling upstream.",
+      "category": "code_smells",
+      "severity": "minor",
+      "affectedFiles": [
+        "app/services/audit_service_postgres.py",
+        "app/services/genesys_cache_db.py",
+        "app/services/ldap_service.py",
+        "app/services/simple_config.py",
+        "app/__init__.py",
+        "app/app_factory.py",
+        "app/blueprints/admin/database.py"
+      ],
+      "currentState": "260 'except Exception' blocks, many with:\n- Generic error messages: logger.error(f'Error: {e}')\n- Silent failures: return None or return []\n- No differentiation between recoverable and fatal errors",
+      "proposedChange": "1. Identify specific exception types for each operation:\n   - ConnectionError, TimeoutError for network operations\n   - KeyError, ValueError for data validation\n   - ldap3.LDAPException for LDAP operations\n   - psycopg2.Error for database operations\n\n2. Create custom exception hierarchy in app/exceptions.py:\n   - WhoDisException (base)\n   - ServiceUnavailableError\n   - ConfigurationError\n   - DataValidationError\n\n3. Allow unexpected exceptions to propagate where appropriate",
+      "codeExample": "# Current:\ntry:\n    result = ldap_conn.search(...)\nexcept Exception as e:\n    logger.error(f'LDAP error: {e}')\n    return None\n\n# Proposed:\nfrom ldap3.core.exceptions import LDAPException\nfrom app.exceptions import ServiceUnavailableError\n\ntry:\n    result = ldap_conn.search(...)\nexcept LDAPSocketOpenError as e:\n    logger.warning(f'LDAP connection failed: {e}')\n    raise ServiceUnavailableError('LDAP server unreachable') from e\nexcept LDAPException as e:\n    logger.error(f'LDAP query failed: {e}', exc_info=True)\n    return None\n# Let other exceptions propagate",
+      "bestPractice": "Catch specific exceptions - handle what you can, let the rest propagate. Use custom exception types to communicate error categories to callers.",
+      "metrics": {
+        "lineCount": null,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "medium",
+      "breakingChange": false,
+      "prerequisites": [
+        "Create app/exceptions.py with custom exception hierarchy",
+        "Review each catch block to determine appropriate handling"
+      ]
+    },
+    {
+      "id": "cq-005",
+      "type": "code_quality",
+      "title": "Add ruff/mypy configuration and pre-commit hooks",
+      "description": "While ruff and mypy are in requirements.txt, there is no configuration file (pyproject.toml, ruff.toml) to define linting rules, and no pre-commit hooks to enforce code quality. This means code style and type checking are not consistently enforced across the team.",
+      "rationale": "Without standardized linting configuration: 1) Different developers may use different settings, 2) CI/CD cannot enforce consistent code quality, 3) Type errors may go unnoticed until runtime, 4) Code formatting inconsistencies persist. Pre-commit hooks catch issues before they enter the codebase.",
+      "category": "linting",
+      "severity": "minor",
+      "affectedFiles": [
+        "requirements.txt",
+        "(missing pyproject.toml)",
+        "(missing .pre-commit-config.yaml)"
+      ],
+      "currentState": "ruff and mypy listed in requirements.txt but no configuration files. Running 'ruff check .' uses default settings. No pre-commit hooks configured.",
+      "proposedChange": "1. Create pyproject.toml with comprehensive configuration:\n   - ruff settings (line length, ignored rules, per-file ignores)\n   - mypy settings (strict mode, plugin for Flask)\n   - pytest settings\n\n2. Create .pre-commit-config.yaml with hooks:\n   - ruff (linting + formatting)\n   - mypy (type checking)\n   - trailing-whitespace, end-of-file-fixer\n\n3. Document in CLAUDE.md how to install and use pre-commit",
+      "codeExample": "# pyproject.toml\n[tool.ruff]\nline-length = 100\ntarget-version = \"py312\"\n\n[tool.ruff.lint]\nselect = [\"E\", \"F\", \"W\", \"I\", \"B\", \"C4\", \"UP\"]\nignore = [\"E501\"]  # Line too long (handled by formatter)\n\n[tool.ruff.lint.per-file-ignores]\n\"app/blueprints/admin/database.py\" = [\"C901\"]  # Complex functions until refactored\n\n[tool.mypy]\npython_version = \"3.12\"\nwarn_return_any = true\nwarn_unused_ignores = true\nplugins = [\"sqlalchemy.ext.mypy.plugin\"]\n\n# .pre-commit-config.yaml\nrepos:\n  - repo: https://github.com/astral-sh/ruff-pre-commit\n    rev: v0.8.6\n    hooks:\n      - id: ruff\n        args: [--fix]\n      - id: ruff-format",
+      "bestPractice": "Consistent code style through automated tooling. Pre-commit hooks enforce quality at commit time, reducing code review friction.",
+      "metrics": {
+        "lineCount": null,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "small",
+      "breakingChange": false,
+      "prerequisites": [
+        "Install pre-commit: pip install pre-commit",
+        "Run initial formatting: ruff format . && ruff check --fix ."
+      ]
+    }
+  ],
+  "project_context": {
+    "existing_features": [],
+    "tech_stack": [],
+    "target_audience": "IT Help Desk staff and system administrators at TTCU who need to quickly look up employee/user information across multiple identity systems",
+    "planned_features": [
+      "Employee Self-Service Portal",
+      "Bulk User Export",
+      "Access Request Workflow",
+      "Search Analytics Dashboard",
+      "REST API for External Integrations",
+      "Automated Notifications & Alerts",
+      "Additional Identity Provider Integrations",
+      "Scheduled Report Generation",
+      "Audit Log Enhanced Search & Alerts",
+      "AI-Powered Access Pattern Analysis",
+      "Advanced Search Filters",
+      "Natural Language Search",
+      "Automated Test Suite Implementation",
+      "Compliance Violation Detection & Reporting",
+      "Predictive Compliance & Proactive Remediation",
+      "Search History & Favorites"
+    ]
+  },
+  "summary": {
+    "total_ideas": 30,
+    "by_type": {
+      "code_improvements": 5,
+      "ui_ux_improvements": 5,
+      "security_hardening": 5,
+      "documentation_gaps": 5,
+      "performance_optimizations": 5,
+      "code_quality": 5
+    },
+    "by_status": {
+      "draft": 30
+    }
+  },
+  "generated_at": "2025-12-29T22:58:06.755003",
+  "updated_at": "2025-12-29T22:58:06.755012"
+}

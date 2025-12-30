@@ -1,0 +1,113 @@
+{
+  "code_improvements": [
+    {
+      "id": "ci-001",
+      "type": "code_improvements",
+      "title": "Aggregate Service Health Check Endpoint",
+      "description": "Add a /api/health endpoint that aggregates connection status from all registered services (LDAP, Genesys, Graph) into a single health check response. Returns detailed status per service plus overall system health.",
+      "rationale": "Each service already implements test_connection() method via the ISearchService interface. The ServiceContainer has get_all_by_interface() method to discover services. The pattern for aggregating service calls exists in SearchOrchestrator. This is just combining existing patterns into a new endpoint.",
+      "builds_upon": ["ISearchService.test_connection()", "ServiceContainer.get_all_by_interface()", "SearchOrchestrator concurrent pattern"],
+      "estimated_effort": "small",
+      "affected_files": [
+        "app/blueprints/admin/__init__.py",
+        "app/blueprints/admin/health.py"
+      ],
+      "existing_patterns": [
+        "Service interface pattern in app/interfaces/search_service.py",
+        "Container discovery in app/container.py",
+        "Concurrent execution in app/services/search_orchestrator.py"
+      ],
+      "implementation_approach": "Create new admin route that uses container.get_all_by_interface(ISearchService) to get all search services, runs test_connection() concurrently using ThreadPoolExecutor (same pattern as SearchOrchestrator), and returns aggregated JSON response with per-service status and overall health indicator.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "ci-002",
+      "type": "code_improvements",
+      "title": "Add Audit Log Archival Using ExpirableMixin Pattern",
+      "description": "Extend audit log management with automatic archival of old logs using the ExpirableMixin pattern. Add cleanup_old_logs() method to AuditLog model and admin UI controls for log retention management.",
+      "rationale": "The ExpirableMixin already provides cleanup_expired() and extends_expiration() methods. CacheableModel uses this for cache cleanup. AuditLog extends AuditableModel but doesn't have log retention/archival. The pattern for bulk cleanup exists and can be directly applied.",
+      "builds_upon": ["ExpirableMixin.cleanup_expired()", "CacheableModel pattern", "Admin database management UI"],
+      "estimated_effort": "medium",
+      "affected_files": [
+        "app/models/audit.py",
+        "app/services/audit_service_postgres.py",
+        "app/blueprints/admin/admin_audit.py",
+        "app/templates/admin/audit_logs.html"
+      ],
+      "existing_patterns": [
+        "ExpirableMixin in app/models/base.py",
+        "CacheableModel.cleanup_and_get_stats() in app/models/base.py",
+        "Admin cache management UI in app/templates/admin/database.html"
+      ],
+      "implementation_approach": "Add a LogArchivableMixin or extend AuditLog with cleanup_old_logs(days_to_keep) class method following the same pattern as cleanup_expired(). Add archive_logs() method to PostgresAuditService. Add admin UI controls similar to cache management with configurable retention period and manual cleanup button. Follow the existing pattern of returning stats dict from cleanup operations.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "ci-003",
+      "type": "code_improvements",
+      "title": "Add Bulk Operations to Blocked Numbers Management",
+      "description": "Extend the blocked numbers CRUD blueprint to support bulk add/delete operations. Allow importing multiple blocked numbers from CSV/JSON and bulk deletion of selected entries.",
+      "rationale": "ServiceDataModel already has sync_from_service_data() for bulk synchronization. The blocked_numbers.py has complete single-record CRUD with proper validation and audit logging. The Genesys service pattern supports batch operations. Simply extending the existing pattern to handle arrays of records.",
+      "builds_upon": ["Blocked numbers CRUD in blocked_numbers.py", "ServiceDataModel.sync_from_service_data()", "Genesys service API methods"],
+      "estimated_effort": "medium",
+      "affected_files": [
+        "app/blueprints/utilities/blocked_numbers.py",
+        "app/services/genesys_service.py",
+        "app/templates/utilities/blocked_numbers.html"
+      ],
+      "existing_patterns": [
+        "CRUD pattern in app/blueprints/utilities/blocked_numbers.py",
+        "Batch sync in app/models/base.py ServiceDataModel.sync_from_service_data()",
+        "Validation pattern for single records"
+      ],
+      "implementation_approach": "Add POST /api/blocked-numbers/bulk endpoint accepting array of {key, reason} objects. Reuse existing validation logic per item. Add DELETE /api/blocked-numbers/bulk accepting array of ANIs. Add audit logging summarizing bulk operations. Extend template with file upload for CSV import and multi-select for bulk delete. Follow existing error response patterns.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "ci-004",
+      "type": "code_improvements",
+      "title": "Implement Complete LogRepository with Interface",
+      "description": "Complete the LogRepository implementation to fully implement ILogRepository interface, similar to how CacheRepository implements ICacheRepository. Add proper abstraction for all log operations.",
+      "rationale": "The ILogRepository interface exists in app/interfaces/log_repository.py. CacheRepository shows the complete implementation pattern with interface implementation. LogRepository exists but may not fully implement the interface. This is about completing an existing pattern.",
+      "builds_upon": ["ILogRepository interface", "CacheRepository implementation pattern", "LogRepository existing code"],
+      "estimated_effort": "small",
+      "affected_files": [
+        "app/repositories/log_repository.py",
+        "app/interfaces/log_repository.py",
+        "app/container.py"
+      ],
+      "existing_patterns": [
+        "ICacheRepository interface in app/interfaces/cache_repository.py",
+        "CacheRepository implementation in app/repositories/cache_repository.py",
+        "Container service registration in app/container.py"
+      ],
+      "implementation_approach": "Review ILogRepository interface for all required methods. Ensure LogRepository implements all interface methods following CacheRepository patterns. Register log_repository in container if not already done. Update any direct model access in services to use repository instead.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "ci-005",
+      "type": "code_improvements",
+      "title": "Add Search Result Export Capability",
+      "description": "Add ability to export search results to CSV format. When a search returns results, provide a download button that exports the visible data to a CSV file.",
+      "rationale": "The blocked_numbers blueprint already returns JSON data via API endpoints. SearchCache stores result_data as JSONB. The SerializableMixin provides to_dict() for all models. Flask can easily serve CSV content. This combines existing patterns into a new feature.",
+      "builds_upon": ["SerializableMixin.to_dict()", "JSON API responses pattern", "Search result display"],
+      "estimated_effort": "small",
+      "affected_files": [
+        "app/blueprints/search/search_refactored.py",
+        "app/templates/search/index.html"
+      ],
+      "existing_patterns": [
+        "SerializableMixin.to_dict() in app/models/base.py",
+        "JSON API response pattern in app/blueprints/utilities/blocked_numbers.py",
+        "Search result rendering in app/templates/search/index.html"
+      ],
+      "implementation_approach": "Add GET /search/export endpoint that accepts the same search parameters. Use existing search orchestrator to get results. Convert results to CSV using Python csv module. Return as file download with proper Content-Disposition header. Add export button to search results UI that triggers download via JavaScript. Audit log the export action using existing audit_service.log_search() pattern.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    }
+  ]
+}

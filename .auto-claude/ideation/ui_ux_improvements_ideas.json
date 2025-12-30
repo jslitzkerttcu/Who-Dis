@@ -1,0 +1,86 @@
+{
+  "ui_ux_improvements": [
+    {
+      "id": "uiux-001",
+      "type": "ui_ux_improvements",
+      "title": "Add Skip-to-Content Link for Screen Reader Accessibility",
+      "description": "Add a visually hidden skip link at the top of the page that becomes visible on focus, allowing keyboard and screen reader users to skip the navigation and jump directly to main content.",
+      "rationale": "Skip links are a WCAG 2.1 Level A requirement. Currently, keyboard users must tab through all navigation items before reaching main content, which is frustrating and time-consuming for users with motor impairments or those using screen readers.",
+      "category": "accessibility",
+      "affected_components": ["app/templates/base.html"],
+      "screenshots": [],
+      "current_state": "No skip-to-content link exists. Keyboard users must tab through Home, Search, Utilities dropdown, Admin links, and user info before reaching main content - approximately 8-12 tab stops per page.",
+      "proposed_change": "Add a visually hidden skip link as the first focusable element in the body: <a href='#main-content' class='sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded-md focus:shadow-lg'>Skip to main content</a>. Add id='main-content' to the <main> element.",
+      "user_benefit": "Screen reader users and keyboard navigators can skip repetitive navigation on every page, improving efficiency and reducing frustration. Essential for users with motor impairments who find repeated tabbing difficult.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-002",
+      "type": "ui_ux_improvements",
+      "title": "Add Keyboard Shortcut for Global Search",
+      "description": "Implement a keyboard shortcut (Cmd/Ctrl + K or /) that focuses the search input from any page, enabling power users to quickly initiate searches without mouse interaction.",
+      "rationale": "IT Help Desk staff perform repeated searches throughout the day. Keyboard shortcuts significantly improve productivity for repetitive actions. This pattern is standard in modern applications (GitHub, Slack, VS Code).",
+      "category": "usability",
+      "affected_components": ["app/templates/base.html", "app/templates/search/index.html"],
+      "screenshots": [],
+      "current_state": "Users must click on the Search navigation link, wait for page load, then click or tab to the search input. No keyboard-driven quick access exists.",
+      "proposed_change": "Add a global keyboard listener in base.html that: 1) Listens for Cmd/Ctrl+K or / key, 2) If on search page, focuses the search input directly, 3) If on another page, navigates to search page with autofocus. Add a visual indicator (e.g., 'Press / to search') near navigation. Implementation: document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); focusOrNavigateSearch(); } });",
+      "user_benefit": "Power users can initiate searches instantly from any page without moving hands from keyboard. Reduces time-to-search by 3-5 seconds per lookup, saving significant time over hundreds of daily searches.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-003",
+      "type": "ui_ux_improvements",
+      "title": "Add Sticky Table Headers for Long Data Tables",
+      "description": "Implement sticky headers on data tables (User Management, Audit Logs, Employee Profiles, Blocked Numbers) so column headers remain visible when scrolling through many rows.",
+      "rationale": "Admin pages often display 50+ rows of data. When scrolling, users lose context of which column contains what data. This is especially problematic in Audit Logs where multiple similar-looking columns exist (timestamps, IPs, emails).",
+      "category": "usability",
+      "affected_components": ["app/templates/admin/users.html", "app/templates/admin/audit_logs.html", "app/templates/admin/employee_profiles.html", "app/templates/utilities/blocked_numbers.html"],
+      "screenshots": [],
+      "current_state": "Table headers scroll out of view when viewing rows below the fold. Users must scroll back up to remember column meanings, especially for tables with 6+ columns like the User Management and Audit Logs tables.",
+      "proposed_change": "Add sticky positioning to thead elements: <thead class='bg-gray-50 sticky top-0 z-10 shadow-sm'>. For tables within scrollable containers, ensure the container has 'overflow-y-auto max-h-[calc(100vh-300px)]' and the thead has 'sticky top-0'. Add a subtle shadow on scroll for visual separation.",
+      "user_benefit": "Administrators can scroll through large datasets while always knowing which column they're viewing. Reduces errors when editing or reviewing data and improves efficiency by eliminating scroll-up-to-check-column behavior.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-004",
+      "type": "ui_ux_improvements",
+      "title": "Add Breadcrumb Navigation for Admin Section",
+      "description": "Implement breadcrumb navigation in admin pages to show hierarchical context (e.g., Admin > User Management > Edit User) and enable quick navigation to parent sections.",
+      "rationale": "The admin section has multiple levels (Admin Index > Feature Page > Detail/Modal). Currently users can only navigate back using the 'Back to Admin' button. Breadcrumbs provide clear location context and multiple navigation options.",
+      "category": "usability",
+      "affected_components": ["app/templates/admin/users.html", "app/templates/admin/audit_logs.html", "app/templates/admin/configuration.html", "app/templates/admin/database.html", "app/templates/admin/job_role_compliance.html", "app/templates/admin/compliance_dashboard.html", "app/templates/admin/employee_profiles.html", "app/templates/admin/error_logs.html", "app/templates/admin/sessions.html"],
+      "screenshots": [],
+      "current_state": "Admin pages show page title and a 'Back to Admin' button. No visual hierarchy or path is shown. When deep in a feature (e.g., viewing a specific audit log detail), users lack context of their location in the app structure.",
+      "proposed_change": "Add a breadcrumb component below the navigation bar on all admin pages: <nav class='text-sm mb-4' aria-label='Breadcrumb'><ol class='flex items-center space-x-2 text-gray-500'><li><a href='/admin' class='hover:text-ttcu-green'>Admin</a></li><li><span class='mx-2'>/</span></li><li class='text-gray-900 font-medium'>Current Page</li></ol></nav>. For nested views, add intermediate levels dynamically.",
+      "user_benefit": "Admins always know where they are in the application hierarchy. Enables one-click navigation to any parent level without using browser back button. Especially valuable when deep-linking to specific pages from notifications or emails.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    },
+    {
+      "id": "uiux-005",
+      "type": "ui_ux_improvements",
+      "title": "Add Escape Key Handler for All Modals",
+      "description": "Implement consistent keyboard escape key handling for all modal dialogs, allowing users to close modals by pressing Escape in addition to clicking the close button or clicking outside.",
+      "rationale": "Multiple modals exist (Edit User, Note Modal, Audit Detail, Add Blocked Number, Delete Confirm) that only close on click-outside or close button click. Keyboard users expect Escape to close modals - this is standard UX and a WCAG accessibility recommendation.",
+      "category": "interaction",
+      "affected_components": ["app/templates/search/index.html", "app/templates/admin/users.html", "app/templates/admin/audit_logs.html", "app/templates/utilities/blocked_numbers.html", "app/templates/admin/job_role_compliance.html"],
+      "screenshots": [],
+      "current_state": "Modals can be closed by: 1) Clicking the close X button, 2) Clicking outside the modal overlay. No keyboard escape handling exists. The noteModal, editUserModal, auditDetailModal, number-modal, and delete-modal all lack escape key functionality.",
+      "proposed_change": "Add a global modal escape handler in base.html or create a reusable modal component: document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const openModals = document.querySelectorAll('[id$=\"Modal\"]:not(.hidden), [id$=\"-modal\"]:not(.hidden)'); openModals.forEach(m => m.classList.add('hidden')); } }); Also add focus trapping within modals to prevent tabbing outside the modal while open.",
+      "user_benefit": "Keyboard users can quickly dismiss modals without reaching for mouse. Improves workflow speed for power users who work primarily via keyboard. Creates consistent, predictable modal behavior matching user expectations from other applications.",
+      "status": "draft",
+      "created_at": "2025-12-29T23:00:00.000Z"
+    }
+  ],
+  "metadata": {
+    "generated_at": "2025-12-29T23:00:00.000Z",
+    "analysis_type": "static",
+    "puppeteer_available": false,
+    "templates_analyzed": 26,
+    "total_ideas": 5
+  }
+}

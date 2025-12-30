@@ -1,0 +1,83 @@
+{
+  "documentation_gaps": [
+    {
+      "id": "doc-001",
+      "type": "documentation_gaps",
+      "title": "Add CONTRIBUTING.md with developer onboarding guide",
+      "description": "The project lacks a CONTRIBUTING.md file to guide new developers or contributors. There is no documented process for setting up a development environment, running tests, submitting changes, or understanding code review expectations. CLAUDE.md exists but is AI-focused rather than human-developer focused.",
+      "rationale": "New team members need to quickly understand how to contribute code. Without a CONTRIBUTING.md, onboarding takes longer as developers must discover conventions through trial and error or by asking others. This is critical for team scaling and reducing institutional knowledge dependency.",
+      "category": "readme",
+      "targetAudience": "contributors",
+      "affectedAreas": ["CONTRIBUTING.md (new file)", "README.md (reference to CONTRIBUTING.md)"],
+      "currentDocumentation": "CLAUDE.md provides AI-focused guidance. README.md has basic setup but no contribution workflow.",
+      "proposedContent": "Create CONTRIBUTING.md covering: development environment setup, code style guidelines (ruff/mypy/black), branch naming conventions, PR requirements, testing expectations (when implemented), commit message format, code review process, and how to add new services/models/routes following existing patterns.",
+      "priority": "high",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-002",
+      "type": "documentation_gaps",
+      "title": "Document scripts with --help and usage examples",
+      "description": "The scripts/ directory contains 8 utility scripts (check_config_status.py, diagnose_config.py, refresh_employee_profiles.py, etc.) but none have argparse/--help documentation. Users must read source code to understand script arguments, options, and expected behavior.",
+      "rationale": "IT administrators and developers frequently use these scripts for maintenance tasks. Without proper CLI documentation, users may run scripts incorrectly or miss important options. The refresh_employee_profiles.py script is particularly critical as it has a 'refresh' argument that isn't self-documenting.",
+      "category": "examples",
+      "targetAudience": "maintainers",
+      "affectedAreas": ["scripts/check_config_status.py", "scripts/verify_encrypted_config.py", "scripts/diagnose_config.py", "scripts/refresh_employee_profiles.py", "scripts/export_config.py", "scripts/clear_encrypted_config.py", "scripts/drop_legacy_tables.py", "scripts/verify_deployment.py"],
+      "currentDocumentation": "Scripts have basic module docstrings but no command-line help. CLAUDE.md shows example invocations but not all options.",
+      "proposedContent": "Add argparse to each script with: --help documentation, positional and optional arguments, usage examples in docstring header, exit code documentation. Create docs/scripts.md as a reference guide for all maintenance scripts.",
+      "priority": "high",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-003",
+      "type": "documentation_gaps",
+      "title": "Create HTMX interaction patterns documentation",
+      "description": "The application uses a hybrid Jinja2 + HTMX architecture but there's no documentation explaining how HTMX fragments work, which endpoints return partials vs full pages, or patterns for adding new HTMX-enabled features. Developers must reverse-engineer existing templates.",
+      "rationale": "HTMX is central to the modern UI architecture. Without documentation, developers may incorrectly implement endpoints (returning full pages instead of fragments) or miss important patterns like hx-target, hx-swap, and request context preservation. This slows feature development.",
+      "category": "architecture",
+      "targetAudience": "developers",
+      "affectedAreas": ["docs/frontend.md (new file)", "app/templates/", "app/blueprints/", "docs/architecture.md (cross-reference)"],
+      "currentDocumentation": "docs/architecture.md mentions 'Hybrid server-side + HTMX approach' but doesn't explain implementation patterns. CLAUDE.md mentions HTMX fragments briefly.",
+      "proposedContent": "Create docs/frontend.md covering: HTMX response patterns (fragments vs full pages), template inheritance structure, JavaScript utilities (escapeHtml, session timeout modal), Tailwind CSS conventions, adding new dynamic features, handling HTMX errors (HX-Redirect patterns), and form submission patterns.",
+      "priority": "medium",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-004",
+      "type": "documentation_gaps",
+      "title": "Expand troubleshooting with common error solutions",
+      "description": "The current troubleshooting section in README.md and docs/database.md covers only 3 common problems. There's no FAQ, no error message reference, and no debugging guide for service integration issues (LDAP connection failures, Genesys OAuth errors, Graph API permission problems).",
+      "rationale": "Help desk staff and administrators encounter various errors in production. Without comprehensive troubleshooting documentation, they escalate to developers for routine issues. A good troubleshooting guide reduces support burden and improves incident response time.",
+      "category": "troubleshooting",
+      "targetAudience": "maintainers",
+      "affectedAreas": ["docs/troubleshooting.md (new file)", "README.md (link to troubleshooting docs)"],
+      "currentDocumentation": "README.md has 'Troubleshooting' section with 3 issues. docs/database.md has basic PostgreSQL troubleshooting.",
+      "proposedContent": "Create docs/troubleshooting.md with: comprehensive FAQ section, common error messages with solutions, service-specific debugging (LDAP/Graph/Genesys), log analysis guide, health check procedures, performance troubleshooting (slow searches), cache issues, and escalation procedures.",
+      "priority": "medium",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-005",
+      "type": "documentation_gaps",
+      "title": "Add docstrings to middleware components for auth flow clarity",
+      "description": "The middleware components (authentication_handler.py, role_resolver.py, user_provisioner.py, session_manager.py) lack comprehensive docstrings explaining their purpose, dependencies, and interaction patterns. The auth.py file uses these but the flow isn't clearly documented inline.",
+      "rationale": "Authentication is a critical security boundary. Developers modifying auth behavior need to understand the complete middleware pipeline. Without clear docstrings, there's risk of introducing security vulnerabilities by misunderstanding the authentication flow.",
+      "category": "api_docs",
+      "targetAudience": "developers",
+      "affectedAreas": ["app/middleware/authentication_handler.py", "app/middleware/role_resolver.py", "app/middleware/user_provisioner.py", "app/middleware/session_manager.py", "app/middleware/audit_logger.py"],
+      "currentDocumentation": "docs/architecture.md explains middleware pipeline conceptually. Individual files have minimal docstrings (e.g., auth.py has 'DEPRECATED' notes but no module-level explanation).",
+      "proposedContent": "Add module-level docstrings to each middleware component explaining: purpose, when it executes in the pipeline, what it reads/modifies on g/request, configuration dependencies, error handling behavior, and example usage. Add inline comments for non-obvious security decisions.",
+      "priority": "medium",
+      "estimatedEffort": "small"
+    }
+  ],
+  "metadata": {
+    "filesAnalyzed": 85,
+    "documentedModules": 6,
+    "undocumentedAreas": ["middleware flow", "HTMX patterns", "script usage", "contributor workflow", "troubleshooting depth"],
+    "existingDocs": ["README.md", "CLAUDE.md", "CHANGELOG.md", "docs/architecture.md", "docs/database.md", "docs/job-role-compliance.md", "docs/phone_number_matching.md", "docs/PLANNING.md", "docs/TASKS.md"],
+    "missingDocs": ["CONTRIBUTING.md", "docs/frontend.md", "docs/troubleshooting.md", "docs/scripts.md"],
+    "readmeLastUpdated": "2024-12-06",
+    "generatedAt": "2025-12-29T22:55:00Z"
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "performance_optimizations": [
+    {
+      "id": "perf-001",
+      "type": "performance_optimizations",
+      "title": "Fix N+1 Query Pattern in System Roles API",
+      "description": "The api_system_roles() function in job_role_compliance.py has an N+1 query pattern where len(role.role_mappings) is called for each role in the paginated results, triggering a separate database query for each role to fetch its mappings count.",
+      "rationale": "Each time the system roles API is called with 20 roles per page, 21 database queries are executed (1 for the roles + 20 for mapping counts). This pattern mirrors the already-fixed job_codes endpoint which properly uses a bulk mapping_count query. Applying the same pattern would reduce queries from O(n+1) to O(2).",
+      "category": "database",
+      "impact": "high",
+      "affectedAreas": ["app/blueprints/admin/job_role_compliance.py"],
+      "currentMetric": "21 database queries per page load for system roles (1 + 20 N+1 queries)",
+      "expectedImprovement": "Reduce to 2 queries per page load (~90% query reduction), ~100-500ms faster API response",
+      "implementation": "1. Add bulk mapping count query similar to api_job_codes():\n   mapping_count_query = db.session.query(\n       JobRoleMapping.system_role_id,\n       db.func.count(JobRoleMapping.id).label('count')\n   ).filter(JobRoleMapping.system_role_id.in_(role_ids)).group_by(JobRoleMapping.system_role_id).all()\n2. Create dictionary: mapping_counts = {row[0]: row[1] for row in mapping_count_query}\n3. Replace len(role.role_mappings) with mapping_counts.get(role.id, 0)",
+      "tradeoffs": "Minor code refactoring required, but the pattern already exists in api_job_codes()",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "perf-002",
+      "type": "performance_optimizations",
+      "title": "Optimize Compliance Overview Statistics with Database Aggregation",
+      "description": "The api_compliance_overview() function loads ALL compliance violations into memory and then iterates through them multiple times to calculate statistics (grouping by severity, counting violation types). This is extremely inefficient for large datasets.",
+      "rationale": "When compliance checks run on hundreds or thousands of employees, loading all violations into Python memory and iterating multiple times (once for employee UPN extraction, once for each severity level, once for violation types) causes significant memory pressure and slow response times. Database aggregation is orders of magnitude more efficient.",
+      "category": "database",
+      "impact": "high",
+      "affectedAreas": ["app/blueprints/admin/job_role_compliance.py"],
+      "currentMetric": "Loads all violations into memory, O(n) memory usage, multiple O(n) iterations",
+      "expectedImprovement": "Reduce memory usage by ~95%, reduce API response time by 50-80% for large datasets",
+      "implementation": "1. Replace Python list comprehension with SQL aggregation:\n   severity_stats = db.session.query(\n       ComplianceCheck.violation_severity,\n       func.count(ComplianceCheck.id)\n   ).filter(ComplianceCheck.compliance_status != 'compliant'\n   ).group_by(ComplianceCheck.violation_severity).all()\n\n2. Similarly for violation types:\n   violation_types = db.session.query(\n       ComplianceCheck.compliance_status,\n       func.count(ComplianceCheck.id)\n   ).filter(ComplianceCheck.compliance_status != 'compliant'\n   ).group_by(ComplianceCheck.compliance_status).order_by(desc('count')).limit(5).all()\n\n3. Use COUNT(DISTINCT employee_upn) for employees_with_violations",
+      "tradeoffs": "More complex SQL queries, but leverages PostgreSQL's optimized aggregation",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "perf-003",
+      "type": "performance_optimizations",
+      "title": "Batch Genesys Cache Lookups to Eliminate N+1 Queries",
+      "description": "When processing user data in genesys_service.py, individual database queries are made for each skill, group, and location in a user's profile via get_skill_name(), get_group_name(), and get_location_info() methods. A user with 5 skills, 3 groups, and 2 locations causes 10 additional database queries.",
+      "rationale": "The Genesys cache lookup methods are called inside loops in _process_expanded_user_data() and get_user_by_id(). Each call performs a separate database query. With typical users having multiple skills/groups/locations, this compounds quickly and adds 50-200ms to search results.",
+      "category": "database",
+      "impact": "medium",
+      "affectedAreas": ["app/services/genesys_cache_db.py", "app/services/genesys_service.py"],
+      "currentMetric": "10+ database queries per user for skills/groups/locations cache lookups",
+      "expectedImprovement": "Reduce to 3 queries max (one per type), ~50-150ms faster user data processing",
+      "implementation": "1. Add batch lookup methods to GenesysCacheDB:\n   def get_skills_by_ids(self, skill_ids: List[str]) -> Dict[str, str]:\n       skills = ExternalServiceData.query.filter(\n           ExternalServiceData.service_name == 'genesys',\n           ExternalServiceData.data_type == 'skill',\n           ExternalServiceData.service_id.in_(skill_ids)\n       ).all()\n       return {s.service_id: s.name for s in skills}\n\n2. Similar methods for groups and locations\n\n3. Update genesys_service.py to collect all IDs first, batch fetch, then map",
+      "tradeoffs": "Requires refactoring lookup pattern but significantly reduces database roundtrips",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "perf-004",
+      "type": "performance_optimizations",
+      "title": "Add Resource Hints for CDN-Loaded Assets",
+      "description": "The base.html template loads Tailwind CSS (cdn.tailwindcss.com), Font Awesome (cdnjs.cloudflare.com), and HTMX (unpkg.com) from CDNs without any resource hints. Adding preconnect and dns-prefetch hints can reduce connection establishment time.",
+      "rationale": "Browser needs to perform DNS lookup, TCP connection, and TLS negotiation for each CDN domain before downloading assets. Preconnect hints allow this to happen in parallel with HTML parsing, reducing blocking time by 100-300ms on initial page loads.",
+      "category": "network",
+      "impact": "medium",
+      "affectedAreas": ["app/templates/base.html"],
+      "currentMetric": "3 sequential CDN connections on initial page load (~300-600ms blocking)",
+      "expectedImprovement": "~100-300ms faster initial page load by parallelizing DNS/TCP/TLS",
+      "implementation": "Add these resource hints to <head> before the CSS/JS loads:\n\n<link rel=\"preconnect\" href=\"https://cdn.tailwindcss.com\">\n<link rel=\"preconnect\" href=\"https://cdnjs.cloudflare.com\" crossorigin>\n<link rel=\"preconnect\" href=\"https://unpkg.com\">\n<link rel=\"dns-prefetch\" href=\"https://cdn.tailwindcss.com\">\n<link rel=\"dns-prefetch\" href=\"https://cdnjs.cloudflare.com\">\n<link rel=\"dns-prefetch\" href=\"https://unpkg.com\">",
+      "tradeoffs": "Minimal overhead, no downsides. Could also consider self-hosting these assets for better reliability.",
+      "estimatedEffort": "trivial"
+    },
+    {
+      "id": "perf-005",
+      "type": "performance_optimizations",
+      "title": "Implement LDAP Connection Pooling",
+      "description": "Each LDAP search operation creates a new Server and Connection object, performs the search, then closes the connection. Connection establishment to LDAP servers involves TCP handshake, TLS negotiation, and BIND authentication, adding ~50-200ms per request.",
+      "rationale": "LDAP connections are expensive to establish. The ldap3 library supports connection pooling which maintains a pool of authenticated connections ready for reuse. This eliminates connection overhead for subsequent requests and is particularly valuable for the concurrent search pattern where LDAP, Genesys, and Graph run simultaneously.",
+      "category": "network",
+      "impact": "medium",
+      "affectedAreas": ["app/services/ldap_service.py"],
+      "currentMetric": "~100-200ms connection overhead per LDAP search",
+      "expectedImprovement": "~100-150ms faster LDAP searches after initial connection, reduced TCP/TLS overhead",
+      "implementation": "1. Use ldap3 Server Pool or lazy connection strategy:\n   from ldap3 import ServerPool, Connection, ROUND_ROBIN\n\n2. Create a class-level connection pool:\n   self._server_pool = ServerPool([Server(self.host, ...)], ROUND_ROBIN)\n   self._connection_pool = Connection(self._server_pool, pool_size=5, ...)\n\n3. Use context manager for connection reuse:\n   with self._connection_pool.bind() as conn:\n       conn.search(...)\n\n4. Consider ldap3's auto_bind=False with explicit bind for better control",
+      "tradeoffs": "Requires careful connection lifecycle management, must handle connection timeouts and reconnection. Pool size needs tuning based on concurrent load.",
+      "estimatedEffort": "medium"
+    }
+  ],
+  "metadata": {
+    "filesAnalyzed": 15,
+    "primaryLanguage": "Python",
+    "framework": "Flask",
+    "database": "PostgreSQL",
+    "identifiedPatterns": [
+      "N+1 query patterns in admin APIs",
+      "In-memory filtering instead of database aggregation",
+      "Missing CDN resource hints",
+      "Per-request LDAP connections",
+      "Individual cache lookups instead of batch operations"
+    ],
+    "potentialImprovements": [
+      "~90% reduction in database queries for system roles API",
+      "~50-80% faster compliance overview with SQL aggregation",
+      "~100-300ms faster initial page loads with preconnect hints",
+      "~100-150ms faster LDAP searches with connection pooling"
+    ],
+    "generatedAt": "2025-12-29T22:55:00Z"
+  }
+}

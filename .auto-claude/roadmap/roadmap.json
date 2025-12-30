@@ -1,0 +1,668 @@
+{
+  "id": "roadmap-20251229",
+  "project_name": "WhoDis - Enterprise Identity Search Platform",
+  "version": "1.0",
+  "vision": "A comprehensive Flask-based identity lookup service that provides unified search across Active Directory, Microsoft Graph, and Genesys Cloud with enterprise-grade security and compliance features.",
+  "target_audience": {
+    "primary": "IT Help Desk staff and system administrators at TTCU who need to quickly look up employee/user information across multiple identity systems",
+    "secondary": [
+      "IT Security personnel conducting access audits",
+      "HR administrators verifying employee system access",
+      "Contact center managers checking agent configurations in Genesys"
+    ]
+  },
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "Foundation Enhancement",
+      "description": "Address technical debt, implement testing infrastructure, and deliver quick wins that improve reliability and developer experience",
+      "order": 1,
+      "status": "planned",
+      "features": [
+        "feature-1",
+        "feature-2",
+        "feature-3",
+        "feature-4"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-1-1",
+          "title": "Test Infrastructure Established",
+          "description": "Pytest framework configured with initial test coverage for core services",
+          "features": [
+            "feature-1"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-1-2",
+          "title": "Search UX Improvements Live",
+          "description": "Enhanced search experience with history, favorites, and export capabilities",
+          "features": [
+            "feature-2",
+            "feature-3",
+            "feature-4"
+          ],
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Integration & Reporting",
+      "description": "Expand platform capabilities with REST API for external integrations and comprehensive reporting features for compliance and analytics",
+      "order": 2,
+      "status": "planned",
+      "features": [
+        "feature-5",
+        "feature-6",
+        "feature-7",
+        "feature-8",
+        "feature-9"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-2-1",
+          "title": "REST API Available",
+          "description": "External systems can query WhoDis via documented REST endpoints",
+          "features": [
+            "feature-5"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-2-2",
+          "title": "Reporting Suite Complete",
+          "description": "Scheduled reports, compliance dashboards, and analytics available to admins",
+          "features": [
+            "feature-6",
+            "feature-7",
+            "feature-8"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-2-3",
+          "title": "Enhanced Job Role Compliance",
+          "description": "Improved compliance matrix with automated violation detection and reporting",
+          "features": [
+            "feature-9"
+          ],
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Automation & Self-Service",
+      "description": "Introduce workflow automation and self-service capabilities to reduce IT help desk burden and empower employees",
+      "order": 3,
+      "status": "planned",
+      "features": [
+        "feature-10",
+        "feature-11",
+        "feature-12",
+        "feature-13"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-3-1",
+          "title": "Self-Service Portal Live",
+          "description": "Employees can view their own identity data without IT assistance",
+          "features": [
+            "feature-10"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-3-2",
+          "title": "Workflow Automation Active",
+          "description": "Access request workflows and automated notifications operational",
+          "features": [
+            "feature-11",
+            "feature-12"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-3-3",
+          "title": "Additional Integrations",
+          "description": "New identity provider integrations available",
+          "features": [
+            "feature-13"
+          ],
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Intelligence & Innovation",
+      "description": "Leverage AI and advanced analytics to provide predictive insights and intelligent recommendations",
+      "order": 4,
+      "status": "planned",
+      "features": [
+        "feature-14",
+        "feature-15",
+        "feature-16"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-4-1",
+          "title": "AI-Powered Insights Available",
+          "description": "Machine learning models provide access pattern analysis and security recommendations",
+          "features": [
+            "feature-14",
+            "feature-15"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-4-2",
+          "title": "Predictive Capabilities",
+          "description": "System can predict compliance issues and suggest proactive actions",
+          "features": [
+            "feature-16"
+          ],
+          "status": "planned"
+        }
+      ]
+    }
+  ],
+  "features": [
+    {
+      "id": "feature-1",
+      "title": "Automated Test Suite Implementation",
+      "description": "Implement comprehensive pytest-based testing framework with unit tests for services, integration tests for API endpoints, and fixture management for database testing. This addresses a critical technical debt item identified in the codebase.",
+      "rationale": "Testing infrastructure is essential for maintaining code quality and enabling confident refactoring. Without tests, changes risk breaking existing functionality. Enterprise IAM competitors like SailPoint require extensive customization (pain-sp-6) - having solid tests ensures WhoDis remains reliable and easy to maintain.",
+      "priority": "must",
+      "complexity": "medium",
+      "impact": "high",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "planned",
+      "acceptance_criteria": [
+        "pytest configured in requirements.txt and working with 'pytest' command",
+        "Unit tests exist for core services (ldap_service, graph_service, genesys_service)",
+        "Integration tests exist for search endpoints",
+        "Test coverage report available (minimum 60% coverage for services)",
+        "CI-compatible test configuration (can run headless)",
+        "Database fixtures support test isolation"
+      ],
+      "user_stories": [
+        "As a developer, I want to run automated tests so that I can verify changes don't break existing functionality",
+        "As a maintainer, I want test coverage reports so that I can identify untested code paths"
+      ],
+      "linked_spec_id": "001-automated-test-suite-implementation",
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-2",
+      "title": "Search History & Favorites",
+      "description": "Enable users to view their recent search history and save frequently-searched users as favorites for quick access. History is stored per-user with configurable retention period.",
+      "rationale": "IT help desk staff often search for the same users repeatedly during ticket resolution. Quick access to recent and favorite searches significantly reduces time spent on identity lookups. This addresses the pain point that enterprise IAM search requires technical skills (pain-sp-4) by making common lookups instant.",
+      "priority": "should",
+      "complexity": "low",
+      "impact": "high",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Users can view their last 20 searches with timestamps",
+        "Users can click a history item to re-run the search",
+        "Users can mark search results as favorites (star icon)",
+        "Favorites appear in a dedicated section above search results",
+        "History and favorites persist across sessions",
+        "Users can clear their history and remove favorites"
+      ],
+      "user_stories": [
+        "As an IT help desk agent, I want to see my recent searches so that I can quickly re-lookup users I was helping earlier",
+        "As a contact center manager, I want to save my team members as favorites so that I can check their Genesys status quickly"
+      ],
+      "linked_spec_id": "002-search-history-favorites",
+      "competitor_insight_ids": [
+        "pain-sp-4",
+        "pain-sp-5"
+      ]
+    },
+    {
+      "id": "feature-3",
+      "title": "Bulk User Export",
+      "description": "Allow administrators to export search results and user data to CSV/Excel format for reporting, compliance documentation, and integration with external systems.",
+      "rationale": "Compliance audits and HR reporting often require user data exports. Currently this requires manual copying. Enterprise competitors have 'weak customization' and 'limited reporting' (pain-gen-5, pain-sp-6) - easy export fills a common gap. Self-hosted WhoDis can provide data without vendor dependencies.",
+      "priority": "should",
+      "complexity": "low",
+      "impact": "medium",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Export button available on search results page for Admin/Editor roles",
+        "Export includes all displayed fields (AD, Graph, Genesys data)",
+        "CSV format with proper escaping and UTF-8 encoding",
+        "Excel (.xlsx) format option available",
+        "Export includes timestamp and search criteria metadata",
+        "Audit log entry created for each export operation"
+      ],
+      "user_stories": [
+        "As an IT security analyst, I want to export user data to CSV so that I can analyze it in Excel for compliance reports",
+        "As an HR administrator, I want to export employee access data so that I can document quarterly access reviews"
+      ],
+      "linked_spec_id": "003-bulk-user-export",
+      "competitor_insight_ids": [
+        "pain-gen-5",
+        "pain-sp-6"
+      ]
+    },
+    {
+      "id": "feature-4",
+      "title": "Advanced Search Filters",
+      "description": "Extend search capabilities with filters for department, location, account status, Genesys skills, and date ranges (hire date, password expiration). Filters persist across searches.",
+      "rationale": "While simple search is a key differentiator vs. complex IAM tools, power users need filtering for specific lookup scenarios. This maintains simplicity for basic searches while enabling advanced use cases. Addresses Microsoft's 'feature relocation' frustration (pain-entra-1) by providing stable, consistent filter interface.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Filter panel available via toggle button on search page",
+        "Filters include: Department, Location, Account Status (enabled/disabled), Genesys Skills",
+        "Date range filters for: Hire Date, Password Expiration, Last Logon",
+        "Filters can be combined (AND logic)",
+        "Active filters displayed as chips that can be removed",
+        "Filters persist in user session across page refreshes"
+      ],
+      "user_stories": [
+        "As an IT admin, I want to filter by department so that I can find all users in a specific business unit",
+        "As a contact center manager, I want to filter by Genesys skill so that I can see all agents with specific capabilities"
+      ],
+      "linked_spec_id": "004-advanced-search-filters",
+      "competitor_insight_ids": [
+        "pain-entra-1",
+        "pain-sp-4"
+      ]
+    },
+    {
+      "id": "feature-5",
+      "title": "REST API for External Integrations",
+      "description": "Implement documented REST API endpoints for programmatic access to WhoDis search and user data. Includes API key authentication, rate limiting, and OpenAPI/Swagger documentation.",
+      "rationale": "External systems (ticketing, automation, custom tools) need programmatic access to identity data. This is a known gap in current WhoDis. Addresses Genesys 'deployments are not automated' complaint (pain-gen-3) by enabling scripted identity lookups. REST API is standard expectation for modern enterprise tools.",
+      "priority": "must",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-2",
+      "dependencies": [
+        "feature-1"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "REST API available at /api/v1/* endpoints",
+        "API key authentication with key generation in admin panel",
+        "Endpoints: GET /api/v1/search, GET /api/v1/users/{email}, GET /api/v1/groups",
+        "Rate limiting (configurable, default 100 requests/minute)",
+        "OpenAPI 3.0 specification available at /api/v1/docs",
+        "Interactive Swagger UI for API exploration",
+        "All API calls logged in audit trail"
+      ],
+      "user_stories": [
+        "As a developer, I want to query WhoDis via REST API so that I can integrate identity data into our ticketing system",
+        "As an automation engineer, I want programmatic access so that I can build scripts for bulk user verification"
+      ],
+      "competitor_insight_ids": [
+        "pain-gen-3"
+      ]
+    },
+    {
+      "id": "feature-6",
+      "title": "Scheduled Report Generation",
+      "description": "Enable administrators to configure scheduled reports that run automatically and are delivered via email or saved to designated locations. Reports include search analytics, compliance summaries, and audit trails.",
+      "rationale": "Manual report generation is time-consuming and often forgotten. Scheduled reports ensure compliance documentation stays current. Addresses the 'limited reporting' pain point seen in Genesys (pain-gen-5) and need for compliance evidence. Reduces dependency on IT staff for routine reporting.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-2",
+      "dependencies": [
+        "feature-3"
+      ],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Admin interface for creating/managing scheduled reports",
+        "Schedule options: daily, weekly, monthly, custom cron expression",
+        "Report types: Search Usage Analytics, Compliance Summary, Audit Log Export",
+        "Delivery options: Email (with attachment) or save to configured location",
+        "Report templates customizable (fields, filters, format)",
+        "Report execution history with status and download links",
+        "Failed report notifications to admin"
+      ],
+      "user_stories": [
+        "As an IT manager, I want weekly usage reports so that I can track WhoDis adoption without manual effort",
+        "As a compliance officer, I want monthly compliance summaries so that I can include them in audit packages"
+      ],
+      "linked_spec_id": "005-scheduled-report-generation",
+      "competitor_insight_ids": [
+        "pain-gen-5"
+      ]
+    },
+    {
+      "id": "feature-7",
+      "title": "Search Analytics Dashboard",
+      "description": "Provide administrators with visual analytics dashboard showing search patterns, top searched users, search volume trends, service response times, and cache hit rates.",
+      "rationale": "Understanding usage patterns helps optimize the system and demonstrate ROI. Addresses SailPoint's 'no clear benefits' complaint (pain-okta-2) by making value visible. Dashboard provides operational insights without complex reporting tools.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-2",
+      "dependencies": [],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Dashboard page available to Admin role",
+        "Charts: Search volume over time (day/week/month), Top 10 searched users, Search by source (LDAP/Graph/Genesys)",
+        "Metrics: Average search time, Cache hit rate, Failed search rate",
+        "Date range selector for all charts",
+        "Real-time stats: Active sessions, Searches today, API token status",
+        "Export dashboard data to PDF/PNG for presentations"
+      ],
+      "user_stories": [
+        "As an IT director, I want to see usage analytics so that I can demonstrate WhoDis value to leadership",
+        "As a system administrator, I want to see performance metrics so that I can identify optimization opportunities"
+      ],
+      "linked_spec_id": "006-search-analytics-dashboard",
+      "competitor_insight_ids": [
+        "pain-okta-2"
+      ]
+    },
+    {
+      "id": "feature-8",
+      "title": "Audit Log Enhanced Search & Alerts",
+      "description": "Enhance audit log capabilities with full-text search, advanced filtering, saved search queries, and configurable alerts for suspicious activity patterns (e.g., excessive searches for same user, after-hours access).",
+      "rationale": "Security teams need sophisticated audit log analysis for incident investigation and compliance. Okta's 'audit tools under development' (pain-okta-5) shows competitors still catching up. WhoDis can lead with comprehensive audit capabilities. Real-time alerts enable proactive security response.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "high",
+      "phase_id": "phase-2",
+      "dependencies": [],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Full-text search across all audit log fields",
+        "Advanced filters: Date range, Event type, User, IP, Search query pattern",
+        "Saved searches for frequently used filters",
+        "Alert rules configurable in admin panel",
+        "Alert triggers: Excessive searches for single user, After-hours access, Failed access attempts",
+        "Alert notifications via in-app notification and email",
+        "Alert history with acknowledgment tracking"
+      ],
+      "user_stories": [
+        "As a security analyst, I want to search audit logs for specific patterns so that I can investigate potential security incidents",
+        "As a compliance officer, I want alerts on suspicious activity so that I can respond promptly to policy violations"
+      ],
+      "linked_spec_id": "007-audit-log-enhanced-search-alerts",
+      "competitor_insight_ids": [
+        "pain-okta-5"
+      ]
+    },
+    {
+      "id": "feature-9",
+      "title": "Compliance Violation Detection & Reporting",
+      "description": "Enhance job role compliance matrix with automated detection of role violations, visual compliance dashboard, and exportable compliance reports for auditors.",
+      "rationale": "Manual compliance checking is error-prone and time-consuming. Credit union regulatory requirements demand robust access controls. This addresses a key differentiator (credit union compliance needs not met by generic IAM per gap-5) and strengthens WhoDis's unique value proposition for financial services.",
+      "priority": "must",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-2",
+      "dependencies": [],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Automated daily scan comparing actual roles to expected roles per job code",
+        "Compliance dashboard showing: Compliant users %, Violations by type, Trend over time",
+        "Violation types: Missing required role, Excessive privileges, Unknown job code",
+        "Violation drill-down with user details and specific role mismatches",
+        "Export compliance report in format suitable for auditors (PDF with attestation)",
+        "Email notification to compliance team on new violations detected",
+        "Bulk action to generate access review tickets for violations"
+      ],
+      "user_stories": [
+        "As a compliance officer, I want automated violation detection so that I don't miss access control issues",
+        "As an auditor, I want exportable compliance reports so that I can include them in audit documentation"
+      ],
+      "linked_spec_id": "008-compliance-violation-detection-reporting",
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-10",
+      "title": "Employee Self-Service Portal",
+      "description": "Create a limited self-service portal where employees can view their own identity information, see their assigned roles/groups across systems, and verify their access is correct. No edit capability - read-only for self.",
+      "rationale": "Employees often contact IT just to verify what access they have. Self-service reduces help desk burden while empowering employees. This is a known gap in current WhoDis. Simpler than full IAM self-service (avoiding SailPoint complexity) but still valuable for reducing tickets.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-3",
+      "dependencies": [
+        "feature-5"
+      ],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Separate portal at /self-service accessible to all authenticated users",
+        "User can view their own profile: AD info, Graph info, Genesys info",
+        "User can see their group memberships across all systems",
+        "User can see their Genesys skills and queues",
+        "User can see their job code and expected roles (if in compliance matrix)",
+        "No ability to search for other users (only self)",
+        "Optional: Link to request access changes (integration with ticketing)"
+      ],
+      "user_stories": [
+        "As an employee, I want to see my own access information so that I can verify I have the right permissions",
+        "As a contact center agent, I want to see my skills and queues so that I can confirm my routing is correct"
+      ],
+      "linked_spec_id": "009-employee-self-service-portal",
+      "competitor_insight_ids": [
+        "pain-sp-5"
+      ]
+    },
+    {
+      "id": "feature-11",
+      "title": "Access Request Workflow",
+      "description": "Implement workflow system for access requests that integrates with the existing job role compliance matrix. Employees or managers can request access, requests route to appropriate approvers, and approval/denial is tracked.",
+      "rationale": "Manual access provisioning is slow and lacks audit trail. Workflow automation reduces time-to-access while maintaining compliance controls. This addresses the 'no workflow automation' known gap and provides value beyond simple lookup - moving toward lightweight IAM functionality.",
+      "priority": "could",
+      "complexity": "high",
+      "impact": "medium",
+      "phase_id": "phase-3",
+      "dependencies": [
+        "feature-10",
+        "feature-9"
+      ],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Access request form accessible from self-service portal",
+        "Request types: AD group, Genesys skill/queue, Generic access request",
+        "Approval routing based on configurable rules (manager, role owner, security)",
+        "Multi-level approval support for sensitive access",
+        "Email notifications at each workflow step",
+        "Request status tracking visible to requester and approvers",
+        "Completed requests logged in audit trail with full approval chain",
+        "Integration with job role compliance to flag requests outside expected roles"
+      ],
+      "user_stories": [
+        "As an employee, I want to request access through WhoDis so that I don't have to email IT",
+        "As a manager, I want to approve team access requests so that provisioning is faster"
+      ],
+      "linked_spec_id": "010-access-request-workflow",
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-12",
+      "title": "Automated Notifications & Alerts",
+      "description": "Implement comprehensive notification system with configurable alerts for identity-related events: password expiring, account locked, compliance violation, new employee detected, terminated employee access remaining.",
+      "rationale": "Proactive notifications prevent issues before users are impacted. Password expiration notifications reduce help desk calls. Terminated employee alerts are critical for security. This moves WhoDis from reactive lookup to proactive identity monitoring.",
+      "priority": "could",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-3",
+      "dependencies": [
+        "feature-8"
+      ],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Notification configuration in admin panel",
+        "Event types: Password expiring (configurable days), Account locked, Compliance violation, New employee in data warehouse, Terminated employee with active access",
+        "Notification channels: Email, In-app notification center",
+        "Recipient configuration: User, Manager, IT group, Custom email list",
+        "Notification templates customizable",
+        "Notification history with read receipts",
+        "Ability to snooze or dismiss notifications"
+      ],
+      "user_stories": [
+        "As an IT help desk agent, I want to be notified when employees' passwords are expiring so that I can proactively reach out",
+        "As a security analyst, I want alerts when terminated employees still have access so that I can remediate quickly"
+      ],
+      "linked_spec_id": "011-automated-notifications-alerts",
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-13",
+      "title": "Additional Identity Provider Integrations",
+      "description": "Extend WhoDis to integrate with additional identity providers beyond AD/Graph/Genesys. Potential integrations: Duo (MFA status), UKG/Workforce management, AWS IAM (for technical staff), ServiceNow (ticketing correlation).",
+      "rationale": "Organizations have identity data spread across many systems. Each integration increases WhoDis's value as the 'single pane of glass' for identity. Addresses market gap (gap-6) for real-time concurrent search across multiple providers. Modular integration architecture enables customer-specific extensions.",
+      "priority": "could",
+      "complexity": "high",
+      "impact": "medium",
+      "phase_id": "phase-3",
+      "dependencies": [
+        "feature-5"
+      ],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Modular integration architecture with plugin-style identity providers",
+        "Configuration UI for enabling/disabling integrations",
+        "At least one new integration implemented (priority: UKG for HR data correlation)",
+        "New integrations appear in search results with clear source tagging",
+        "Integration health monitoring in admin dashboard",
+        "Documentation for developing custom integrations",
+        "Timeout protection and graceful degradation for new integrations"
+      ],
+      "user_stories": [
+        "As an IT admin, I want to see MFA enrollment status from Duo so that I can verify security compliance",
+        "As an HR administrator, I want to see UKG data alongside AD data so that I can verify employee status"
+      ],
+      "linked_spec_id": "012-additional-identity-provider-integrations",
+      "competitor_insight_ids": [
+        "pain-adm-1",
+        "pain-adm-3"
+      ]
+    },
+    {
+      "id": "feature-14",
+      "title": "AI-Powered Access Pattern Analysis",
+      "description": "Implement machine learning analysis of access patterns to identify anomalies, suggest role optimizations, and predict potential compliance issues before they occur.",
+      "rationale": "AI can identify patterns humans miss, especially across large datasets. This moves WhoDis from reactive to predictive. Addresses the 'no AI analytics' known gap. Differentiates from legacy tools (MIM deprecated) and complex enterprise platforms that lack focused AI for identity patterns.",
+      "priority": "could",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-4",
+      "dependencies": [
+        "feature-8",
+        "feature-9"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "ML model trained on historical access/search patterns",
+        "Anomaly detection: Unusual search patterns, Atypical access times, Deviation from peer group",
+        "Role optimization suggestions: 'Users with job code X typically have role Y but this user doesn't'",
+        "Predictive compliance alerts: 'Based on patterns, this user may have excessive access'",
+        "AI insights dashboard for security team",
+        "Explainable AI: Reasoning shown for each recommendation",
+        "Model performance metrics and retraining schedule"
+      ],
+      "user_stories": [
+        "As a security analyst, I want AI-powered anomaly detection so that I can identify insider threats early",
+        "As a compliance officer, I want predictive insights so that I can address issues before auditors find them"
+      ],
+      "competitor_insight_ids": [
+        "pain-mim-1"
+      ]
+    },
+    {
+      "id": "feature-15",
+      "title": "Natural Language Search",
+      "description": "Enable users to search using natural language queries like 'show me all contact center agents in Oklahoma City' or 'who has admin access to the billing system' using LLM-powered query interpretation.",
+      "rationale": "Natural language search dramatically lowers the barrier to effective searching. Addresses SailPoint's 'search requires technical skills' pain point (pain-sp-4). Makes WhoDis accessible to non-technical HR and compliance staff who struggle with query syntax.",
+      "priority": "could",
+      "complexity": "high",
+      "impact": "medium",
+      "phase_id": "phase-4",
+      "dependencies": [
+        "feature-4"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Natural language input option in search bar",
+        "LLM interprets query and maps to existing filters/search parameters",
+        "Confidence indicator showing how well query was understood",
+        "Fallback to standard search if NL interpretation fails",
+        "Common query patterns cached for performance",
+        "Privacy: Queries processed locally or with enterprise LLM (no data to external APIs)",
+        "Query history shows both original NL and interpreted query"
+      ],
+      "user_stories": [
+        "As an HR administrator, I want to search in plain English so that I don't need to learn filter syntax",
+        "As a compliance officer, I want to ask questions like 'who has access to PII' so that I can quickly audit sensitive access"
+      ],
+      "competitor_insight_ids": [
+        "pain-sp-4"
+      ]
+    },
+    {
+      "id": "feature-16",
+      "title": "Predictive Compliance & Proactive Remediation",
+      "description": "Build on AI pattern analysis to predict compliance issues before they occur (e.g., role creep based on peer analysis) and automatically generate remediation tasks or tickets for IT/security to address.",
+      "rationale": "Moving from reactive to proactive compliance management reduces audit findings and security risk. Addresses the industry trend toward continuous compliance monitoring. Positions WhoDis as forward-thinking solution vs. legacy tools focused only on current state.",
+      "priority": "wont",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-4",
+      "dependencies": [
+        "feature-14",
+        "feature-11"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Predictive model identifies potential future compliance issues",
+        "Risk scoring for each prediction (probability and impact)",
+        "Automatic remediation ticket generation in configured ticketing system",
+        "Remediation workflow with tracking to resolution",
+        "Metrics: Predictions made, Accuracy rate, Issues prevented",
+        "Dashboard showing predicted vs actual compliance issues",
+        "Continuous model improvement based on outcomes"
+      ],
+      "user_stories": [
+        "As a security director, I want proactive compliance predictions so that I can address issues before auditors find them",
+        "As an IT manager, I want automated remediation tickets so that compliance issues are tracked to resolution"
+      ],
+      "competitor_insight_ids": []
+    }
+  ],
+  "metadata": {
+    "created_at": "2025-12-29T17:30:00Z",
+    "updated_at": "2025-12-30T05:18:25.522Z",
+    "generated_by": "roadmap_features agent",
+    "prioritization_framework": "MoSCoW",
+    "competitor_analysis_used": true,
+    "competitors_analyzed": [
+      "SailPoint IdentityNow",
+      "Okta Identity Cloud",
+      "Microsoft Identity Manager",
+      "Microsoft Entra Admin Center",
+      "Genesys Cloud CX Admin Console",
+      "ManageEngine ADManager Plus"
+    ],
+    "market_gaps_addressed": [
+      "gap-1: Unified AD + Graph + Genesys lookup (existing strength)",
+      "gap-2: Lightweight alternative to enterprise IAM (features 2, 4, 15)",
+      "gap-3: Stable purpose-built interface (all UI features)",
+      "gap-4: Modern replacement for MIM (features 13, 14)",
+      "gap-5: Credit union compliance (feature 9)",
+      "gap-6: Concurrent search with merging (existing strength)"
+    ]
+  }
+}
