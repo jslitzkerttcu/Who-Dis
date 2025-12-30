@@ -52,6 +52,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Performance optimizations (v2.1.0 improvements)
   - Data warehouse integration patterns
   - Troubleshooting and API reference
+- **CONTRIBUTING.md**: New comprehensive contribution guide (639 lines)
+  - Code of conduct and standards
+  - Development setup and workflow
+  - Commit message conventions
+  - Code standards with 7 pattern examples
+  - Testing guidelines and PR process
+- **docs/deployment.md**: New production deployment guide (1,111 lines)
+  - Pre-deployment checklist
+  - Infrastructure requirements
+  - Deployment options (Azure App Service, Ubuntu, Docker)
+  - Database setup and configuration
+  - Reverse proxy setup (Nginx, Apache)
+  - Security hardening
+  - Monitoring, logging, and disaster recovery
+- **docs/troubleshooting.md**: New centralized troubleshooting guide (1,102 lines)
+  - Quick diagnostic scripts
+  - Installation and setup issues
+  - Database, authentication, and search problems
+  - API integration troubleshooting (LDAP, Genesys, Graph)
+  - Cache and token management
+  - Production deployment issues
+- **docs/user-guide/**: New comprehensive user guide directory (1,632 lines total)
+  - **getting-started.md** (389 lines): First-time user walkthrough covering login, roles, interface overview, and basic operations
+  - **search.md** (601 lines): Detailed search feature guide with strategies, advanced features, performance tips, and common scenarios
+  - **admin-tasks.md** (642 lines): Complete administrator reference for user management, configuration, cache, audit logs, job role compliance, and blocked numbers
+- **docs/api/**: New complete API documentation (3,003 lines total)
+  - **README.md** (330 lines): API overview, architecture patterns, common operations, and quick reference
+  - **services.md** (1,217 lines): Complete service layer documentation with base classes, interfaces, and all core services
+  - **models.md** (1,456 lines): Complete model layer documentation with base classes, mixins, and all database models
 - **.auto-claude**: Enabled Auto Claude framework directory tracking for team collaboration
   - Added framework metadata files (roadmap, specs, ideation)
   - Excluded sensitive .env file (GitHub push protection)
