@@ -17,11 +17,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cross-System Correlation**: Improved data matching and conflict resolution algorithms
 - **Advanced Search & Export**: Multi-field search capabilities with CSV/Excel export functionality
 
-#### Comprehensive Reporting Suite (Phase 2) 
+#### Comprehensive Reporting Suite (Phase 2)
 - **Azure AD Analytics**: License utilization reports, user activity dashboards, security posture monitoring
 - **Security & Compliance**: Risk assessment tools, guest user management, secure score tracking
 - **Communication Analytics**: Exchange mailbox statistics, Teams usage reports, email security metrics
 - **Admin Tools**: Scheduled report generation, automated alerting, export capabilities
+
+## [2.1.1] - 2025-12-29 - Security Updates & Documentation Improvements
+
+### Security
+- **Critical Dependency Updates**: Fixed 5 security vulnerabilities in Python dependencies
+  - **cryptography**: 42.0.5 → 46.0.3 (Fixed 2 OpenSSL vulnerabilities: GHSA-h4gh-qq45-vh27, CVE-2024-12797)
+  - **h11**: 0.14.0 → 0.16.0 (Fixed CVE-2025-43859: HTTP request smuggling vulnerability)
+  - **requests**: 2.31.0 → 2.32.5 (Fixed CVE-2024-35195: session cert verification bypass, CVE-2024-47081: .netrc credential leakage)
+- **SECURITY.md**: Added comprehensive security policy with vulnerability reporting procedures, security best practices, and disclosure timeline
+- **GitHub Dependabot**: All security alerts resolved, zero known vulnerabilities
+
+### Documentation
+- **CLAUDE.md Optimization**: Reduced from 583 to 409 lines (29.8% reduction) by removing duplicate content
+  - Streamlined to focus on essential development patterns and quick reference
+  - Added cross-references to detailed documentation
+  - Improved organization and readability
+- **docs/architecture.md**: New comprehensive architecture documentation (295 lines)
+  - Dependency injection container patterns
+  - Model hierarchy with base classes and mixins
+  - Service layer organization and interfaces
+  - Repository pattern implementation
+  - Detailed search architecture (3-layer orchestration system)
+  - Middleware pipeline execution order
+  - Architectural patterns catalog
+- **docs/job-role-compliance.md**: New job role compliance matrix documentation (376 lines)
+  - Core components and data models
+  - Admin interface usage guide
+  - Performance optimizations (v2.1.0 improvements)
+  - Data warehouse integration patterns
+  - Troubleshooting and API reference
+- **.auto-claude**: Enabled Auto Claude framework directory tracking for team collaboration
+  - Added framework metadata files (roadmap, specs, ideation)
+  - Excluded sensitive .env file (GitHub push protection)
+
+### Changed
+- **Dependency Updates**: Updated all dependencies to latest stable versions for compatibility
+  - Flask: 3.0.0 → 3.1.2
+  - SQLAlchemy: 2.0.41 → 2.0.45
+  - httpx: 0.24.1 → 0.28.1
+  - msal: 1.24.1 → 1.34.0
+  - And 6 other dependencies updated for security and stability
+
+### Verification
+- ✅ pip-audit: No known vulnerabilities
+- ✅ GitHub Dependabot: No active alerts
+- ✅ Application imports successfully
+- ✅ All linting checks pass
+- ✅ No breaking changes
 
 ## [2.1.0] - 2024-12-06 - Performance Optimization & UI Improvements
 
