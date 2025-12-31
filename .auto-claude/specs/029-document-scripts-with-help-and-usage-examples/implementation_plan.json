@@ -1,0 +1,13 @@
+{
+  "feature": "Document scripts with --help and usage examples",
+  "description": "The scripts/ directory contains 8 utility scripts (check_config_status.py, diagnose_config.py, refresh_employee_profiles.py, etc.) but none have argparse/--help documentation. Users must read source code to understand script arguments, options, and expected behavior.",
+  "created_at": "2025-12-30T20:09:38.338Z",
+  "updated_at": "2025-12-30T20:09:38.338Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

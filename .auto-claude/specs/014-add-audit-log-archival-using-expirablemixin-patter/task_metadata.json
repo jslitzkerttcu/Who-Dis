@@ -1,0 +1,15 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_improvements",
+  "ideaId": "ci-002",
+  "rationale": "The ExpirableMixin already provides cleanup_expired() and extends_expiration() methods. CacheableModel uses this for cache cleanup. AuditLog extends AuditableModel but doesn't have log retention/archival. The pattern for bulk cleanup exists and can be directly applied.",
+  "category": "feature",
+  "estimatedEffort": "medium",
+  "complexity": "medium",
+  "affectedFiles": [
+    "app/models/audit.py",
+    "app/services/audit_service_postgres.py",
+    "app/blueprints/admin/admin_audit.py",
+    "app/templates/admin/audit_logs.html"
+  ]
+}

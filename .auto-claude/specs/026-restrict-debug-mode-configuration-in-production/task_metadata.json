@@ -1,0 +1,10 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "security_hardening",
+  "ideaId": "sec-004",
+  "rationale": "If an attacker gains admin access or if debug mode is accidentally enabled, they can trigger errors to gather reconnaissance information about the application's internals. This information disclosure accelerates exploitation of other vulnerabilities.",
+  "category": "security",
+  "securitySeverity": "medium",
+  "impact": "medium",
+  "priority": "medium"
+}

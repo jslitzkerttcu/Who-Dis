@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "performance_optimizations",
+  "ideaId": "perf-001",
+  "rationale": "Each time the system roles API is called with 20 roles per page, 21 database queries are executed (1 for the roles + 20 for mapping counts). This pattern mirrors the already-fixed job_codes endpoint which properly uses a bulk mapping_count query. Applying the same pattern would reduce queries from O(n+1) to O(2).",
+  "category": "performance",
+  "performanceCategory": "database",
+  "impact": "high"
+}

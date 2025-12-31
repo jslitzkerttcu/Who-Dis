@@ -1,0 +1,15 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "ui_ux_improvements",
+  "ideaId": "uiux-003",
+  "rationale": "Admin pages often display 50+ rows of data. When scrolling, users lose context of which column contains what data. This is especially problematic in Audit Logs where multiple similar-looking columns exist (timestamps, IPs, emails).",
+  "category": "ui_ux",
+  "uiuxCategory": "usability",
+  "affectedFiles": [
+    "app/templates/admin/users.html",
+    "app/templates/admin/audit_logs.html",
+    "app/templates/admin/employee_profiles.html",
+    "app/templates/utilities/blocked_numbers.html"
+  ],
+  "problemSolved": "Table headers scroll out of view when viewing rows below the fold. Users must scroll back up to remember column meanings, especially for tables with 6+ columns like the User Management and Audit Logs tables."
+}

@@ -1,0 +1,10 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "security_hardening",
+  "ideaId": "sec-003",
+  "rationale": "Error logs are often stored with less stringent access controls than production databases and may be shipped to third-party logging services. Logging sensitive form fields (passwords, tokens) or configuration values violates data protection principles and could lead to credential exposure.",
+  "category": "security",
+  "securitySeverity": "medium",
+  "impact": "medium",
+  "priority": "medium"
+}

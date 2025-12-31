@@ -1,0 +1,13 @@
+{
+  "feature": "Add Skip-to-Content Link for Screen Reader Accessibility",
+  "description": "Add a visually hidden skip link at the top of the page that becomes visible on focus, allowing keyboard and screen reader users to skip the navigation and jump directly to main content.",
+  "created_at": "2025-12-30T20:09:34.797Z",
+  "updated_at": "2025-12-30T20:09:34.797Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

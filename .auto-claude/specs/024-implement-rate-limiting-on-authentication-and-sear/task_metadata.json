@@ -1,0 +1,10 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "security_hardening",
+  "ideaId": "sec-002",
+  "rationale": "Without rate limiting, attackers can perform brute-force attacks on authentication, enumerate users through the search API, or cause denial-of-service by overwhelming the LDAP, Graph, and Genesys services with concurrent requests. The ThreadPoolExecutor pattern already shows search operations are computationally expensive.",
+  "category": "security",
+  "securitySeverity": "high",
+  "impact": "high",
+  "priority": "high"
+}

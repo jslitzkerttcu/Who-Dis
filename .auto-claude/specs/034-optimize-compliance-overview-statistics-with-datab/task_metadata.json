@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "performance_optimizations",
+  "ideaId": "perf-002",
+  "rationale": "When compliance checks run on hundreds or thousands of employees, loading all violations into Python memory and iterating multiple times (once for employee UPN extraction, once for each severity level, once for violation types) causes significant memory pressure and slow response times. Database aggregation is orders of magnitude more efficient.",
+  "category": "performance",
+  "performanceCategory": "database",
+  "impact": "high"
+}

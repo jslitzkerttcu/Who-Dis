@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_quality",
+  "ideaId": "cq-001",
+  "rationale": "This 'god module' pattern increases cognitive load, makes code reviews extremely difficult, leads to merge conflicts, and prevents modular testing. Functions for cache management have no logical connection to error logging functions, yet they share the same file.",
+  "category": "refactoring",
+  "codeQualitySeverity": "critical",
+  "priority": "urgent"
+}

@@ -1,0 +1,13 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_improvements",
+  "ideaId": "ci-005",
+  "rationale": "The blocked_numbers blueprint already returns JSON data via API endpoints. SearchCache stores result_data as JSONB. The SerializableMixin provides to_dict() for all models. Flask can easily serve CSV content. This combines existing patterns into a new feature.",
+  "category": "feature",
+  "estimatedEffort": "small",
+  "complexity": "small",
+  "affectedFiles": [
+    "app/blueprints/search/search_refactored.py",
+    "app/templates/search/index.html"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "documentation_gaps",
+  "ideaId": "doc-003",
+  "rationale": "HTMX is central to the modern UI architecture. Without documentation, developers may incorrectly implement endpoints (returning full pages instead of fragments) or miss important patterns like hx-target, hx-swap, and request context preservation. This slows feature development.",
+  "category": "documentation",
+  "priority": "medium"
+}

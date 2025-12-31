@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "performance_optimizations",
+  "ideaId": "perf-005",
+  "rationale": "LDAP connections are expensive to establish. The ldap3 library supports connection pooling which maintains a pool of authenticated connections ready for reuse. This eliminates connection overhead for subsequent requests and is particularly valuable for the concurrent search pattern where LDAP, Genesys, and Graph run simultaneously.",
+  "category": "performance",
+  "performanceCategory": "network",
+  "impact": "medium"
+}

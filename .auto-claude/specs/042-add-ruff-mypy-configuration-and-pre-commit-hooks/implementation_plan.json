@@ -1,0 +1,13 @@
+{
+  "feature": "Add ruff/mypy configuration and pre-commit hooks",
+  "description": "While ruff and mypy are in requirements.txt, there is no configuration file (pyproject.toml, ruff.toml) to define linting rules, and no pre-commit hooks to enforce code quality. This means code style and type checking are not consistently enforced across the team.",
+  "created_at": "2025-12-30T20:09:44.958Z",
+  "updated_at": "2025-12-30T20:09:44.958Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

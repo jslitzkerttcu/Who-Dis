@@ -1,0 +1,13 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_improvements",
+  "ideaId": "ci-001",
+  "rationale": "Each service already implements test_connection() method via the ISearchService interface. The ServiceContainer has get_all_by_interface() method to discover services. The pattern for aggregating service calls exists in SearchOrchestrator. This is just combining existing patterns into a new endpoint.",
+  "category": "feature",
+  "estimatedEffort": "small",
+  "complexity": "small",
+  "affectedFiles": [
+    "app/blueprints/admin/__init__.py",
+    "app/blueprints/admin/health.py"
+  ]
+}

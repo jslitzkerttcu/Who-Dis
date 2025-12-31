@@ -1,0 +1,10 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "security_hardening",
+  "ideaId": "sec-001",
+  "rationale": "HSTS ensures that browsers only connect via HTTPS after the first visit, preventing man-in-the-middle attacks where an attacker could intercept the initial HTTP request and redirect users to a malicious site. For an identity lookup service handling employee PII, this is a critical protection.",
+  "category": "security",
+  "securitySeverity": "high",
+  "impact": "high",
+  "priority": "high"
+}

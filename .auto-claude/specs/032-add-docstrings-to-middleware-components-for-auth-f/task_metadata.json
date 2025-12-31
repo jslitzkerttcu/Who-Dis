@@ -1,0 +1,8 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "documentation_gaps",
+  "ideaId": "doc-005",
+  "rationale": "Authentication is a critical security boundary. Developers modifying auth behavior need to understand the complete middleware pipeline. Without clear docstrings, there's risk of introducing security vulnerabilities by misunderstanding the authentication flow.",
+  "category": "documentation",
+  "priority": "medium"
+}

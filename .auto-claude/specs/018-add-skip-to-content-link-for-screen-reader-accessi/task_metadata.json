@@ -1,0 +1,12 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "ui_ux_improvements",
+  "ideaId": "uiux-001",
+  "rationale": "Skip links are a WCAG 2.1 Level A requirement. Currently, keyboard users must tab through all navigation items before reaching main content, which is frustrating and time-consuming for users with motor impairments or those using screen readers.",
+  "category": "ui_ux",
+  "uiuxCategory": "accessibility",
+  "affectedFiles": [
+    "app/templates/base.html"
+  ],
+  "problemSolved": "No skip-to-content link exists. Keyboard users must tab through Home, Search, Utilities dropdown, Admin links, and user info before reaching main content - approximately 8-12 tab stops per page."
+}

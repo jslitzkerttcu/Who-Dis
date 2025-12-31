@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "performance_optimizations",
+  "ideaId": "perf-003",
+  "rationale": "The Genesys cache lookup methods are called inside loops in _process_expanded_user_data() and get_user_by_id(). Each call performs a separate database query. With typical users having multiple skills/groups/locations, this compounds quickly and adds 50-200ms to search results.",
+  "category": "performance",
+  "performanceCategory": "database",
+  "impact": "medium"
+}

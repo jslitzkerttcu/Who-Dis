@@ -1,0 +1,20 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "ui_ux_improvements",
+  "ideaId": "uiux-004",
+  "rationale": "The admin section has multiple levels (Admin Index > Feature Page > Detail/Modal). Currently users can only navigate back using the 'Back to Admin' button. Breadcrumbs provide clear location context and multiple navigation options.",
+  "category": "ui_ux",
+  "uiuxCategory": "usability",
+  "affectedFiles": [
+    "app/templates/admin/users.html",
+    "app/templates/admin/audit_logs.html",
+    "app/templates/admin/configuration.html",
+    "app/templates/admin/database.html",
+    "app/templates/admin/job_role_compliance.html",
+    "app/templates/admin/compliance_dashboard.html",
+    "app/templates/admin/employee_profiles.html",
+    "app/templates/admin/error_logs.html",
+    "app/templates/admin/sessions.html"
+  ],
+  "problemSolved": "Admin pages show page title and a 'Back to Admin' button. No visual hierarchy or path is shown. When deep in a feature (e.g., viewing a specific audit log detail), users lack context of their location in the app structure."
+}

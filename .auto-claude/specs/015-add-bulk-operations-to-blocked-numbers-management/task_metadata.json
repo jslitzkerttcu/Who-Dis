@@ -1,0 +1,14 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_improvements",
+  "ideaId": "ci-003",
+  "rationale": "ServiceDataModel already has sync_from_service_data() for bulk synchronization. The blocked_numbers.py has complete single-record CRUD with proper validation and audit logging. The Genesys service pattern supports batch operations. Simply extending the existing pattern to handle arrays of records.",
+  "category": "feature",
+  "estimatedEffort": "medium",
+  "complexity": "medium",
+  "affectedFiles": [
+    "app/blueprints/utilities/blocked_numbers.py",
+    "app/services/genesys_service.py",
+    "app/templates/utilities/blocked_numbers.html"
+  ]
+}

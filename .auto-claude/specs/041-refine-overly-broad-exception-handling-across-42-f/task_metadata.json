@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_quality",
+  "ideaId": "cq-004",
+  "rationale": "Broad exception handling: 1) Hides specific error types that callers might want to handle differently, 2) Makes debugging harder when logs show only 'Error occurred', 3) Can mask programming errors like AttributeError or KeyError, 4) Violates the principle of 'fail fast' for unexpected conditions. Some errors should propagate to trigger proper error handling upstream.",
+  "category": "refactoring",
+  "codeQualitySeverity": "minor",
+  "priority": "medium"
+}

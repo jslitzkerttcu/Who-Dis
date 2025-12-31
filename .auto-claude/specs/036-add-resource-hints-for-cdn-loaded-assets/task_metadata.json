@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "performance_optimizations",
+  "ideaId": "perf-004",
+  "rationale": "Browser needs to perform DNS lookup, TCP connection, and TLS negotiation for each CDN domain before downloading assets. Preconnect hints allow this to happen in parallel with HTML parsing, reducing blocking time by 100-300ms on initial page loads.",
+  "category": "performance",
+  "performanceCategory": "network",
+  "impact": "medium"
+}

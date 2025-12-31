@@ -1,0 +1,13 @@
+{
+  "feature": "Fix N+1 Query Pattern in System Roles API",
+  "description": "The api_system_roles() function in job_role_compliance.py has an N+1 query pattern where len(role.role_mappings) is called for each role in the paginated results, triggering a separate database query for each role to fetch its mappings count.",
+  "created_at": "2025-12-30T20:09:39.123Z",
+  "updated_at": "2025-12-30T20:09:39.123Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

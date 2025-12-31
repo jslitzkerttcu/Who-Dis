@@ -1,0 +1,13 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "ui_ux_improvements",
+  "ideaId": "uiux-002",
+  "rationale": "IT Help Desk staff perform repeated searches throughout the day. Keyboard shortcuts significantly improve productivity for repetitive actions. This pattern is standard in modern applications (GitHub, Slack, VS Code).",
+  "category": "ui_ux",
+  "uiuxCategory": "usability",
+  "affectedFiles": [
+    "app/templates/base.html",
+    "app/templates/search/index.html"
+  ],
+  "problemSolved": "Users must click on the Search navigation link, wait for page load, then click or tab to the search input. No keyboard-driven quick access exists."
+}

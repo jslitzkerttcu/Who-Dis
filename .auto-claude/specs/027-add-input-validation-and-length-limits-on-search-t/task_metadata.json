@@ -1,0 +1,10 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "security_hardening",
+  "ideaId": "sec-005",
+  "rationale": "Extremely long search terms or search terms with special patterns could cause denial of service through: 1) Memory exhaustion when processing very long strings, 2) Expensive regex operations in wildcard LDAP searches, 3) Backend API timeouts from complex queries. A 3-character minimum is enforced for fuzzy LDAP search but no maximum exists.",
+  "category": "security",
+  "securitySeverity": "medium",
+  "impact": "medium",
+  "priority": "medium"
+}

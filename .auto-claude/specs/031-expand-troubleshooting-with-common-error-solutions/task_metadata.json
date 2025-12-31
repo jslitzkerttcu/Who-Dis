@@ -1,0 +1,8 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "documentation_gaps",
+  "ideaId": "doc-004",
+  "rationale": "Help desk staff and administrators encounter various errors in production. Without comprehensive troubleshooting documentation, they escalate to developers for routine issues. A good troubleshooting guide reduces support burden and improves incident response time.",
+  "category": "documentation",
+  "priority": "medium"
+}

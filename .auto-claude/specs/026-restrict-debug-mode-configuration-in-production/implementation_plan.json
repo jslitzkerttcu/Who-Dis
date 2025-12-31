@@ -1,0 +1,13 @@
+{
+  "feature": "Restrict Debug Mode Configuration in Production",
+  "description": "Debug mode can be enabled through the database configuration (flask.debug) via the admin UI. In debug mode, the error handler at app/middleware/errors.py (lines 68-70, 75-77) exposes full exception messages to users, which can leak internal paths, database schema, and API details.",
+  "created_at": "2025-12-30T20:09:37.714Z",
+  "updated_at": "2025-12-30T20:09:37.714Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

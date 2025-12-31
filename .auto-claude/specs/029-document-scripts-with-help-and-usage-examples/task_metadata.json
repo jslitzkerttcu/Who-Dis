@@ -1,0 +1,8 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "documentation_gaps",
+  "ideaId": "doc-002",
+  "rationale": "IT administrators and developers frequently use these scripts for maintenance tasks. Without proper CLI documentation, users may run scripts incorrectly or miss important options. The refresh_employee_profiles.py script is particularly critical as it has a 'refresh' argument that isn't self-documenting.",
+  "category": "documentation",
+  "priority": "high"
+}

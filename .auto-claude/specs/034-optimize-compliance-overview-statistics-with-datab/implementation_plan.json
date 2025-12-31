@@ -1,0 +1,13 @@
+{
+  "feature": "Optimize Compliance Overview Statistics with Database Aggregation",
+  "description": "The api_compliance_overview() function loads ALL compliance violations into memory and then iterates through them multiple times to calculate statistics (grouping by severity, counting violation types). This is extremely inefficient for large datasets.",
+  "created_at": "2025-12-30T20:09:39.297Z",
+  "updated_at": "2025-12-30T20:09:39.297Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

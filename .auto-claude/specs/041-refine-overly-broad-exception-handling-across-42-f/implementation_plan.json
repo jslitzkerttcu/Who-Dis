@@ -1,0 +1,13 @@
+{
+  "feature": "Refine overly broad exception handling across 42 files",
+  "description": "The codebase contains 260 instances of 'except Exception' across 42 files. Many of these catch-all handlers silently swallow errors or log generic messages, making debugging difficult and potentially hiding important failures. The worst offenders are audit_service_postgres.py (21), genesys_cache_db.py (12), ldap_service.py (12), and simple_config.py (10).",
+  "created_at": "2025-12-30T20:09:44.688Z",
+  "updated_at": "2025-12-30T20:09:44.688Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

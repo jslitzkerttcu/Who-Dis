@@ -1,0 +1,13 @@
+{
+  "feature": "Add Breadcrumb Navigation for Admin Section",
+  "description": "Implement breadcrumb navigation in admin pages to show hierarchical context (e.g., Admin > User Management > Edit User) and enable quick navigation to parent sections.",
+  "created_at": "2025-12-30T20:09:36.327Z",
+  "updated_at": "2025-12-30T20:09:36.327Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

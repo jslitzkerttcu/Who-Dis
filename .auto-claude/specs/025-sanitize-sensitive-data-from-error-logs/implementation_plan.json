@@ -1,0 +1,13 @@
+{
+  "feature": "Sanitize Sensitive Data from Error Logs",
+  "description": "The error handling middleware (app/middleware/errors.py) logs form data directly: `'form': dict(request.form) if request.form else None`. Additionally, configuration values aren't filtered before being logged. This creates risk of credentials or PII appearing in logs.",
+  "created_at": "2025-12-30T20:09:37.534Z",
+  "updated_at": "2025-12-30T20:09:37.534Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

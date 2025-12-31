@@ -1,0 +1,13 @@
+{
+  "feature": "Implement LDAP Connection Pooling",
+  "description": "Each LDAP search operation creates a new Server and Connection object, performs the search, then closes the connection. Connection establishment to LDAP servers involves TCP handshake, TLS negotiation, and BIND authentication, adding ~50-200ms per request.",
+  "created_at": "2025-12-30T20:09:43.198Z",
+  "updated_at": "2025-12-30T20:09:43.198Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

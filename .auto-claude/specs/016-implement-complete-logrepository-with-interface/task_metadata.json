@@ -1,0 +1,14 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_improvements",
+  "ideaId": "ci-004",
+  "rationale": "The ILogRepository interface exists in app/interfaces/log_repository.py. CacheRepository shows the complete implementation pattern with interface implementation. LogRepository exists but may not fully implement the interface. This is about completing an existing pattern.",
+  "category": "feature",
+  "estimatedEffort": "small",
+  "complexity": "small",
+  "affectedFiles": [
+    "app/repositories/log_repository.py",
+    "app/interfaces/log_repository.py",
+    "app/container.py"
+  ]
+}

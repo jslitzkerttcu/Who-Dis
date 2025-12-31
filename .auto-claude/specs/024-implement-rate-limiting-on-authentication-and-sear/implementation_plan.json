@@ -1,0 +1,13 @@
+{
+  "feature": "Implement Rate Limiting on Authentication and Search Endpoints",
+  "description": "The application lacks rate limiting on critical endpoints including authentication (/login, auth decorators), search (/search/user), and admin API routes. This was confirmed by searching for 'rate_limit' or 'throttl' which returned no matches in the app directory.",
+  "created_at": "2025-12-30T20:09:37.323Z",
+  "updated_at": "2025-12-30T20:09:37.323Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

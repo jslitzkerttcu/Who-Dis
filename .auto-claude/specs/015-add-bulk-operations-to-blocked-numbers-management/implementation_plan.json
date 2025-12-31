@@ -1,0 +1,13 @@
+{
+  "feature": "Add Bulk Operations to Blocked Numbers Management",
+  "description": "Extend the blocked numbers CRUD blueprint to support bulk add/delete operations. Allow importing multiple blocked numbers from CSV/JSON and bulk deletion of selected entries.",
+  "created_at": "2025-12-30T20:09:33.860Z",
+  "updated_at": "2025-12-30T20:09:33.860Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

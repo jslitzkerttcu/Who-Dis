@@ -1,0 +1,16 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "ui_ux_improvements",
+  "ideaId": "uiux-005",
+  "rationale": "Multiple modals exist (Edit User, Note Modal, Audit Detail, Add Blocked Number, Delete Confirm) that only close on click-outside or close button click. Keyboard users expect Escape to close modals - this is standard UX and a WCAG accessibility recommendation.",
+  "category": "ui_ux",
+  "uiuxCategory": "interaction",
+  "affectedFiles": [
+    "app/templates/search/index.html",
+    "app/templates/admin/users.html",
+    "app/templates/admin/audit_logs.html",
+    "app/templates/utilities/blocked_numbers.html",
+    "app/templates/admin/job_role_compliance.html"
+  ],
+  "problemSolved": "Modals can be closed by: 1) Clicking the close X button, 2) Clicking outside the modal overlay. No keyboard escape handling exists. The noteModal, editUserModal, auditDetailModal, number-modal, and delete-modal all lack escape key functionality."
+}

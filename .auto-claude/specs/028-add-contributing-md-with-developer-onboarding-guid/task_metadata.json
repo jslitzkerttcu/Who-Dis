@@ -1,0 +1,8 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "documentation_gaps",
+  "ideaId": "doc-001",
+  "rationale": "New team members need to quickly understand how to contribute code. Without a CONTRIBUTING.md, onboarding takes longer as developers must discover conventions through trial and error or by asking others. This is critical for team scaling and reducing institutional knowledge dependency.",
+  "category": "documentation",
+  "priority": "high"
+}

@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_quality",
+  "ideaId": "cq-003",
+  "rationale": "Without tests: 1) Refactoring is extremely risky - no way to verify changes don't break functionality, 2) Bug regression is likely, 3) New developers can't understand expected behavior, 4) CI/CD cannot validate deployments. The codebase has 260 'except Exception' catches that may be hiding bugs.",
+  "category": "refactoring",
+  "codeQualitySeverity": "critical",
+  "priority": "urgent"
+}

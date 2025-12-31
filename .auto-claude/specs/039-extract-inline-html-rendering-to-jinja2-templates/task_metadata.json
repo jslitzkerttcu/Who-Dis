@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_quality",
+  "ideaId": "cq-002",
+  "rationale": "Inline HTML in Python is an anti-pattern that: 1) Makes HTML changes require Python expertise, 2) Prevents IDE HTML syntax highlighting/validation, 3) Complicates template inheritance and reuse, 4) Makes XSS vulnerabilities harder to spot, 5) Bloats Python files unnecessarily. The project already uses Jinja2 templates for other views.",
+  "category": "refactoring",
+  "codeQualitySeverity": "major",
+  "priority": "high"
+}
