@@ -168,6 +168,38 @@ A comprehensive Flask-based identity lookup service that provides unified search
 
 ---
 
+## 📚 Documentation
+
+WhoDis includes comprehensive documentation for users, administrators, and developers:
+
+### 📖 User Guides
+- **[Getting Started Guide](docs/user-guide/getting-started.md)** - First-time user walkthrough covering login, roles, interface overview, and basic operations
+- **[Search Guide](docs/user-guide/search.md)** - Detailed search strategies, advanced features, performance tips, and common scenarios
+- **[Admin Tasks Guide](docs/user-guide/admin-tasks.md)** - Complete administrator reference for managing users, configuration, cache, audit logs, and compliance
+
+### 💻 Developer Documentation
+- **[API Documentation](docs/api/)** - Complete API reference for services and models
+  - [Services API](docs/api/services.md) - Service layer with base classes, interfaces, and all core services
+  - [Models API](docs/api/models.md) - Model layer with base classes, mixins, and database models
+- **[Architecture Guide](docs/architecture.md)** - System design, dependency injection, patterns, and component overview
+- **[Database Documentation](docs/database.md)** - Schema, queries, migrations, and troubleshooting
+- **[CLAUDE.md](CLAUDE.md)** - Quick reference for AI assistants working on the codebase
+
+### 🔧 Operations & Deployment
+- **[Deployment Guide](docs/deployment.md)** - Production deployment for Azure App Service, Ubuntu, and Docker
+- **[Troubleshooting Guide](docs/troubleshooting.md)** - Centralized troubleshooting reference with diagnostic scripts
+- **[Contributing Guide](CONTRIBUTING.md)** - Contribution guidelines with code standards and workflow
+
+### 📊 Feature Documentation
+- **[Job Role Compliance](docs/job-role-compliance.md)** - Compliance matrix feature documentation and usage
+- **[Phone Number Matching](docs/phone_number_matching.md)** - Phone number logic and source attribution
+
+### 📝 Project Information
+- **[CHANGELOG](CHANGELOG.md)** - Version history and release notes
+- **[SECURITY](SECURITY.md)** - Security policy and vulnerability reporting
+
+---
+
 ## 📋 Configuration Management
 
 ### Encrypted Configuration System
@@ -283,7 +315,20 @@ WhoDis/
 │   ├── create_tables.sql         # Complete schema (all tables, triggers, etc.)
 │   └── analyze_tables.sql        # Table statistics update
 ├── docs/                         # Documentation
-│   └── database.md               # Database documentation
+│   ├── api/                      # API documentation
+│   │   ├── README.md             # API overview
+│   │   ├── services.md           # Service layer API
+│   │   └── models.md             # Model layer API
+│   ├── user-guide/               # User documentation
+│   │   ├── getting-started.md    # First-time user guide
+│   │   ├── search.md             # Search feature guide
+│   │   └── admin-tasks.md        # Admin reference
+│   ├── architecture.md           # System architecture
+│   ├── database.md               # Database documentation
+│   ├── deployment.md             # Deployment guide
+│   ├── job-role-compliance.md    # Compliance feature docs
+│   ├── phone_number_matching.md  # Phone logic docs
+│   └── troubleshooting.md        # Troubleshooting guide
 ├── logs/                         # Application logs (git-ignored)
 ├── scripts/                      # Utility scripts
 │   ├── migrate_config_to_db.py  # Migrate .env to encrypted database
@@ -418,7 +463,7 @@ WhoDis/
 
 ## 🐛 Troubleshooting
 
-### Database Issues
+### Quick Diagnostics
 ```bash
 # Check configuration status
 python scripts/check_config_status.py
@@ -426,28 +471,26 @@ python scripts/check_config_status.py
 # Verify encrypted values
 python scripts/verify_encrypted_config.py
 
-# Re-encrypt all values if needed
-python scripts/reencrypt_config.py
+# Diagnose configuration problems
+python scripts/diagnose_config.py
+
+# Verify deployment health
+python scripts/verify_deployment.py
 ```
 
-### Common Problems
+### Common Issues
 
-**"Error decrypting configuration"**
-- Check WHODIS_ENCRYPTION_KEY in .env
-- Run verification script
-- Re-encrypt values if key changed
+For comprehensive troubleshooting covering:
+- Installation and setup problems
+- Database connection issues
+- Authentication and access problems
+- Search and performance issues
+- API integration troubleshooting (LDAP, Genesys, Graph)
+- Cache and token management
+- Configuration encryption issues
+- Production deployment problems
 
-**"Database connection failed"**
-- Verify PostgreSQL is running
-- Check credentials in .env
-- Ensure database exists
-
-**"No search results"**
-- Check service credentials in configuration
-- Verify API permissions
-- Review audit logs for errors
-
-For detailed troubleshooting, see [Database Documentation](docs/database.md).
+**See the [Troubleshooting Guide](docs/troubleshooting.md) for detailed solutions.**
 
 ---
 
@@ -476,26 +519,32 @@ SELECT * FROM user_sessions WHERE expires_at > NOW();
 
 ## 🧑‍💻 Development
 
-### Code Quality
+### Getting Started
+
+For detailed development setup, code standards, testing guidelines, and contribution workflow:
+
+**👉 See the [Contributing Guide](CONTRIBUTING.md)**
+
+### Quick Reference
+
 ```bash
-# Run linting
-ruff check --fix
+# Code quality
+ruff check --fix        # Linting with auto-fix
+mypy app/ scripts/      # Type checking
 
-# Type checking
-mypy app/ scripts/
+# Testing (when implemented)
+pytest                  # Run tests
+pytest --cov=app        # Coverage report
 
-# Format code
-black .
+# Development server
+python run.py           # Run locally
 ```
 
-### Testing
-```bash
-# Run tests (when implemented)
-pytest
+### Architecture
 
-# Coverage report
-pytest --cov=app
-```
+For understanding the codebase structure, design patterns, and service architecture:
+
+**👉 See the [Architecture Guide](docs/architecture.md) and [API Documentation](docs/api/)**
 
 ---
 
@@ -553,5 +602,13 @@ Special thanks to all contributors who helped evolve WhoDis from a simple LDAP t
 
 ---
 
-*For detailed technical documentation, see the [docs](docs/) folder.*
-*For AI assistant guidelines, see [CLAUDE.md](CLAUDE.md)*
+## 📖 Learn More
+
+- **New to WhoDis?** Start with the [Getting Started Guide](docs/user-guide/getting-started.md)
+- **Need help with search?** See the [Search Guide](docs/user-guide/search.md)
+- **System administrators?** Check the [Admin Tasks Guide](docs/user-guide/admin-tasks.md) and [Deployment Guide](docs/deployment.md)
+- **Developers?** Explore the [API Documentation](docs/api/) and [Architecture Guide](docs/architecture.md)
+- **Experiencing issues?** Consult the [Troubleshooting Guide](docs/troubleshooting.md)
+- **Want to contribute?** Read the [Contributing Guide](CONTRIBUTING.md)
+
+*For a complete list of documentation, see the [Documentation](#-documentation) section above.*
