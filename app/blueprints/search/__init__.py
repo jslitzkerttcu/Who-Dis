@@ -18,6 +18,8 @@ from typing import Optional, Dict, Any
 import base64
 import hashlib
 import json
+from urllib.parse import quote as url_quote
+from markupsafe import escape as html_escape
 from app.utils.timezone import format_timestamp
 from datetime import datetime, timezone
 
@@ -2515,22 +2517,22 @@ def _render_signin_logs(logs):
         html += f'<td class="px-3 py-2 text-gray-700 whitespace-nowrap">{formatted}</td>'
 
         # Application
-        app_name = log.get("appDisplayName", "Unknown")
-        client = log.get("clientAppUsed", "")
-        app_display = app_name
+        app_name = html_escape(log.get("appDisplayName", "Unknown"))
+        client = html_escape(log.get("clientAppUsed", ""))
+        app_display = str(app_name)
         if client and client != app_name:
             app_display += f' <span class="text-gray-400">({client})</span>'
         html += f'<td class="px-3 py-2 text-gray-700">{app_display}</td>'
 
         # IP Address
-        ip = log.get("ipAddress", "N/A")
+        ip = html_escape(log.get("ipAddress", "N/A"))
         html += f'<td class="px-3 py-2 text-gray-500 font-mono">{ip}</td>'
 
         # Location
-        city = log.get("city", "")
-        state = log.get("state", "")
-        country = log.get("country", "")
-        location_parts = [p for p in [city, state, country] if p]
+        city = html_escape(log.get("city", ""))
+        state = html_escape(log.get("state", ""))
+        country = html_escape(log.get("country", ""))
+        location_parts = [str(p) for p in [city, state, country] if p]
         location = ", ".join(location_parts) if location_parts else "N/A"
         html += f'<td class="px-3 py-2 text-gray-500">{location}</td>'
 
@@ -2539,7 +2541,7 @@ def _render_signin_logs(logs):
         if error_code == 0:
             html += '<td class="px-3 py-2"><span class="inline-block px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">Success</span></td>'
         else:
-            reason = log.get("failureReason", f"Error {error_code}")
+            reason = html_escape(log.get("failureReason", f"Error {error_code}"))
             html += f'<td class="px-3 py-2"><span class="inline-block px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full" title="{reason}">Failed</span></td>'
 
         html += "</tr>"
@@ -2579,8 +2581,9 @@ def _render_genesys_licenses(licenses, user_id, can_edit=False):
 
     html = '<div class="flex flex-wrap gap-2">'
     for lic in licenses:
-        lic_id = lic.get("id", "")
-        lic_name = lic.get("name", lic_id)
+        lic_id = html_escape(lic.get("id", ""))
+        lic_name = html_escape(lic.get("name", lic.get("id", "Unknown")))
+        lic_name_url = url_quote(str(lic_name))
 
         html += '<span class="inline-flex items-center px-2 py-1 text-xs bg-amber-100 text-amber-800 rounded-full">'
         html += f'<i class="fas fa-id-badge mr-1"></i>{lic_name}'
@@ -2589,10 +2592,10 @@ def _render_genesys_licenses(licenses, user_id, can_edit=False):
             html += f'''
             <button class="ml-1.5 text-amber-600 hover:text-red-600 transition-colors"
                     title="Remove license"
-                    hx-delete="/search/api/genesys-licenses/{user_id}/{lic_id}?name={lic_name}"
+                    hx-delete="/search/api/genesys-licenses/{user_id}/{lic_id}?name={lic_name_url}"
                     hx-target="#genesys-licenses-{user_id}"
                     hx-swap="innerHTML"
-                    hx-confirm="Remove license '{lic_name}' from this user?"
+                    hx-confirm="Remove license &#39;{lic_name}&#39; from this user?"
                     >
                 <i class="fas fa-times text-xs"></i>
             </button>

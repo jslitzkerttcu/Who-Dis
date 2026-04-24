@@ -523,7 +523,7 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
     def remove_user_license(self, user_id: str, license_id: str) -> bool:
         """Remove a license from a Genesys Cloud user.
 
-        Uses the license toggle endpoint to disable a specific license.
+        Uses the dedicated licenses endpoint with a delete list.
         """
         token = self.get_access_token()
         if not token:
@@ -531,33 +531,13 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
             return False
 
         try:
-            # First get current roles/licenses to build update payload
-            user_url = f"{self.base_url}/api/v2/users/{user_id}"
-            params = {"expand": ["authorization"]}
-
-            response = self._make_request("GET", user_url, token, params=params)
-            data = self._handle_response(response)
-
-            if not data:
-                return False
-
-            authorization = data.get("authorization", {})
-            current_licenses = authorization.get("licenses", [])
-
-            # Filter out the license to remove
-            updated_licenses = []
-            for lic in current_licenses:
-                lic_id = lic if isinstance(lic, str) else lic.get("id", "")
-                if lic_id != license_id:
-                    updated_licenses.append(lic_id)
-
-            # Update user with the new license list
-            update_url = f"{self.base_url}/api/v2/users/{user_id}/roles"
+            # Use the dedicated licenses endpoint to remove the license
+            update_url = f"{self.base_url}/api/v2/users/{user_id}/licenses"
             update_response = self._make_request(
-                "PUT",
+                "POST",
                 update_url,
                 token,
-                json=updated_licenses,
+                json={"delete": [license_id]},
             )
 
             if update_response.status_code in (200, 204):
