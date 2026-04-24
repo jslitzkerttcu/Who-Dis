@@ -478,6 +478,105 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
 
         return phone_numbers
 
+    def get_user_licenses(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get licenses assigned to a Genesys Cloud user."""
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Genesys access token for license lookup")
+            return None
+
+        try:
+            # Get user's assigned licenses via the authorization expand
+            user_url = f"{self.base_url}/api/v2/users/{user_id}"
+            params = {"expand": ["authorization"]}
+
+            response = self._make_request("GET", user_url, token, params=params)
+            data = self._handle_response(response)
+
+            if not data:
+                return []
+
+            # Extract licenses from authorization grants
+            authorization = data.get("authorization", {})
+            licenses_list = authorization.get("licenses", [])
+
+            licenses = []
+            for lic in licenses_list:
+                if isinstance(lic, str):
+                    licenses.append({"id": lic, "name": lic})
+                elif isinstance(lic, dict):
+                    licenses.append(
+                        {
+                            "id": lic.get("id", ""),
+                            "name": lic.get("name", lic.get("id", "Unknown")),
+                        }
+                    )
+
+            return licenses
+
+        except Exception as e:
+            logger.error(
+                f"Error fetching licenses for Genesys user {user_id}: {str(e)}"
+            )
+            return None
+
+    def remove_user_license(self, user_id: str, license_id: str) -> bool:
+        """Remove a license from a Genesys Cloud user.
+
+        Uses the license toggle endpoint to disable a specific license.
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Genesys access token for license removal")
+            return False
+
+        try:
+            # First get current roles/licenses to build update payload
+            user_url = f"{self.base_url}/api/v2/users/{user_id}"
+            params = {"expand": ["authorization"]}
+
+            response = self._make_request("GET", user_url, token, params=params)
+            data = self._handle_response(response)
+
+            if not data:
+                return False
+
+            authorization = data.get("authorization", {})
+            current_licenses = authorization.get("licenses", [])
+
+            # Filter out the license to remove
+            updated_licenses = []
+            for lic in current_licenses:
+                lic_id = lic if isinstance(lic, str) else lic.get("id", "")
+                if lic_id != license_id:
+                    updated_licenses.append(lic_id)
+
+            # Update user with the new license list
+            update_url = f"{self.base_url}/api/v2/users/{user_id}/roles"
+            update_response = self._make_request(
+                "PUT",
+                update_url,
+                token,
+                json=updated_licenses,
+            )
+
+            if update_response.status_code in (200, 204):
+                logger.info(
+                    f"Successfully removed license {license_id} from user {user_id}"
+                )
+                return True
+
+            logger.error(
+                f"Failed to remove license: HTTP {update_response.status_code}"
+            )
+            return False
+
+        except Exception as e:
+            logger.error(
+                f"Error removing license {license_id} from user {user_id}: {str(e)}"
+            )
+            return False
+
     def get_blocked_numbers(self) -> Optional[Dict[str, Any]]:
         """Get all blocked numbers from Genesys data table."""
         token = self.get_access_token()

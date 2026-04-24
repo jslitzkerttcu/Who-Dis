@@ -1,7 +1,7 @@
 """Microsoft Graph service with simplified configuration."""
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from msal import ConfidentialClientApplication  # type: ignore[import-untyped]
 import base64
 from app.services.base import BaseAPITokenService
@@ -387,6 +387,65 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                 continue
 
         return None
+
+    def get_sign_in_logs(
+        self, user_id: str, top: int = 25
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Get recent sign-in logs for a user from Azure AD audit logs.
+
+        Requires AuditLog.Read.All permission on the app registration.
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Graph API access token for sign-in logs")
+            return None
+
+        try:
+            url = f"{self.graph_base_url}/auditLogs/signIns"
+            params = {
+                "$filter": f"userId eq '{user_id}'",
+                "$top": str(top),
+                "$orderby": "createdDateTime desc",
+                "$select": (
+                    "createdDateTime,appDisplayName,ipAddress,clientAppUsed,"
+                    "status,location,deviceDetail,isInteractive"
+                ),
+            }
+
+            response = self._make_request("GET", url, token, params=params)
+            data = self._handle_response(response)
+
+            if not data or "value" not in data:
+                return []
+
+            logs = []
+            for entry in data["value"]:
+                status = entry.get("status", {})
+                location = entry.get("location", {})
+                device = entry.get("deviceDetail", {})
+
+                logs.append(
+                    {
+                        "createdDateTime": entry.get("createdDateTime"),
+                        "appDisplayName": entry.get("appDisplayName", "Unknown"),
+                        "ipAddress": entry.get("ipAddress", "N/A"),
+                        "clientAppUsed": entry.get("clientAppUsed", "N/A"),
+                        "errorCode": status.get("errorCode", 0),
+                        "failureReason": status.get("failureReason", ""),
+                        "city": location.get("city", ""),
+                        "state": location.get("state", ""),
+                        "country": location.get("countryOrRegion", ""),
+                        "browser": device.get("browser", ""),
+                        "operatingSystem": device.get("operatingSystem", ""),
+                        "isInteractive": entry.get("isInteractive", True),
+                    }
+                )
+
+            return logs
+
+        except Exception as e:
+            logger.error(f"Error fetching sign-in logs for user {user_id}: {str(e)}")
+            return None
 
 
 graph_service = GraphService()
