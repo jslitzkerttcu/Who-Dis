@@ -133,67 +133,67 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
-| PROF-01 | TBD | Pending |
-| PROF-02 | TBD | Pending |
-| PROF-03 | TBD | Pending |
-| PROF-04 | TBD | Pending |
-| PROF-05 | TBD | Pending |
-| PROF-06 | TBD | Pending |
-| SRCH-01 | TBD | Pending |
-| SRCH-02 | TBD | Pending |
-| COMP-01 | TBD | Pending |
-| COMP-02 | TBD | Pending |
-| COMP-03 | TBD | Pending |
-| COMP-04 | TBD | Pending |
-| COMP-05 | TBD | Pending |
-| REPT-01 | TBD | Pending |
-| REPT-02 | TBD | Pending |
-| REPT-03 | TBD | Pending |
-| REPT-04 | TBD | Pending |
-| REPT-05 | TBD | Pending |
-| REPT-06 | TBD | Pending |
-| REPT-07 | TBD | Pending |
-| REPT-08 | TBD | Pending |
-| WRIT-01 | TBD | Pending |
-| WRIT-02 | TBD | Pending |
-| WRIT-03 | TBD | Pending |
-| WRIT-04 | TBD | Pending |
-| WRIT-05 | TBD | Pending |
-| WRIT-06 | TBD | Pending |
-| WRIT-07 | TBD | Pending |
-| WRIT-08 | TBD | Pending |
-| API-01 | TBD | Pending |
-| API-02 | TBD | Pending |
-| API-03 | TBD | Pending |
-| API-04 | TBD | Pending |
-| API-05 | TBD | Pending |
-| API-06 | TBD | Pending |
-| WKFL-01 | TBD | Pending |
-| WKFL-02 | TBD | Pending |
-| WKFL-03 | TBD | Pending |
-| WKFL-04 | TBD | Pending |
-| OPS-01 | TBD | Pending |
-| OPS-02 | TBD | Pending |
-| OPS-03 | TBD | Pending |
-| OPS-04 | TBD | Pending |
-| SEC-01 | TBD | Pending |
-| SEC-02 | TBD | Pending |
-| SEC-03 | TBD | Pending |
-| SEC-04 | TBD | Pending |
-| DEBT-01 | TBD | Pending |
-| DEBT-02 | TBD | Pending |
-| DEBT-03 | TBD | Pending |
-| DEBT-04 | TBD | Pending |
+| TEST-01 | Phase 2 | Pending |
+| TEST-02 | Phase 2 | Pending |
+| TEST-03 | Phase 2 | Pending |
+| TEST-04 | Phase 2 | Pending |
+| PROF-01 | Phase 3 | Pending |
+| PROF-02 | Phase 3 | Pending |
+| PROF-03 | Phase 3 | Pending |
+| PROF-04 | Phase 3 | Pending |
+| PROF-05 | Phase 3 | Pending |
+| PROF-06 | Phase 3 | Pending |
+| SRCH-01 | Phase 3 | Pending |
+| SRCH-02 | Phase 3 | Pending |
+| COMP-01 | Phase 4 | Pending |
+| COMP-02 | Phase 4 | Pending |
+| COMP-03 | Phase 4 | Pending |
+| COMP-04 | Phase 4 | Pending |
+| COMP-05 | Phase 4 | Pending |
+| REPT-01 | Phase 5 | Pending |
+| REPT-02 | Phase 5 | Pending |
+| REPT-03 | Phase 5 | Pending |
+| REPT-04 | Phase 5 | Pending |
+| REPT-05 | Phase 5 | Pending |
+| REPT-06 | Phase 5 | Pending |
+| REPT-07 | Phase 5 | Pending |
+| REPT-08 | Phase 5 | Pending |
+| WRIT-01 | Phase 6 | Pending |
+| WRIT-02 | Phase 6 | Pending |
+| WRIT-03 | Phase 6 | Pending |
+| WRIT-04 | Phase 6 | Pending |
+| WRIT-05 | Phase 6 | Pending |
+| WRIT-06 | Phase 6 | Pending |
+| WRIT-07 | Phase 6 | Pending |
+| WRIT-08 | Phase 6 | Pending |
+| API-01 | Phase 7 | Pending |
+| API-02 | Phase 7 | Pending |
+| API-03 | Phase 7 | Pending |
+| API-04 | Phase 7 | Pending |
+| API-05 | Phase 7 | Pending |
+| API-06 | Phase 7 | Pending |
+| WKFL-01 | Phase 8 | Pending |
+| WKFL-02 | Phase 8 | Pending |
+| WKFL-03 | Phase 8 | Pending |
+| WKFL-04 | Phase 8 | Pending |
+| OPS-01 | Phase 1 | Pending |
+| OPS-02 | Phase 1 | Pending |
+| OPS-03 | Phase 1 | Pending |
+| OPS-04 | Phase 1 | Pending |
+| SEC-01 | Phase 1 | Pending |
+| SEC-02 | Phase 1 | Pending |
+| SEC-03 | Phase 1 | Pending |
+| SEC-04 | Phase 1 | Pending |
+| DEBT-01 | Phase 1 | Pending |
+| DEBT-02 | Phase 1 | Pending |
+| DEBT-03 | Phase 1 | Pending |
+| DEBT-04 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 52 total
-- Mapped to phases: 0
-- Unmapped: 52
+- Mapped to phases: 52
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-24*
-*Last updated: 2026-04-24 after initial definition*
+*Last updated: 2026-04-24 after roadmap creation*
