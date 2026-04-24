@@ -54,7 +54,7 @@ python scripts/diagnose_config.py           # Diagnose problems
 python scripts/refresh_employee_profiles.py refresh  # Sync employee data
 
 # Cache management
-python scripts/check_genesys_cache.py       # Test Genesys cache
+python scripts/debug/check_genesys_cache.py  # Test Genesys cache
 ```
 
 See [Database Documentation](docs/database.md) for complete database setup and troubleshooting.
@@ -117,7 +117,7 @@ WhoDis is a Flask-based identity lookup service with PostgreSQL backend and inte
 
 ### Key Technologies
 
-- **Backend**: Flask 3.0.0, SQLAlchemy, PostgreSQL 12+
+- **Backend**: Flask 3.1, SQLAlchemy, PostgreSQL 12+
 - **Auth**: Azure AD SSO (X-MS-CLIENT-PRINCIPAL-NAME header)
 - **APIs**: ldap3, MSAL (Graph), requests (Genesys)
 - **Frontend**: Jinja2, HTMX, Tailwind CSS, FontAwesome

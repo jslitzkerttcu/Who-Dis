@@ -74,7 +74,7 @@ A comprehensive Flask-based identity lookup service that provides unified search
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Backend | Flask 3.0.0 | Web framework with blueprint architecture |
+| Backend | Flask 3.1 | Web framework with blueprint architecture |
 | Database | PostgreSQL 12+ | Data persistence with encrypted configuration |
 | Encryption | cryptography (Fernet) | Configuration encryption with unique salts |
 | Authentication | Azure AD SSO | Single sign-on with role-based access control |
@@ -147,16 +147,13 @@ A comprehensive Flask-based identity lookup service that provides unified search
    EOF
    ```
 
-6. **Migrate configuration to database**:
+6. **Verify configuration**:
    ```bash
-   # First, add all your API credentials to .env temporarily
-   # Then run the migration script
-   python scripts/migrate_config_to_db.py
-   
    # Verify encryption is working
    python scripts/verify_encrypted_config.py
    
-   # Remove sensitive values from .env after verification
+   # Check configuration status
+   python scripts/check_config_status.py
    ```
 
 7. **Run the application**:
@@ -239,9 +236,10 @@ The `WHODIS_ENCRYPTION_KEY` is the master key that encrypts all sensitive config
    # Edit .env and replace WHODIS_ENCRYPTION_KEY with the new value
    ```
 
-4. **Re-encrypt all values** with the new key:
+4. **Clear and re-enter encrypted values**:
    ```bash
-   python scripts/reencrypt_config.py
+   python scripts/clear_encrypted_config.py
+   # Then re-enter values via admin UI or configuration scripts
    ```
 
 5. **Restart the application**
@@ -274,34 +272,69 @@ For detailed database setup and configuration management, see [Database Document
 WhoDis/
 ├── app/                           # Application code
 │   ├── __init__.py               # Flask app factory with config service
+│   ├── container.py              # Dependency injection container
+│   ├── database.py               # Database configuration and connection pooling
 │   ├── blueprints/               # Route handlers
-│   │   ├── admin/                # Admin panel with user & audit management
+│   │   ├── admin/                # Admin panel (users, config, audit, compliance)
 │   │   ├── home/                 # Landing page and login
-│   │   ├── search/               # Search interface and logic
-│   │   └── session/              # Session management endpoints
-│   ├── database.py               # Database configuration
+│   │   ├── search/               # Identity search interface
+│   │   ├── session/              # Session timeout management
+│   │   └── utilities/            # Blocked numbers management
+│   ├── interfaces/               # Service interfaces/contracts
+│   │   ├── audit_service.py      # Audit service interface
+│   │   ├── cache_repository.py   # Cache repository interface
+│   │   ├── configuration_service.py # Config service interface
+│   │   ├── search_service.py     # Search service interface
+│   │   └── token_service.py      # Token service interface
 │   ├── middleware/               # Authentication and authorization
-│   │   └── auth.py               # RBAC with database/config fallback
+│   │   ├── auth.py               # RBAC with @auth_required decorator
+│   │   ├── authentication_handler.py # Azure AD header processing
+│   │   ├── audit_logger.py       # Request audit logging
+│   │   ├── csrf.py               # CSRF protection
+│   │   ├── errors.py             # Error handlers
+│   │   ├── role_resolver.py      # Role determination from DB/config
+│   │   ├── security_headers.py   # CSP, X-Frame-Options, etc.
+│   │   ├── session_manager.py    # Session lifecycle and timeout
+│   │   └── user_provisioner.py   # Auto-provision users on first login
 │   ├── models/                   # SQLAlchemy models
+│   │   ├── base.py               # Base classes and mixins
 │   │   ├── access.py             # Access attempt tracking
+│   │   ├── api_token.py          # API token model
 │   │   ├── audit.py              # Audit log model
 │   │   ├── cache.py              # Search cache model
 │   │   ├── configuration.py      # Configuration model
-│   │   ├── error.py              # Error log model
-│   │   ├── genesys.py            # Genesys cache models
 │   │   ├── employee_profiles.py  # Consolidated employee data with photos
+│   │   ├── error.py              # Error log model
+│   │   ├── external_service.py   # External service tracking
+│   │   ├── genesys.py            # Genesys cache models
+│   │   ├── job_role_compliance.py # Job code, system role, mapping models
 │   │   ├── session.py            # User session model with timeout support
 │   │   ├── user.py               # User management model
 │   │   └── user_note.py          # User notes model
-│   ├── services/                 # External service integrations
+│   ├── services/                 # Service layer
+│   │   ├── base.py                      # Base service classes
 │   │   ├── audit_service_postgres.py    # PostgreSQL audit logging
+│   │   ├── compliance_checking_service.py # Compliance violation detection
 │   │   ├── configuration_service.py     # Encrypted config management
+│   │   ├── data_warehouse_service.py    # Data warehouse integration
 │   │   ├── encryption_service.py        # Fernet encryption utilities
 │   │   ├── genesys_cache_db.py         # Genesys data caching
 │   │   ├── genesys_service.py          # Genesys Cloud API
 │   │   ├── graph_service.py            # Microsoft Graph API
+│   │   ├── job_role_mapping_service.py  # Job role mapping CRUD
+│   │   ├── job_role_warehouse_service.py # Warehouse role sync
 │   │   ├── ldap_service.py             # Active Directory queries
+│   │   ├── refresh_employee_profiles.py # Employee data sync
+│   │   ├── result_merger.py            # Cross-service result merging
+│   │   ├── search_enhancer.py          # Search result enrichment
+│   │   ├── search_orchestrator.py      # Concurrent search coordination
+│   │   ├── simple_config.py            # Simple config helper
 │   │   └── token_refresh_service.py    # Background token management
+│   ├── utils/                    # Utility modules
+│   │   ├── error_handler.py      # Error handling decorators
+│   │   ├── ip_utils.py           # IP address utilities
+│   │   ├── timezone.py           # Timezone helpers
+│   │   └── transaction.py        # Database transaction helpers
 │   ├── static/                   # CSS, JS, images
 │   │   ├── css/                  # Stylesheets
 │   │   ├── img/                  # Images and icons
@@ -309,7 +342,8 @@ WhoDis/
 │   └── templates/                # Jinja2 HTML templates
 │       ├── admin/                # Admin panel templates
 │       ├── home/                 # Home and login pages
-│       └── search/               # Search interface
+│       ├── search/               # Search interface
+│       └── utilities/            # Utilities templates
 ├── database/                     # Database SQL scripts
 │   ├── create_database.sql       # Database and user creation
 │   ├── create_tables.sql         # Complete schema (all tables, triggers, etc.)
@@ -328,13 +362,19 @@ WhoDis/
 │   ├── deployment.md             # Deployment guide
 │   ├── job-role-compliance.md    # Compliance feature docs
 │   ├── phone_number_matching.md  # Phone logic docs
+│   ├── PLANNING.md               # Project roadmap and planning
 │   └── troubleshooting.md        # Troubleshooting guide
 ├── logs/                         # Application logs (git-ignored)
 ├── scripts/                      # Utility scripts
-│   ├── migrate_config_to_db.py  # Migrate .env to encrypted database
+│   ├── check_config_status.py    # Quick configuration check
+│   ├── clear_encrypted_config.py # Clear encrypted config values
+│   ├── diagnose_config.py        # Diagnose configuration problems
+│   ├── drop_legacy_tables.py     # Remove legacy database tables
+│   ├── export_config.py          # Export configuration backup
+│   ├── refresh_employee_profiles.py # Sync employee data
+│   ├── verify_deployment.py      # Verify deployment health
 │   ├── verify_encrypted_config.py # Verify encryption setup
-│   ├── check_config_status.py   # Quick configuration check
-│   └── reencrypt_config.py      # Re-encrypt all sensitive values
+│   └── debug/                    # Debug/diagnostic scripts
 ├── requirements.txt              # Python dependencies
 ├── run.py                        # Application entry point
 ├── .env                          # Minimal environment (DB + encryption key only)
@@ -575,10 +615,10 @@ For understanding the codebase structure, design patterns, and service architect
 - [ ] **Scheduled Reports**: Admin tools for automated report generation and alerting
 
 #### Phase 3: Job Role Compliance Matrix (Critical for Audit)
-- [ ] **Role Mapping**: Map job codes/titles to expected system roles across all platforms
-- [ ] **Compliance Checking**: Automated detection of missing or extra privileges
-- [ ] **Audit Dashboard**: Visual compliance matrix with actionable insights
-- [ ] **Data Warehouse Integration**: Pull actual roles from warehouse with sync capabilities
+- [x] **Role Mapping**: Map job codes/titles to expected system roles across all platforms
+- [x] **Compliance Checking**: Automated detection of missing or extra privileges
+- [x] **Audit Dashboard**: Visual compliance matrix with actionable insights
+- [x] **Data Warehouse Integration**: Pull actual roles from warehouse with sync capabilities
 
 #### Future Enhancements
 - [ ] Advanced user management and workflow automation
