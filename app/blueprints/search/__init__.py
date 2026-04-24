@@ -18,6 +18,8 @@ from typing import Optional, Dict, Any
 import base64
 import hashlib
 import json
+from urllib.parse import quote as url_quote
+from markupsafe import escape as html_escape
 from app.utils.timezone import format_timestamp
 from datetime import datetime, timezone
 
@@ -666,6 +668,81 @@ def delete_search_note(note_id):
             return _render_notes_empty(user_email)
 
     return jsonify({"success": True, "message": "Note deleted successfully"})
+
+
+@search_bp.route("/api/signin-logs/<user_id>")
+@require_role("viewer")
+@handle_errors(json_response=True)
+def get_signin_logs(user_id):
+    """Get Azure AD sign-in logs for a user via HTMX."""
+    graph_service = current_app.container.get("graph_service")
+    logs = graph_service.get_sign_in_logs(user_id)
+
+    # Audit log the access
+    audit_service = current_app.container.get("audit_logger")
+    user_email = getattr(g, "user", "unknown")
+    audit_service.log_search(
+        user_email=user_email,
+        search_query=f"signin_logs:{user_id}",
+        results_count=len(logs) if logs else 0,
+        services=["Graph"],
+        ip_address=request.headers.get("X-Forwarded-For", request.remote_addr),
+        user_agent=request.headers.get("User-Agent"),
+        success=logs is not None,
+    )
+
+    if request.headers.get("HX-Request"):
+        return _render_signin_logs(logs)
+    return jsonify({"logs": logs})
+
+
+@search_bp.route("/api/genesys-licenses/<user_id>")
+@require_role("viewer")
+@handle_errors(json_response=True)
+def get_genesys_licenses(user_id):
+    """Get Genesys Cloud licenses for a user via HTMX."""
+    genesys_service = current_app.container.get("genesys_service")
+    licenses = genesys_service.get_user_licenses(user_id)
+
+    can_edit = hasattr(g, "role") and g.role in ("editor", "admin")
+
+    if request.headers.get("HX-Request"):
+        return _render_genesys_licenses(licenses, user_id, can_edit)
+    return jsonify({"licenses": licenses})
+
+
+@search_bp.route("/api/genesys-licenses/<user_id>/<license_id>", methods=["DELETE"])
+@require_role("editor")
+@handle_errors(json_response=True)
+def remove_genesys_license(user_id, license_id):
+    """Remove a Genesys Cloud license from a user."""
+    genesys_service = current_app.container.get("genesys_service")
+    audit_service = current_app.container.get("audit_logger")
+    user_email = getattr(g, "user", "unknown")
+
+    license_name = request.args.get("name", license_id)
+    success = genesys_service.remove_user_license(user_id, license_id)
+
+    audit_service.log_admin_action(
+        user_email=user_email,
+        action="remove_genesys_license",
+        target=f"genesys_user:{user_id}",
+        details=f"License: {license_name}, Success: {success}",
+        ip_address=request.headers.get("X-Forwarded-For", request.remote_addr),
+    )
+
+    if not success:
+        if request.headers.get("HX-Request"):
+            return '<div class="text-sm text-red-600 p-2">Failed to remove license. Please try again.</div>'
+        return jsonify({"success": False, "error": "Failed to remove license"}), 500
+
+    # Return refreshed license list
+    licenses = genesys_service.get_user_licenses(user_id)
+    can_edit = hasattr(g, "role") and g.role in ("editor", "admin")
+
+    if request.headers.get("HX-Request"):
+        return _render_genesys_licenses(licenses, user_id, can_edit)
+    return jsonify({"success": True, "licenses": licenses})
 
 
 @search_bp.route("/api/user/<email>/preview")
@@ -1491,6 +1568,30 @@ def _render_azure_ad_card(user_data):
             html += f"<div>{formatted_date}</div>"
         html += "</div></div>"
 
+    # Sign-in logs section
+    graph_id = user_data.get("id") or user_data.get("graphId")
+    if graph_id:
+        html += f'''
+        <div class="mt-6 pt-6 border-t border-gray-200">
+            <div class="flex items-center justify-between mb-3">
+                <h5 class="text-sm font-medium text-gray-900 flex items-center">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Sign-In Logs
+                </h5>
+                <button hx-get="/search/api/signin-logs/{graph_id}"
+                        hx-target="#signin-logs-{graph_id}"
+                        hx-swap="innerHTML"
+                        hx-indicator="#signin-logs-spinner-{graph_id}"
+                        class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-history mr-1"></i>Load Sign-In History
+                    <span id="signin-logs-spinner-{graph_id}" class="htmx-indicator ml-1">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+            </div>
+            <div id="signin-logs-{graph_id}"></div>
+        </div>
+        '''
+
     # Admin notes section
     if email and email != "No email":
         html += f"""
@@ -1699,6 +1800,23 @@ def _render_genesys_card(user_data):
             html += "</div>"
 
         html += "</div></div>"
+
+    # Licenses section (lazy-loaded via HTMX)
+    genesys_user_id = user_data.get("id")
+    if genesys_user_id:
+        html += f'''
+        <div class="mb-4">
+            <h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                <i class="fas fa-id-badge mr-2 text-amber-500"></i>Licenses
+            </h6>
+            <div id="genesys-licenses-{genesys_user_id}"
+                 hx-get="/search/api/genesys-licenses/{genesys_user_id}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <span class="text-xs text-gray-400">Loading licenses...</span>
+            </div>
+        </div>
+        '''
 
     # Add JavaScript for toggle functionality
     html += """
@@ -2355,6 +2473,138 @@ def edit_note_form(note_id):
         </form>
     </div>
     '''
+
+
+def _render_signin_logs(logs):
+    """Render Azure AD sign-in logs as an HTML fragment."""
+    if logs is None:
+        return '''
+        <div class="p-3 bg-red-50 text-red-700 rounded-md text-sm">
+            <i class="fas fa-exclamation-triangle mr-1"></i>
+            Unable to fetch sign-in logs. The app may need AuditLog.Read.All permission.
+        </div>
+        '''
+
+    if not logs:
+        return '''
+        <div class="p-3 bg-gray-50 text-gray-500 rounded-md text-sm">
+            <i class="fas fa-info-circle mr-1"></i>No sign-in logs found for this user.
+        </div>
+        '''
+
+    html = '<div class="max-h-96 overflow-y-auto border border-gray-200 rounded-md">'
+    html += '<table class="w-full text-xs">'
+    html += '<thead class="bg-gray-50 sticky top-0">'
+    html += "<tr>"
+    html += '<th class="px-3 py-2 text-left text-gray-600 font-medium">Date/Time</th>'
+    html += '<th class="px-3 py-2 text-left text-gray-600 font-medium">Application</th>'
+    html += '<th class="px-3 py-2 text-left text-gray-600 font-medium">IP Address</th>'
+    html += '<th class="px-3 py-2 text-left text-gray-600 font-medium">Location</th>'
+    html += '<th class="px-3 py-2 text-left text-gray-600 font-medium">Status</th>'
+    html += "</tr>"
+    html += "</thead><tbody>"
+
+    for i, log in enumerate(logs):
+        row_class = "bg-white" if i % 2 == 0 else "bg-gray-50"
+        html += f'<tr class="{row_class}">'
+
+        # Date/Time
+        dt = log.get("createdDateTime", "")
+        if dt:
+            formatted = _format_signin_datetime(dt)
+        else:
+            formatted = "N/A"
+        html += f'<td class="px-3 py-2 text-gray-700 whitespace-nowrap">{formatted}</td>'
+
+        # Application
+        app_name = html_escape(log.get("appDisplayName", "Unknown"))
+        client = html_escape(log.get("clientAppUsed", ""))
+        app_display = str(app_name)
+        if client and client != app_name:
+            app_display += f' <span class="text-gray-400">({client})</span>'
+        html += f'<td class="px-3 py-2 text-gray-700">{app_display}</td>'
+
+        # IP Address
+        ip = html_escape(log.get("ipAddress", "N/A"))
+        html += f'<td class="px-3 py-2 text-gray-500 font-mono">{ip}</td>'
+
+        # Location
+        city = html_escape(log.get("city", ""))
+        state = html_escape(log.get("state", ""))
+        country = html_escape(log.get("country", ""))
+        location_parts = [str(p) for p in [city, state, country] if p]
+        location = ", ".join(location_parts) if location_parts else "N/A"
+        html += f'<td class="px-3 py-2 text-gray-500">{location}</td>'
+
+        # Status
+        error_code = log.get("errorCode", 0)
+        if error_code == 0:
+            html += '<td class="px-3 py-2"><span class="inline-block px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">Success</span></td>'
+        else:
+            reason = html_escape(log.get("failureReason", f"Error {error_code}"))
+            html += f'<td class="px-3 py-2"><span class="inline-block px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full" title="{reason}">Failed</span></td>'
+
+        html += "</tr>"
+
+    html += "</tbody></table></div>"
+    html += f'<div class="text-xs text-gray-400 mt-2">{len(logs)} most recent sign-in events</div>'
+    return html
+
+
+def _format_signin_datetime(dt_str):
+    """Format a sign-in log datetime string for display."""
+    try:
+        if isinstance(dt_str, str):
+            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        else:
+            dt = dt_str
+        return dt.strftime("%m/%d/%Y %I:%M %p")
+    except Exception:
+        return dt_str
+
+
+def _render_genesys_licenses(licenses, user_id, can_edit=False):
+    """Render Genesys license pills as an HTML fragment."""
+    if licenses is None:
+        return '''
+        <div class="p-2 bg-red-50 text-red-700 rounded-md text-xs">
+            <i class="fas fa-exclamation-triangle mr-1"></i>Unable to fetch licenses.
+        </div>
+        '''
+
+    if not licenses:
+        return '''
+        <div class="text-xs text-gray-400">
+            <i class="fas fa-info-circle mr-1"></i>No licenses assigned.
+        </div>
+        '''
+
+    html = '<div class="flex flex-wrap gap-2">'
+    for lic in licenses:
+        lic_id = html_escape(lic.get("id", ""))
+        lic_name = html_escape(lic.get("name", lic.get("id", "Unknown")))
+        lic_name_url = url_quote(str(lic_name))
+
+        html += '<span class="inline-flex items-center px-2 py-1 text-xs bg-amber-100 text-amber-800 rounded-full">'
+        html += f'<i class="fas fa-id-badge mr-1"></i>{lic_name}'
+
+        if can_edit:
+            html += f'''
+            <button class="ml-1.5 text-amber-600 hover:text-red-600 transition-colors"
+                    title="Remove license"
+                    hx-delete="/search/api/genesys-licenses/{user_id}/{lic_id}?name={lic_name_url}"
+                    hx-target="#genesys-licenses-{user_id}"
+                    hx-swap="innerHTML"
+                    hx-confirm="Remove license &#39;{lic_name}&#39; from this user?"
+                    >
+                <i class="fas fa-times text-xs"></i>
+            </button>
+            '''
+
+        html += "</span>"
+
+    html += "</div>"
+    return html
 
 
 @search_bp.route("/search_specific", methods=["POST"])
