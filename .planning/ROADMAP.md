@@ -29,7 +29,7 @@
   4. Application refuses to start with clear error messages when required configuration values are missing
   5. `.whodis_salt` is absent from git history and a CLI tool exists to safely rotate the encryption key
 **Plans**: 9 plans
-- [ ] 01-01-debt-cleanup-PLAN.md — Consolidate app factory, remove DataWarehouseService, modernize asyncio (DEBT-01/02/04)
+- [x] 01-01-debt-cleanup-PLAN.md — Consolidate app factory, remove DataWarehouseService, modernize asyncio (DEBT-01/02/04)
 - [ ] 01-02-cache-cleanup-PLAN.md — Hourly SearchCache cleanup service + admin Run-now button (DEBT-03)
 - [ ] 01-03-health-endpoints-PLAN.md — Unauthenticated /health and /health/live endpoints (OPS-01)
 - [ ] 01-04-request-id-json-logging-PLAN.md — Request-ID middleware + JSON-structured logging (OPS-02)

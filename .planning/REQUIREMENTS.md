@@ -90,10 +90,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Tech Debt
 
-- [ ] **DEBT-01**: Single application initialization path (consolidate `__init__.py` and `app_factory.py`)
-- [ ] **DEBT-02**: Deprecated `DataWarehouseService` removed, logic consolidated into `EmployeeProfilesRefreshService`
+- [x] **DEBT-01**: Single application initialization path (consolidate `__init__.py` and `app_factory.py`)
+- [x] **DEBT-02**: Deprecated `DataWarehouseService` removed, logic consolidated into `EmployeeProfilesRefreshService`
 - [ ] **DEBT-03**: Scheduled cleanup job removes expired search cache entries
-- [ ] **DEBT-04**: Asyncio patterns updated for Python 3.10+ compatibility (`get_running_loop`, `Runner`)
+- [x] **DEBT-04**: Asyncio patterns updated for Python 3.10+ compatibility (`get_running_loop`, `Runner`)
 
 ## v2 Requirements
 
@@ -184,10 +184,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-02 | Phase 1 | Pending |
 | SEC-03 | Phase 1 | Pending |
 | SEC-04 | Phase 1 | Pending |
-| DEBT-01 | Phase 1 | Pending |
-| DEBT-02 | Phase 1 | Pending |
+| DEBT-01 | Phase 1 | Complete |
+| DEBT-02 | Phase 1 | Complete |
 | DEBT-03 | Phase 1 | Pending |
-| DEBT-04 | Phase 1 | Pending |
+| DEBT-04 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 52 total
