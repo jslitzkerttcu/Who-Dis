@@ -7,12 +7,24 @@ from flask import (
     current_app,
     g,
 )
+from flask_limiter.util import get_remote_address
+from app import limiter
 from app.middleware.auth import require_role
 from app.utils.error_handler import handle_errors
 from app.interfaces.configuration_service import IConfigurationService
 from app.services.search_orchestrator import SearchOrchestrator
 from app.services.result_merger import ResultMerger
 from app.models.cache import SearchCache
+
+
+def _search_rate_key() -> str:
+    """SEC-03 rate-limit key: prefer authenticated user, fall back to remote IP.
+
+    The limiter decorator runs BEFORE @require_role's authenticate() call, so
+    g.user may be unset on the first request in a session. Falling back to the
+    remote address ensures unauthenticated abuse is also bounded.
+    """
+    return getattr(g, "user", None) or get_remote_address()
 import logging
 from typing import Optional, Dict, Any
 import base64
@@ -281,6 +293,7 @@ def get_user_photo(user_id):
 
 
 @search_bp.route("/user", methods=["POST"])
+@limiter.limit("30/minute", key_func=_search_rate_key)
 @require_role("viewer")
 @handle_errors(json_response=True)
 def search_user():
@@ -778,6 +791,7 @@ def user_preview(email):
 
 
 @search_bp.route("/search", methods=["POST"])
+@limiter.limit("30/minute", key_func=_search_rate_key)
 @require_role("viewer")
 @handle_errors
 def search():
