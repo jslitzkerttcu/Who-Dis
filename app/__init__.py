@@ -153,37 +153,49 @@ def create_app():
                 app.logger.info("Checking and refreshing API tokens at startup...")
 
                 # Get all token services from container and refresh them
+                # D-06: skip startup token refresh under TESTING; tests use fake services
+                # registered after create_app() returns and drive refresh manually.
                 token_services = app.container.get_all_by_interface(ITokenService)
                 genesys_service = None
-                for service in token_services:
-                    try:
-                        service_name = getattr(service, "token_service_name", "unknown")
-                        if service.refresh_token_if_needed():
-                            app.logger.info(f"{service_name} token is valid")
-                            if service_name == "genesys":
-                                genesys_service = service
-                        else:
-                            app.logger.warning(
-                                f"Failed to refresh {service_name} token at startup"
+                if not app.config.get("TESTING"):
+                    for service in token_services:
+                        try:
+                            service_name = getattr(
+                                service, "token_service_name", "unknown"
                             )
-                    except Exception as e:
-                        app.logger.warning(f"Error checking {service_name} token: {e}")
+                            if service.refresh_token_if_needed():
+                                app.logger.info(f"{service_name} token is valid")
+                                if service_name == "genesys":
+                                    genesys_service = service
+                            else:
+                                app.logger.warning(
+                                    f"Failed to refresh {service_name} token at startup"
+                                )
+                        except Exception as e:
+                            app.logger.warning(
+                                f"Error checking {service_name} token: {e}"
+                            )
 
                 # Start background token refresh service with container
-                token_refresh = app.container.get("token_refresh")
-                token_refresh.app = app
-                token_refresh.container = app.container
-                token_refresh.start()
-                app.logger.info("Token refresh background service started")
+                # D-06: skip background thread under TESTING; tests drive services synchronously.
+                if not app.config.get("TESTING"):
+                    token_refresh = app.container.get("token_refresh")
+                    token_refresh.app = app
+                    token_refresh.container = app.container
+                    token_refresh.start()
+                    app.logger.info("Token refresh background service started")
 
                 # DEBT-03: hourly background prune of expired SearchCache rows
-                cache_cleanup = app.container.get("cache_cleanup")
-                cache_cleanup.app = app
-                cache_cleanup.start()
-                app.logger.info("Cache cleanup background service started")
+                # D-06: skip background thread under TESTING.
+                if not app.config.get("TESTING"):
+                    cache_cleanup = app.container.get("cache_cleanup")
+                    cache_cleanup.app = app
+                    cache_cleanup.start()
+                    app.logger.info("Cache cleanup background service started")
 
                 # Initialize Genesys cache using the validated service
-                if genesys_service:
+                # D-06: skip Genesys cache warmup under TESTING (avoids real HTTP calls).
+                if genesys_service and not app.config.get("TESTING"):
                     try:
                         from app.services.genesys_cache_db import genesys_cache_db
 
