@@ -557,6 +557,58 @@ SELECT * FROM user_sessions WHERE expires_at > NOW();
 
 ---
 
+## Testing
+
+WhoDis ships with a pytest-based test suite that runs against an ephemeral PostgreSQL container. The suite covers `app/services/` and `app/middleware/` with a 60% coverage gate.
+
+### Prerequisites
+
+- Docker (for the ephemeral PostgreSQL container used by integration tests)
+- Python 3.8+ with `requirements-dev.txt` installed:
+  ```bash
+  pip install -r requirements.txt -r requirements-dev.txt
+  ```
+
+### Running tests
+
+```bash
+make test                # full suite, coverage gate enforced
+make test-unit           # unit tests only (-m unit)
+make test-integration    # integration tests only (-m integration)
+make test-cov-html       # full suite + HTML coverage report at htmlcov/index.html
+```
+
+Or directly:
+
+```bash
+pytest tests/ -v
+```
+
+Coverage gate (`--cov-fail-under=60`) is configured in `pyproject.toml` under `[tool.pytest.ini_options]`. The gate measures `app/services/` + `app/middleware/` only.
+
+### Pre-push hook (recommended)
+
+A pre-push git hook is provided at `.githooks/pre-push`. It runs `make test` before every push and blocks pushes that fail tests or the coverage gate. Install it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+To bypass in an emergency:
+
+```bash
+git push --no-verify
+```
+
+### Test architecture
+
+- **Fakes** (`tests/fakes/`) — `FakeLDAPService`, `FakeGraphService`, `FakeGenesysService` implement the same interfaces as the real services. No real network calls occur during tests.
+- **Factories** (`tests/factories/`) — `factory_boy` factories for `User`, `ApiToken`, `JobCode`, `SystemRole` against an ephemeral PostgreSQL container.
+- **Container override** — Tests inject fakes via `app.container.register()` against the real DI container — same wiring as production.
+- **Per-test isolation** — Each test runs in a SAVEPOINT that rolls back at teardown; no data leak between tests.
+
+---
+
 ## 🧑‍💻 Development
 
 ### Getting Started
