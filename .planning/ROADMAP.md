@@ -25,7 +25,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 ## Phases
 
 - [x] **Phase 1: Foundation** - Clean up tech debt, harden security, add operational primitives (COMPLETE)
-- [ ] **Phase 2: Test Suite** - Establish automated testing infrastructure before write operations (in progress: 60% coverage gate closure pending Plan 02-06)
+- [x] **Phase 2: Test Suite** - Establish automated testing infrastructure before write operations (gate green at 60.12%; verified)
 - [ ] **Phase 3: SandCastle Containerization & Deployment** - Containerize, gunicorn, Traefik, env-var config, structured logs, portal registration
 - [ ] **Phase 4: Keycloak OIDC Authentication** - Replace Azure AD header auth with Keycloak OIDC; preserve role decorators
 - [ ] **Phase 5: Database Migration & Alembic** - Move schema to Alembic, switch to DATABASE_URL, document data-migration path
@@ -78,7 +78,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 - [x] 02-03-targeted-and-integration-tests-PLAN.md — Unit tests for orchestrator/LDAP/Genesys (D-12 hot paths) + integration tests for auth pipeline + search flow (D-13/D-14) (TEST-01, TEST-02, TEST-03)
 - [x] 02-04-coverage-gate-and-docs-PLAN.md — Full-suite verification, coverage report, README hook installer docs, pre-push gate human verification (TEST-04)
 - [x] 02-05-coverage-closure-PLAN.md — Round-1 boundary tests for compliance/genesys-cache/mapping/warehouse/refresh-profiles (5 files, +9.3pp aggregate) (TEST-04, gap closure round 1, PARTIAL — per-file targets met, aggregate gate still failed)
-- [ ] 02-06-coverage-closure-round-2-PLAN.md — Round-2 boundary tests for result_merger/search_enhancer/graph_service/token_refresh/audit_service_postgres (5 files, target +13pp to clear 60% gate) (TEST-04, gap closure round 2)
+- [x] 02-06-coverage-closure-round-2-PLAN.md — Round-2 boundary tests for result_merger/search_enhancer/graph_service/token_refresh/audit_service_postgres + 5 middleware modules (137 tests, +13pp to clear gate at 60.12%) (TEST-04, gap closure round 2 — COMPLETE)
 **Acceptance notes**:
   - **Coverage gate progression:** baseline 32.0% → after Plan 02-05: 41.31% → after integration-test repair (Phase 9 OIDC collateral): 47.08% → Plan 02-06 target: ≥60%.
   - **Plan 02-05 partial closure (2026-04-25):** Per-file targets met for 4/5 services (compliance_checking 0%→68.8%, genesys_cache_db 11.9%→65.4%, job_role_mapping 13.3%→66.7%, job_role_warehouse 14.7%→56.6%; refresh_employee_profiles 16.4%→36.5% — 3.5pp short). 81 tests added, no production code modified. Gate still failed because unscoped files (graph_service, result_merger, search_enhancer, token_refresh, audit_service_postgres) retained ~700 missed stmts. See `02-VERIFICATION.md` Gap Closure section for details.
