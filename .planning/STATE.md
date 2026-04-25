@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-04-25T05:30:00.000Z"
+stopped_at: Completed 01-09-auth-header-config-PLAN.md
+last_updated: "2026-04-25T05:45:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 9
-  completed_plans: 3
-  percent: 33
+  completed_plans: 4
+  percent: 44
 ---
 
 # Project State: WhoDis v3.0
@@ -27,11 +28,11 @@ progress:
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 4 of 9 (next)
+Plan: 5 of 9 (next)
 **Phase:** 1 — Foundation
-**Plan:** 01-07-salt-key-rotation COMPLETE — SEC-01/SEC-02 satisfied (.whodis_salt gitignored + rotate_encryption_key.py with --dry-run/verify + operator runbook)
+**Plan:** 01-09-auth-header-config COMPLETE — SEC-04 satisfied (configurable auth.principal_header + DANGEROUS_DEV_AUTH_BYPASS_USER env-var bypass with WARNING log)
 **Status:** Executing Phase 01
-**Progress:** [███░░░░░░░] 33% (3/9 plans complete)
+**Progress:** [████░░░░░░] 44%
 
 ## Accumulated Context
 
@@ -42,6 +43,7 @@ Plan: 4 of 9 (next)
 - API (Phase 7) starts read-only — write endpoints are v2+ scope
 - Operational hardening items (OPS-01..04, SEC-01..04, DEBT-01..04) grouped in Phase 1 to clean the slate before feature work
 - Pagination pattern locked: `paginate(query, page, size)` helper + `render_pagination` Jinja macro with `hx-push-url` for bookmarkable URLs (D-13/D-14/D-15) — pattern inherited by Phases 4 and 5
+- SEC-04: dev auth bypass is env-var-only (DANGEROUS_DEV_AUTH_BYPASS_USER) — cannot be enabled via DB config or admin UI; deployment-time gate prevents accidental enablement
 
 ### Architecture Constraints
 
@@ -62,9 +64,9 @@ Plan: 4 of 9 (next)
 
 ## Session Continuity
 
-**Last session:** 2026-04-25T05:30:00.000Z
-**Next action:** Continue Phase 1 — execute next plan (6 of 9 remaining)
-**Stopped at:** Completed 01-07-salt-key-rotation-PLAN.md
+**Last session:** 2026-04-25T05:45:00.000Z
+**Next action:** Continue Phase 1 — execute next plan (5 of 9 remaining)
+**Stopped at:** Completed 01-09-auth-header-config-PLAN.md
 **Blockers:** None
 
 ---
