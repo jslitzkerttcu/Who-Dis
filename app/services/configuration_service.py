@@ -12,11 +12,43 @@ live DB after the Plan 06 post-cutover verification (per
 read by the running app except for the debug toggle.
 """
 import logging
+import os
 from typing import Optional
 
 from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
+
+
+# Phase 9 env-var bridge.
+#
+# Pre-Phase-9 services call config_get("category.key") to read encrypted
+# settings out of the (now-retired) configuration table. Plan 05 left
+# config_get as a no-op shim, which silently broke every call site —
+# LDAP/Graph/Genesys all received None for their credentials. This map
+# translates the legacy dotted keys to the portal env-var names that
+# .env.sandcastle.example documents and that scripts/cutover/migrate_secrets_to_portal.py
+# writes into the portal store.
+#
+# Anything not in this map falls back to AUTO_UPPER (key.replace(".", "_").upper()).
+ENV_BRIDGE = {
+    "ldap.host": "LDAP_SERVER",
+    "ldap.bind_dn": "LDAP_BIND_DN",
+    "ldap.bind_password": "LDAP_BIND_PASSWORD",
+    "ldap.base_dn": "LDAP_BASE_DN",
+    "ldap.user_search_base": "LDAP_USER_SEARCH_BASE",
+    "ldap.port": "LDAP_PORT",
+    "ldap.use_ssl": "LDAP_USE_SSL",
+    "ldap.connect_timeout": "LDAP_CONNECT_TIMEOUT",
+    "ldap.connection_timeout": "LDAP_CONNECTION_TIMEOUT",
+    "ldap.operation_timeout": "LDAP_OPERATION_TIMEOUT",
+    "graph.tenant_id": "GRAPH_TENANT_ID",
+    "graph.client_id": "GRAPH_CLIENT_ID",
+    "graph.client_secret": "GRAPH_CLIENT_SECRET",
+    "genesys.client_id": "GENESYS_CLIENT_ID",
+    "genesys.client_secret": "GENESYS_CLIENT_SECRET",
+    "genesys.region": "GENESYS_REGION",
+}
 
 
 def get_debug_mode() -> bool:
@@ -75,14 +107,25 @@ def set_debug_mode(value: bool) -> bool:
 
 
 def config_get(key: str, default=None):
-    """Phase 9 shim — encrypted-config layer was removed (D-11). Returns ``default``.
+    """Phase 9 — read from os.environ via the ENV_BRIDGE map (D-11 retirement).
 
     Pre-Phase-9 services call ``config_get("category.key", default)`` to read
-    encrypted settings. Those settings now live in os.environ; this shim keeps
-    legacy import sites importable until callers migrate to the env-var pattern
-    or to ``service._config_cache`` test overrides (Plan 02-PATTERNS).
+    encrypted settings out of the (now-retired) configuration table. They are
+    now backed by the portal env-var store, which the SandCastle deploy injects
+    as os.environ keys per .env.sandcastle.example.
+
+    Resolution order:
+      1. ENV_BRIDGE explicit map (e.g. ldap.host -> LDAP_SERVER)
+      2. AUTO_UPPER fallback (e.g. graph.api_timeout -> GRAPH_API_TIMEOUT)
+      3. ``default``
+
+    Tests that rely on ``service._config_cache`` overrides remain unaffected —
+    BaseConfigurableService._get_config caches per-instance and reads this
+    function only on cache miss (Plan 02-PATTERNS).
     """
-    return default
+    env_key = ENV_BRIDGE.get(key) or key.replace(".", "_").upper()
+    val = os.environ.get(env_key)
+    return val if val is not None else default
 
 
 def config_set(key: str, value, *args, **kwargs) -> bool:
