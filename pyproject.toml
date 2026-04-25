@@ -1,0 +1,23 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=app.services --cov=app.middleware --cov-fail-under=60 --cov-report=term-missing --cov-report=html --strict-markers"
+markers = [
+  "unit: fast unit tests with mocked dependencies",
+  "integration: tests exercising the Flask app end-to-end against fakes",
+]
+filterwarnings = [
+  "ignore::DeprecationWarning:pkg_resources.*",
+]
+
+[tool.coverage.run]
+source = ["app/services", "app/middleware"]
+branch = true
+omit = [
+  "app/services/__init__.py",
+  "app/middleware/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 1
