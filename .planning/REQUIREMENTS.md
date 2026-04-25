@@ -85,7 +85,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [ ] **SEC-01**: `.whodis_salt` file removed from git history and properly gitignored
 - [ ] **SEC-02**: CLI tool exists for safe encryption key rotation with dual-key migration and verification
-- [ ] **SEC-03**: Search endpoint has per-user rate limiting to prevent abuse
+- [x] **SEC-03**: Search endpoint has per-user rate limiting to prevent abuse
 - [x] **SEC-04**: Authentication header validation configurable for non-Azure environments
 
 ### Tech Debt
@@ -182,7 +182,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OPS-04 | Phase 1 | Complete |
 | SEC-01 | Phase 1 | Pending |
 | SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
+| SEC-03 | Phase 1 | Complete |
 | SEC-04 | Phase 1 | Complete |
 | DEBT-01 | Phase 1 | Complete |
 | DEBT-02 | Phase 1 | Complete |

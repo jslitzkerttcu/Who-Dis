@@ -36,7 +36,7 @@
 - [x] 01-05-config-validator-PLAN.md — Startup config validator that aborts boot on missing keys (OPS-03)
 - [x] 01-06-pagination-PLAN.md — Reusable paginate helper + render_pagination macro wired into 3 admin tables (OPS-04)
 - [x] 01-07-salt-key-rotation-PLAN.md — Gitignore .whodis_salt + dual-key rotation script + runbook (SEC-01/02)
-- [ ] 01-08-rate-limiting-PLAN.md — Flask-Limiter on /search and /api/search at 30/min per user (SEC-03)
+- [x] 01-08-rate-limiting-PLAN.md — Flask-Limiter on /search and /api/search at 30/min per user (SEC-03)
 - [x] 01-09-auth-header-config-PLAN.md — Configurable auth header + dev bypass env var (SEC-04)
 **UI hint**: yes
 

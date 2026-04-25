@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-cache-cleanup-PLAN.md
-last_updated: "2026-04-25T05:17:02.152Z"
+stopped_at: Completed 01-08-rate-limiting-PLAN.md
+last_updated: "2026-04-25T06:00:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State: WhoDis v3.0
@@ -28,11 +28,11 @@ progress:
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 8 of 9 (next)
+Plan: 9 of 9 (complete)
 **Phase:** 1 — Foundation
-**Plan:** 01-02-cache-cleanup COMPLETE — DEBT-03 satisfied (CacheCleanupService background thread prunes expired SearchCache rows hourly; admin Run-now route at POST /admin/api/cache/cleanup/run with HTMX fragment response and audit logging; broom-icon button row added to _cache_actions.html)
-**Status:** Executing Phase 01
-**Progress:** [█████████░] 89%
+**Plan:** 01-08-rate-limiting COMPLETE — SEC-03 satisfied (Flask-Limiter 3.12 with in-memory storage; 30/minute limit on POST /search/search and POST /search/user via @limiter.limit + _search_rate_key fallback to remote_addr; D-08 PostgreSQL backend deviation documented — Redis swap deferred to SandCastle integration phase per WD-NET-01/WD-CONT-02; admin/health/session endpoints unlimited per D-10)
+**Status:** Phase 01 plans complete
+**Progress:** [██████████] 100%
 
 ## Accumulated Context
 
@@ -48,6 +48,7 @@ Plan: 8 of 9 (next)
 - OPS-03: REQUIRED_KEYS list lives in code (not DB) so operators cannot tamper around the startup gate; error messages list missing key names + labels but never echo decrypted values; Postgres creds remain in .env (bootstrap), validator scope is encrypted-config only
 - OPS-01: /health and /health/live are unauthenticated public probes registered at root; /health does DB-only deep check (SELECT 1 + latency_ms, 503 on failure) per D-12 — no LDAP/Graph/Genesys probes; error text truncated to 200 chars; rate limiting deliberately omitted so uptime monitors get free access
 - DEBT-03: CacheCleanupService is the third instance of the background-thread pattern (token_refresh, employee_profiles_refresh now joined by cache_cleanup); future scheduled jobs copy this skeleton verbatim. run_now() is the synchronous public entry point for admin invocations (caller already holds a request context). No confirmation modal on Run-now because the operation only deletes already-expired rows.
+- SEC-03: Flask-Limiter v3.x dropped PostgreSQL storage support. Shipped in-memory limits now (per-worker scope, acceptable for single/low-worker WhoDis deployment). Swap to redis:// during SandCastle integration phase — Redis available on internal network per WD-NET-01, multi-worker target per WD-CONT-02. Rate-limit decorator placed ABOVE @require_role; key function `_search_rate_key` falls back to remote_addr when g.user is unset (limiter runs before auth check).
 
 ### Architecture Constraints
 
@@ -68,10 +69,11 @@ Plan: 8 of 9 (next)
 
 ## Session Continuity
 
-**Last session:** 2026-04-25T05:16:55.383Z
-**Next action:** Continue Phase 1 — execute next plan (2 of 9 remaining)
-**Stopped at:** Completed 01-03-health-endpoints-PLAN.md
+**Last session:** 2026-04-25T06:00:00.000Z
+**Next action:** Phase 1 verification / phase-complete review; Phase 2 (Test Suite) is next milestone
+**Stopped at:** Completed 01-08-rate-limiting-PLAN.md
 **Blockers:** None
+**Follow-ups (carry into later phases):** Swap Flask-Limiter storage from in-memory to Redis during SandCastle integration phase (WD-NET-01, WD-CONT-02)
 
 ---
 *State initialized: 2026-04-24*
