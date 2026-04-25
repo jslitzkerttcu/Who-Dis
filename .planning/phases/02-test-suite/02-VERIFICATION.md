@@ -249,3 +249,76 @@ The verifier recommends path (1).
 
 _Verified: 2026-04-25 (canonical, supersedes Wave-4 draft)_
 _Verifier: Claude (gsd-verifier, Opus 4.7 1M)_
+
+---
+
+## Gap Closure (Plan 02-05) — appended 2026-04-25 — PARTIAL
+
+**Plan:** `02-05-coverage-closure-PLAN.md`
+**Closes gap:** ROADMAP SC #2 / TEST-04 — services + middleware coverage ≥60%
+**Status:** **PARTIAL — per-file targets met; aggregate gate NOT yet reached (41.31% vs 60% required).**
+
+### Summary
+
+Tasks 1-4 of the plan were executed: 5 new test modules + 1 new factory landed, lifting per-file coverage on each of the 5 targeted services well above their per-file targets. However, the aggregate `--cov-fail-under=60` gate still fails at 41.31%, because un-scoped service files (graph_service.py 10.2%, result_merger.py 9.6%, search_enhancer.py 0.0%, token_refresh_service.py 17.0%, audit_service_postgres.py 16.6%, genesys_service.py 29.4%) collectively retain ~1000+ missed statements. The plan explicitly flagged this risk and named those files as "NOT scoped to this plan."
+
+### Per-File Coverage Lift (Plan 02-05 targets)
+
+| File | Before (Wave-4) | After (Plan 02-05) | Plan Target | Met? |
+|------|----------------:|-------------------:|------------:|:----:|
+| compliance_checking_service.py | 0.0% | **68.8%** | ≥50% | YES |
+| genesys_cache_db.py | 11.9% | **65.4%** | ≥45% | YES |
+| job_role_mapping_service.py | 13.3% | **66.7%** | ≥50% | YES |
+| job_role_warehouse_service.py | 14.7% | **56.6%** | ≥45% | YES |
+| refresh_employee_profiles.py | 16.4% | **36.5%** | ≥40% | NO (3.5pp short) |
+
+### Aggregate Gate Status
+
+- `pytest tests/` exit code: **non-zero** (gate fails + 5 integration test failures)
+- `--cov-fail-under=60` in pyproject.toml: **STILL FAILS** (combined coverage 41.31% vs 60%)
+- pyproject.toml `--cov-fail-under` value: **60** (unchanged from Plan 02-04 — D-11 contract preserved)
+
+### Tests Added (Plan 02-05)
+
+| File | Tests | Passing | xfail-strict |
+|------|------:|--------:|-------------:|
+| test_job_role_mapping_service.py | 12 | 12 | 0 |
+| test_compliance_checking_service.py | 23 | 23 | 0 |
+| test_genesys_cache_db.py | 11 | 11 | 0 |
+| test_refresh_employee_profiles.py | 16 | 9 | 7 |
+| test_job_role_warehouse_service.py | 19 | 19 | 0 |
+| **Total Plan-02-05 tests** | **81** | **74** | **7** |
+
+### Integration Test Failures (out-of-scope but blocks `pytest tests/` exit 0)
+
+5 integration tests fail with HTTP 302 redirects instead of 200:
+- `test_auth_pipeline.py::test_audit_log_or_user_row_appears_after_admin_visit`
+- `test_search_flow.py::test_search_returns_merged_result_from_all_three_sources`
+- `test_search_flow.py::test_search_no_results_returns_empty_state`
+- `test_search_flow.py::test_search_multiple_ldap_results_renders`
+- `test_search_flow.py::test_search_empty_term_returns_prompt`
+
+**Root cause:** Phase 9 (SandCastle/OIDC) work landed on this branch in parallel — the auth pipeline migration from header-based auth to Authlib OIDC changed the test client's auth bypass path. These failures are Phase 9 regressions, not Plan 02-05 scope.
+
+### Verification Status (re-run)
+
+| ROADMAP SC | Wave-4 Status | Plan-02-05 Status |
+|------------|---------------|-------------------|
+| #2 services + middleware ≥60% | FAIL (32.0%) | **STILL FAIL (41.31%)** |
+
+### Remaining Work to Close the Gate
+
+A follow-up plan (suggested: 02-06 or roll into 03) needs to close the remaining 18.7pp gap by adding boundary tests for at least these out-of-scope files:
+- `result_merger.py` (9.6% → target ≥50%, ~150 stmts)
+- `search_enhancer.py` (0.0% → target ≥40%, ~95 stmts)
+- `graph_service.py` (10.2% → target ≥40%, ~140 stmts)
+- `token_refresh_service.py` (17.0% → target ≥40%, ~80 stmts)
+- `audit_service_postgres.py` (16.6% → target ≥40%, ~100 stmts)
+
+Closing 50% of each would lift aggregate coverage to ~60-62%.
+
+### Phase 2 Verification Status
+
+Phase 2 verification status remains `gaps_found`. The single gap (60% aggregate gate) is partially closed: 32.0% → 41.31% (+9.3pp). It will require additional test work in a follow-up plan to fully close.
+
+_Plan-02-05 partial verification: 2026-04-25_
