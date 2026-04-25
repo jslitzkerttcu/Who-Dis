@@ -1,31 +1,38 @@
 """Integration-test fixtures: authenticated client driving the full middleware chain.
 
-# PHASE 4 NOTE (D-13): When Keycloak OIDC ships, replace header injection with a
-# mocked OIDC callback that mints a fake ID token. The fixture's public API
-# (authenticated_client / admin_client) stays the same — only the internals change.
+Phase 9 (WD-AUTH-01): identity now comes from the Flask session populated by the
+Authlib OIDC callback (app/auth/oidc.py). Header-based auth has been deleted.
+These fixtures populate the session directly via `client.session_transaction()`
+to simulate a completed OIDC callback — the public fixture API is unchanged.
 """
 import pytest
 
 
+def _login(client, email: str, roles: list[str]) -> None:
+    """Populate the Flask session with the minimal claims set written by the
+    OIDC callback in app/auth/oidc.py:authorize."""
+    with client.session_transaction() as sess:
+        sess["user"] = {
+            "email": email,
+            "sub": f"test-sub-{email}",
+            "name": email.split("@")[0],
+            "roles": roles,
+        }
+
+
 @pytest.fixture
 def authenticated_client(client, db_session):
-    """Test client preconfigured with the principal header so @auth_required succeeds.
-
-    Uses the configured `auth.principal_header` config (default X-MS-CLIENT-PRINCIPAL-NAME).
-    Auto-provisioner creates the user with role=viewer on first request (per D-13).
-    """
-    from app.services.configuration_service import config_get
-    header_name = config_get("auth.principal_header", "X-MS-CLIENT-PRINCIPAL-NAME")
-    client.environ_base[f"HTTP_{header_name.upper().replace('-', '_')}"] = "test-viewer@example.com"
+    """Client whose session looks like a successful OIDC callback for an unknown
+    user. role_resolver will find no DB row and authenticate() will return False —
+    that's what the insufficient-role test asserts on."""
+    _login(client, "test-viewer@example.com", roles=["viewer"])
     return client
 
 
 @pytest.fixture
 def admin_client(client, db_session):
     """Same as authenticated_client but pre-seeds an admin user so @require_role('admin') passes."""
-    from app.services.configuration_service import config_get
     from tests.factories.user import UserFactory
     UserFactory(email="test-admin@example.com", role="admin")
-    header_name = config_get("auth.principal_header", "X-MS-CLIENT-PRINCIPAL-NAME")
-    client.environ_base[f"HTTP_{header_name.upper().replace('-', '_')}"] = "test-admin@example.com"
+    _login(client, "test-admin@example.com", roles=["admin"])
     return client

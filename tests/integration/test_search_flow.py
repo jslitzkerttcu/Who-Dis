@@ -13,14 +13,21 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture
 def viewer_client(client, db_session):
-    """Test client with a pre-seeded viewer user + principal header — needed for
-    @require_role('viewer') to pass on /search."""
+    """Test client with a pre-seeded viewer user + populated OIDC session —
+    needed for @require_role('viewer') to pass on /search.
+
+    Phase 9 (WD-AUTH-01): session replaces the principal header as the auth source.
+    """
     from tests.factories.user import UserFactory
-    from app.services.configuration_service import config_get
 
     UserFactory(email="test-viewer@example.com", role="viewer")
-    header_name = config_get("auth.principal_header", "X-MS-CLIENT-PRINCIPAL-NAME")
-    client.environ_base[f"HTTP_{header_name.upper().replace('-', '_')}"] = "test-viewer@example.com"
+    with client.session_transaction() as sess:
+        sess["user"] = {
+            "email": "test-viewer@example.com",
+            "sub": "test-sub-viewer",
+            "name": "test-viewer",
+            "roles": ["viewer"],
+        }
     return client
 
 
