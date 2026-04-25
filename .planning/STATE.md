@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-05-config-validator-PLAN.md
-last_updated: "2026-04-25T05:09:13.248Z"
+stopped_at: Completed 01-03-health-endpoints-PLAN.md
+last_updated: "2026-04-25T05:12:00.424Z"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 9
-  completed_plans: 6
-  percent: 67
+  completed_plans: 7
+  percent: 78
 ---
 
 # Project State: WhoDis v3.0
@@ -30,9 +30,9 @@ progress:
 Phase: 01 (foundation) — EXECUTING
 Plan: 7 of 9 (next)
 **Phase:** 1 — Foundation
-**Plan:** 01-05-config-validator COMPLETE — OPS-03 satisfied (startup validator over 7 required encrypted-config keys; ConfigurationError aborts boot with operator-actionable missing-keys list)
+**Plan:** 01-03-health-endpoints COMPLETE — OPS-01 satisfied (unauthenticated /health deep DB probe returning JSON with database.connected/latency_ms; /health/live shallow process-up probe; both registered at root in app/__init__.py)
 **Status:** Executing Phase 01
-**Progress:** [███████░░░] 67%
+**Progress:** [████████░░] 78%
 
 ## Accumulated Context
 
@@ -46,6 +46,7 @@ Plan: 7 of 9 (next)
 - SEC-04: dev auth bypass is env-var-only (DANGEROUS_DEV_AUTH_BYPASS_USER) — cannot be enabled via DB config or admin UI; deployment-time gate prevents accidental enablement
 - OPS-02: per-request UUID4 correlation IDs propagated through JSON logs via python-json-logger; inbound X-Request-ID validated against `^[0-9a-fA-F-]{8,64}$` to prevent log injection
 - OPS-03: REQUIRED_KEYS list lives in code (not DB) so operators cannot tamper around the startup gate; error messages list missing key names + labels but never echo decrypted values; Postgres creds remain in .env (bootstrap), validator scope is encrypted-config only
+- OPS-01: /health and /health/live are unauthenticated public probes registered at root; /health does DB-only deep check (SELECT 1 + latency_ms, 503 on failure) per D-12 — no LDAP/Graph/Genesys probes; error text truncated to 200 chars; rate limiting deliberately omitted so uptime monitors get free access
 
 ### Architecture Constraints
 
@@ -56,7 +57,7 @@ Plan: 7 of 9 (next)
 
 ### Known Concerns to Address by Phase
 
-- Phase 1: `app_factory.py` duplication (DEBT-01), `DataWarehouseService` removal (DEBT-02), asyncio patterns (DEBT-04), `.whodis_salt` in git history (SEC-01), missing health check (OPS-01)
+- Phase 1: `app_factory.py` duplication (DEBT-01), `DataWarehouseService` removal (DEBT-02), asyncio patterns (DEBT-04), `.whodis_salt` in git history (SEC-01)
 - Phase 2: Zero test coverage baseline — result_merger.py (537 lines), search_orchestrator.py (332 lines) are highest priority
 - Phase 6: Write ops against AD require Graph API additional permissions — document per operation
 
@@ -66,9 +67,9 @@ Plan: 7 of 9 (next)
 
 ## Session Continuity
 
-**Last session:** 2026-04-25T05:09:13.237Z
-**Next action:** Continue Phase 1 — execute next plan (3 of 9 remaining)
-**Stopped at:** Completed 01-05-config-validator-PLAN.md
+**Last session:** 2026-04-25T00:15:00Z
+**Next action:** Continue Phase 1 — execute next plan (2 of 9 remaining)
+**Stopped at:** Completed 01-03-health-endpoints-PLAN.md
 **Blockers:** None
 
 ---

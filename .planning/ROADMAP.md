@@ -31,7 +31,7 @@
 **Plans**: 9 plans
 - [x] 01-01-debt-cleanup-PLAN.md — Consolidate app factory, remove DataWarehouseService, modernize asyncio (DEBT-01/02/04)
 - [ ] 01-02-cache-cleanup-PLAN.md — Hourly SearchCache cleanup service + admin Run-now button (DEBT-03)
-- [ ] 01-03-health-endpoints-PLAN.md — Unauthenticated /health and /health/live endpoints (OPS-01)
+- [x] 01-03-health-endpoints-PLAN.md — Unauthenticated /health and /health/live endpoints (OPS-01)
 - [x] 01-04-request-id-json-logging-PLAN.md — Request-ID middleware + JSON-structured logging (OPS-02)
 - [x] 01-05-config-validator-PLAN.md — Startup config validator that aborts boot on missing keys (OPS-03)
 - [x] 01-06-pagination-PLAN.md — Reusable paginate helper + render_pagination macro wired into 3 admin tables (OPS-04)
