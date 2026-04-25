@@ -680,6 +680,21 @@ For understanding the codebase structure, design patterns, and service architect
 
 ---
 
+## Deployment
+
+Who-Dis runs on the SandCastle internal platform at
+`https://who-dis.sandcastle.ttcu.com`. See [`docs/sandcastle.md`](docs/sandcastle.md)
+for the canonical deployment guide (env vars, Keycloak setup, DB provisioning,
+deploy flow, rollback).
+
+For local development, `python run.py` continues to work against a local
+Postgres and a Keycloak dev client. See `CLAUDE.md` for local-dev setup.
+
+The legacy Azure App Service deployment path (`docs/deployment.md`) is
+deprecated and will be decommissioned post-Phase-9 verification.
+
+---
+
 ## ⚖️ License
 
 [Insert your license here]
