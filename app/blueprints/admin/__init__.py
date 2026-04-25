@@ -153,6 +153,12 @@ admin_bp.route("/api/data-warehouse/refresh-cache", methods=["POST"])(
 admin_bp.route("/api/data-warehouse/clear-cache", methods=["POST"])(
     cache.clear_data_warehouse_cache
 )
+# DEBT-03: manual trigger for the hourly SearchCache cleanup job
+admin_bp.route(
+    "/api/cache/cleanup/run",
+    endpoint="api_cache_cleanup_run",
+    methods=["POST"],
+)(cache.cache_cleanup_run)
 
 # Audit logging routes
 admin_bp.route("/audit-logs")(audit.audit_logs)

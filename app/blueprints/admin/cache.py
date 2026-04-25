@@ -3,10 +3,15 @@ Cache management functionality for admin blueprint.
 Handles search cache, Genesys cache operations, and cache status monitoring.
 """
 
+import logging
+from datetime import datetime
+
 from flask import jsonify, request, current_app
 from app.middleware.auth import require_role
 from app.database import db
 from app.services.genesys_cache_db import genesys_cache_db as genesys_cache
+
+logger = logging.getLogger(__name__)
 
 
 @require_role("admin")
@@ -256,6 +261,65 @@ def refresh_data_warehouse_cache():
             pass  # Don't fail if audit logging fails
 
         return jsonify({"error": str(e)}), 500
+
+
+@require_role("admin")
+def cache_cleanup_run():
+    """Manually trigger the SearchCache cleanup job (DEBT-03 / T-01-02-01).
+
+    Returns an HTMX HTML fragment per UI-SPEC. Always emits an audit log
+    entry (T-01-02-04 — repudiation mitigation) regardless of outcome.
+    """
+    from app.services.audit_service_postgres import audit_service
+
+    admin_email = request.headers.get(
+        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
+    )
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    try:
+        deleted, duration_ms = current_app.container.get(
+            "cache_cleanup"
+        ).run_now()
+        audit_service.log_admin_action(
+            user_email=admin_email,
+            action="cache_cleanup_run",
+            target="cache:search",
+            user_role=admin_role,
+            ip_address=user_ip,
+            user_agent=request.headers.get("User-Agent"),
+            success=True,
+            details={"deleted": deleted, "duration_ms": round(duration_ms, 1)},
+        )
+        return (
+            '<div role="status" aria-live="polite" '
+            'class="p-2 bg-green-50 border border-green-200 rounded text-xs text-green-800">'
+            '<i class="fas fa-check-circle mr-1"></i>'
+            f"Cleaned up {deleted} expired entries at "
+            f'{datetime.now().strftime("%H:%M:%S")}'
+            "</div>"
+        )
+    except Exception as exc:
+        logger.exception("Cache cleanup run_now failed")
+        audit_service.log_admin_action(
+            user_email=admin_email,
+            action="cache_cleanup_run",
+            target="cache:search",
+            user_role=admin_role,
+            ip_address=user_ip,
+            user_agent=request.headers.get("User-Agent"),
+            success=False,
+            details={"error": str(exc)},
+        )
+        return (
+            '<div role="status" aria-live="polite" '
+            'class="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-800">'
+            '<i class="fas fa-exclamation-triangle mr-1"></i>'
+            f"Cleanup failed: {str(exc)[:120]}. Check error logs for details."
+            "</div>",
+            500,
+        )
 
 
 @require_role("admin")
