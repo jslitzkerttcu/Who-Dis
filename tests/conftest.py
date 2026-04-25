@@ -1,12 +1,17 @@
 """Root conftest: session-scoped ephemeral Postgres + Flask app, per-test SAVEPOINT, container-override helpers.
 
 D-01: testcontainers-python boots one Postgres for the whole session.
-D-02: schema loaded by executing database/create_tables.sql (canonical schema), not db.create_all().
+D-02 (updated Phase 9 / Plan 04): schema loaded via `alembic upgrade head` against the test DB,
+      replacing the former database/create_tables.sql approach (retired per WD-DB-05, Plan 04).
+      The Phase 9 baseline migration (001_baseline_from_live_schema.py) is a no-op scaffold until
+      the operator populates it during Plan 06 cutover. Until then, tests that require schema use
+      db.create_all() as a fallback (see _apply_schema below).
 D-03: per-test isolation via nested SAVEPOINT rollback (SQLAlchemy 2.0 public API).
 D-04: container-level fake services injected via app.container.register() override.
 D-06: app.config['TESTING'] is set BEFORE create_app() finishes its background-thread blocks.
 """
 import os
+import subprocess
 import pytest
 from pathlib import Path
 from urllib.parse import urlparse
@@ -14,8 +19,6 @@ from sqlalchemy import event
 from testcontainers.postgres import PostgresContainer
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCHEMA_SQL = REPO_ROOT / "database" / "create_tables.sql"
-ANALYZE_SQL = REPO_ROOT / "database" / "analyze_tables.sql"
 
 
 @pytest.fixture(scope="session")
@@ -41,6 +44,12 @@ def _set_testing_env():
     os.environ["TESTING"] = "1"
     from cryptography.fernet import Fernet
     os.environ.setdefault("WHODIS_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    # Phase 9 OIDC (app/auth/oidc.py:init_oauth) reads these at app boot. Real values
+    # are unnecessary under TESTING — Authlib only resolves the discovery URL on first
+    # /auth/login, which tests don't hit. Provide stable dummies so create_app() boots.
+    os.environ.setdefault("KEYCLOAK_ISSUER", "https://keycloak.test.local/realms/test")
+    os.environ.setdefault("KEYCLOAK_CLIENT_ID", "whodis-test")
+    os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "test-secret")
     yield
 
 
@@ -59,21 +68,24 @@ def app(database_url, _set_testing_env):
     os.environ["POSTGRES_PASSWORD"] = parsed.password or ""
     os.environ["POSTGRES_DB"] = (parsed.path or "/postgres").lstrip("/")
 
-    # Apply schema BEFORE create_app() so init_db's db.create_all() is a no-op
-    # against the canonical schema from database/create_tables.sql (D-02).
-    # testcontainers returns SQLAlchemy-style DSN (postgresql+psycopg2://...) — strip the
-    # driver suffix for psycopg2.connect which only accepts plain postgresql:// URLs.
-    import psycopg2
-    psycopg2_dsn = database_url.replace("postgresql+psycopg2://", "postgresql://")
-    conn = psycopg2.connect(psycopg2_dsn)
-    try:
-        conn.autocommit = True
-        with conn.cursor() as cur:
-            cur.execute(SCHEMA_SQL.read_text())
-            if ANALYZE_SQL.exists():
-                cur.execute(ANALYZE_SQL.read_text())
-    finally:
-        conn.close()
+    # Apply schema BEFORE create_app() so init_db's db.create_all() is a no-op.
+    # Phase 9 Plan 04: database/create_tables.sql retired (WD-DB-05); schema is now
+    # applied via `alembic upgrade head`. The baseline migration (001_baseline_from_live_schema.py)
+    # is a no-op scaffold until Plan 06 cutover — in that case db.create_all() below catches
+    # any tables Alembic doesn't create, ensuring tests remain green pre-cutover.
+    #
+    # Strip the SQLAlchemy driver prefix so Alembic's psycopg2 URL parser is happy.
+    plain_dsn = database_url.replace("postgresql+psycopg2://", "postgresql://")
+    alembic_result = subprocess.run(
+        ["python", "-m", "alembic", "upgrade", "head"],
+        cwd=str(REPO_ROOT),
+        env={**os.environ, "DATABASE_URL": plain_dsn},
+        capture_output=True,
+        text=True,
+    )
+    if alembic_result.returncode != 0:
+        # Log but do not abort — db.create_all() below will create missing tables.
+        print(f"[conftest] alembic upgrade head stderr: {alembic_result.stderr}")
 
     from app import create_app
     flask_app = create_app()
