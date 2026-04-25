@@ -28,10 +28,10 @@ def handle_errors(json_response=False):
                 # Log to audit service
                 try:
                     from app.services.audit_service_postgres import audit_service
+                    from flask import session as _session
 
-                    user_email = request.headers.get(
-                        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user
-                    )
+                    # Phase 9 D-04: identity from OIDC session, not Easy-Auth header
+                    user_email = (_session.get("user") or {}).get("email") or request.remote_user
                     user_role = getattr(request, "user_role", None)
                     user_ip = request.headers.get(
                         "X-Forwarded-For", request.remote_addr
