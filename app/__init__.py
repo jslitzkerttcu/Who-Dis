@@ -155,6 +155,12 @@ def create_app():
                 token_refresh.start()
                 app.logger.info("Token refresh background service started")
 
+                # DEBT-03: hourly background prune of expired SearchCache rows
+                cache_cleanup = app.container.get("cache_cleanup")
+                cache_cleanup.app = app
+                cache_cleanup.start()
+                app.logger.info("Cache cleanup background service started")
+
                 # Initialize Genesys cache using the validated service
                 if genesys_service:
                     try:

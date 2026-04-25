@@ -126,6 +126,7 @@ def register_services(container: ServiceContainer) -> None:
     from app.services.graph_service import GraphService
     from app.services.audit_service_postgres import PostgresAuditService
     from app.services.token_refresh_service import TokenRefreshService
+    from app.services.cache_cleanup_service import CacheCleanupService
     from app.services.genesys_cache_db import GenesysCacheDB
     from app.services.encryption_service import EncryptionService
     from app.services.refresh_employee_profiles import EmployeeProfilesRefreshService
@@ -156,6 +157,9 @@ def register_services(container: ServiceContainer) -> None:
 
     # Token refresh service (depends on container for dynamic discovery)
     container.register("token_refresh", lambda c: TokenRefreshService(container))
+
+    # Cache cleanup service (DEBT-03: hourly prune of expired SearchCache rows)
+    container.register("cache_cleanup", lambda c: CacheCleanupService(container))
 
     logger.info(f"Registered {len(container.list_services())} services")
 
