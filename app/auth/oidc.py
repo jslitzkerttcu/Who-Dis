@@ -14,6 +14,8 @@ import os
 from typing import Optional
 from urllib.parse import urlparse
 
+from urllib.parse import urlencode
+
 from authlib.integrations.flask_client import OAuth
 from flask import Blueprint, abort, redirect, request, session, url_for
 
@@ -71,7 +73,11 @@ def login():
 @auth_bp.route("/authorize")
 def authorize():
     """OIDC callback. Exchanges code for tokens, populates session, provisions user (WD-AUTH-06)."""
-    token = oauth.keycloak.authorize_access_token()
+    try:
+        token = oauth.keycloak.authorize_access_token()
+    except Exception as exc:  # noqa: BLE001 — surface failure as a re-login prompt
+        logger.error("OIDC token exchange failed: %s", exc)
+        return redirect(url_for("auth.login", reason="auth_failed"))
     # Authlib parses id_token claims when 'openid' scope was requested
     userinfo = token.get("userinfo") or oauth.keycloak.userinfo()
     claims = token.get("id_token_claims") or userinfo
@@ -122,9 +128,11 @@ def logout():
         post_logout = request.host_url
         if end_session:
             client_id = os.environ["KEYCLOAK_CLIENT_ID"]
-            return redirect(
-                f"{end_session}?post_logout_redirect_uri={post_logout}&client_id={client_id}"
-            )
+            query = urlencode({
+                "post_logout_redirect_uri": post_logout,
+                "client_id": client_id,
+            })
+            return redirect(f"{end_session}?{query}")
     except Exception as exc:  # noqa: BLE001 — fall back to local redirect if metadata unavailable
         logger.warning("Could not load Keycloak metadata for logout: %s", exc)
     return redirect("/")

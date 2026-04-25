@@ -8,12 +8,27 @@
 # and the app would 5xx on every request. Fail fast instead.
 set -euo pipefail
 
+# DATABASE_URL must be set before we can wait on it or run migrations.
+: "${DATABASE_URL:?DATABASE_URL must be set}"
+
+# Wait for Postgres to accept connections before attempting migrations.
+# In containerized deployments the DB pod may not be ready when the app
+# container starts; without this loop alembic fails fast and the container
+# crash-loops. postgresql-client is installed in the Dockerfile (WD-DB-02).
+WAIT_TIMEOUT="${DB_WAIT_TIMEOUT:-60}"
+WAIT_ELAPSED=0
+until pg_isready -d "$DATABASE_URL" >/dev/null 2>&1; do
+  if [ "$WAIT_ELAPSED" -ge "$WAIT_TIMEOUT" ]; then
+    echo "FATAL: database not ready after ${WAIT_TIMEOUT}s — giving up." >&2
+    exit 1
+  fi
+  echo "Waiting for database (${WAIT_ELAPSED}s/${WAIT_TIMEOUT}s)..."
+  sleep 2
+  WAIT_ELAPSED=$((WAIT_ELAPSED + 2))
+done
+
 # WD-DB-02: schema applied via Alembic on container start (idempotent — no-op if at head)
 alembic upgrade head
-
-# Disaster-recovery guard: confirm baseline schema actually exists.
-# Uses DATABASE_URL (set by the SandCastle deploy engine, validated below).
-: "${DATABASE_URL:?DATABASE_URL must be set}"
 
 USERS_TABLE=$(psql "$DATABASE_URL" -tAc "SELECT to_regclass('public.users')")
 if [ -z "$USERS_TABLE" ] || [ "$USERS_TABLE" = "" ]; then
