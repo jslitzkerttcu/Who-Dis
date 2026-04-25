@@ -164,3 +164,6 @@ secrets/
 *.key
 *.pem
 *.crt
+
+# Per-installation encryption salt — never commit
+.whodis_salt
