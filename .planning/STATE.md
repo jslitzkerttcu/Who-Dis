@@ -6,11 +6,11 @@ status: executing
 stopped_at: Completed 01-08-rate-limiting-PLAN.md
 last_updated: "2026-04-25T06:00:00.000Z"
 progress:
-  total_phases: 8
-  completed_phases: 0
+  total_phases: 11
+  completed_phases: 1
   total_plans: 9
   completed_plans: 9
-  percent: 100
+  percent: 9
 ---
 
 # Project State: WhoDis v3.0
@@ -23,16 +23,16 @@ progress:
 
 **Core Value:** IT staff can find everything about any employee and act on it from a single interface — no switching between AD, Azure portal, Genesys admin, or M365 admin center.
 
-**Current Focus:** Phase 01 — foundation
+**Current Focus:** Phase 1 complete; roadmap revised to 11 phases incorporating SandCastle integration (Phases 3-5 inserted)
 
 ## Current Position
 
-Phase: 01 (foundation) — EXECUTING
+Phase: 01 (foundation) — COMPLETE
 Plan: 9 of 9 (complete)
-**Phase:** 1 — Foundation
-**Plan:** 01-08-rate-limiting COMPLETE — SEC-03 satisfied (Flask-Limiter 3.12 with in-memory storage; 30/minute limit on POST /search/search and POST /search/user via @limiter.limit + _search_rate_key fallback to remote_addr; D-08 PostgreSQL backend deviation documented — Redis swap deferred to SandCastle integration phase per WD-NET-01/WD-CONT-02; admin/health/session endpoints unlimited per D-10)
-**Status:** Phase 01 plans complete
-**Progress:** [██████████] 100%
+**Phase:** 1 — Foundation ✓
+**Status:** Phase 1 complete; verification report at `.planning/phases/01-foundation/01-VERIFICATION.md`. SEC-01 partial accepted (private repo — salt rotated + gitignored, history rewrite not pursued).
+**Next:** Phase 2 (Test Suite) — see revised ROADMAP.md
+**Progress:** [█░░░░░░░░░] 1/11 phases (9%)
 
 ## Accumulated Context
 
@@ -69,11 +69,14 @@ Plan: 9 of 9 (complete)
 
 ## Session Continuity
 
-**Last session:** 2026-04-25T06:00:00.000Z
-**Next action:** Phase 1 verification / phase-complete review; Phase 2 (Test Suite) is next milestone
-**Stopped at:** Completed 01-08-rate-limiting-PLAN.md
+**Last session:** 2026-04-25
+**Next action:** Phase 2 (Test Suite) — `/gsd-discuss-phase 2`
+**Stopped at:** Phase 1 complete; roadmap revised to 11 phases (SandCastle integration inserted as Phases 3-5)
 **Blockers:** None
-**Follow-ups (carry into later phases):** Swap Flask-Limiter storage from in-memory to Redis during SandCastle integration phase (WD-NET-01, WD-CONT-02)
+**Follow-ups (carry into later phases):**
+- Phase 3 (SandCastle Containerization): Swap Flask-Limiter storage from in-memory to Redis (per WD-NET-01, WD-CONT-02) — formerly backlog 999.1, now folded into Phase 3 success criterion
+- Phase 4 (Keycloak OIDC Authentication): OIDC library choice deferred to planning. Recommendation noted: `authlib` (most active, best Flask integration). Final selection during `/gsd-plan-phase 4`.
+- SEC-01 status: Accepted as partial. Salt rotated and gitignored; git history not rewritten. Both repos are private — risk acknowledged.
 
 ---
 *State initialized: 2026-04-24*
