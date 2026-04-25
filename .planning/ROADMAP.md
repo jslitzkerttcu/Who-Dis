@@ -141,6 +141,24 @@
 | 7. REST API | 0/? | Not started | - |
 | 8. Workflow Automation | 0/? | Not started | - |
 
+## Backlog
+
+### Phase 999.1: Swap Flask-Limiter storage from in-memory to redis:// during SandCastle integration (BACKLOG)
+
+**Goal:** Replace per-worker in-memory rate-limit counters with shared Redis storage so the 30/minute search limit aggregates across gunicorn workers.
+
+**Why:** SandCastle integration targets multi-worker gunicorn (WD-CONT-02, default 2 workers). With in-memory storage each worker enforces its own counter, effectively multiplying the configured limit. Redis is already present on SandCastle's internal network (WD-NET-01), so no new infrastructure is required.
+
+**Touch points:** `app/__init__.py` limiter init (`storage_uri=os.getenv("REDIS_URL")`), `requirements.txt` (no new deps — `limits` already supports redis). Test: parallel `curl` across workers should hit a shared counter.
+
+**Source:** Deferred during Phase 1 plan 01-08 — see `.planning/phases/01-foundation/01-08-SUMMARY.md` and `.planning/SANDCASTLE-INTEGRATION-REQUIREMENTS.md`.
+
+**Requirements:** TBD (likely tied to a SandCastle integration phase)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
 ---
 *Roadmap defined: 2026-04-24*
 *Last updated: 2026-04-24 after initial creation*
