@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-09-auth-header-config-PLAN.md
-last_updated: "2026-04-25T05:45:00.000Z"
+stopped_at: Completed 01-04-request-id-json-logging-PLAN.md
+last_updated: "2026-04-25T05:06:51.829Z"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 9
-  completed_plans: 4
-  percent: 44
+  completed_plans: 5
+  percent: 56
 ---
 
 # Project State: WhoDis v3.0
@@ -28,11 +28,11 @@ progress:
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 5 of 9 (next)
+Plan: 6 of 9 (next)
 **Phase:** 1 — Foundation
-**Plan:** 01-09-auth-header-config COMPLETE — SEC-04 satisfied (configurable auth.principal_header + DANGEROUS_DEV_AUTH_BYPASS_USER env-var bypass with WARNING log)
+**Plan:** 01-04-request-id-json-logging COMPLETE — OPS-02 satisfied (X-Request-ID propagation + JSON-structured logging with request_id field on every record)
 **Status:** Executing Phase 01
-**Progress:** [████░░░░░░] 44%
+**Progress:** [██████░░░░] 56%
 
 ## Accumulated Context
 
@@ -44,6 +44,7 @@ Plan: 5 of 9 (next)
 - Operational hardening items (OPS-01..04, SEC-01..04, DEBT-01..04) grouped in Phase 1 to clean the slate before feature work
 - Pagination pattern locked: `paginate(query, page, size)` helper + `render_pagination` Jinja macro with `hx-push-url` for bookmarkable URLs (D-13/D-14/D-15) — pattern inherited by Phases 4 and 5
 - SEC-04: dev auth bypass is env-var-only (DANGEROUS_DEV_AUTH_BYPASS_USER) — cannot be enabled via DB config or admin UI; deployment-time gate prevents accidental enablement
+- OPS-02: per-request UUID4 correlation IDs propagated through JSON logs via python-json-logger; inbound X-Request-ID validated against `^[0-9a-fA-F-]{8,64}$` to prevent log injection
 
 ### Architecture Constraints
 
@@ -64,9 +65,9 @@ Plan: 5 of 9 (next)
 
 ## Session Continuity
 
-**Last session:** 2026-04-25T05:45:00.000Z
-**Next action:** Continue Phase 1 — execute next plan (5 of 9 remaining)
-**Stopped at:** Completed 01-09-auth-header-config-PLAN.md
+**Last session:** 2026-04-25T05:06:45.990Z
+**Next action:** Continue Phase 1 — execute next plan (4 of 9 remaining)
+**Stopped at:** Completed 01-04-request-id-json-logging-PLAN.md
 **Blockers:** None
 
 ---
