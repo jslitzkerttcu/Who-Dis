@@ -130,7 +130,12 @@ def db_session(app):
               END LOOP;
             END $$;
         """))
-    db.session.expire_all()
+    # Drop identity-map references to TRUNCATEd rows. Without this, factory_boy
+    # SubFactory calls in subsequent tests crash inside SA's instance_dict() lookup
+    # when they encounter stale objects. close() also releases the connection so
+    # the next test's first DB call gets a fresh transaction.
+    db.session.close()
+    db.session.remove()
 
 
 @pytest.fixture
