@@ -94,6 +94,12 @@ def app(database_url, _set_testing_env):
     flask_app.config["WTF_CSRF_ENABLED"] = False    # Avoid CSRF noise in test client POSTs
 
     with flask_app.app_context():
+        # Phase 9 init_db runs db.create_all() at line 90 of app/__init__.py — BEFORE
+        # blueprints (line 242+) trigger model imports, so the metadata is empty at
+        # that point and no tables get created. Re-run create_all() here in the test
+        # context after create_app() has finished so all models are present.
+        from app.database import db
+        db.create_all()
         yield flask_app
 
 
