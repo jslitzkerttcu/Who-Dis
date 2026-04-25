@@ -322,3 +322,69 @@ Closing 50% of each would lift aggregate coverage to ~60-62%.
 Phase 2 verification status remains `gaps_found`. The single gap (60% aggregate gate) is partially closed: 32.0% → 41.31% (+9.3pp). It will require additional test work in a follow-up plan to fully close.
 
 _Plan-02-05 partial verification: 2026-04-25_
+
+---
+
+## Gap Closure Round 2 (Plan 02-06) — appended 2026-04-25 — COMPLETE
+
+**Plan:** `02-06-coverage-closure-round-2-PLAN.md`
+**Closes gap:** ROADMAP SC #2 / TEST-04 — services + middleware coverage ≥60%
+**Status:** **COMPLETE — gate PASSES at 60.12%.**
+
+### Coverage Progression (full Phase 2 timeline)
+
+| Stage | Coverage | Result |
+|---|--:|---|
+| Phase 2 baseline (Wave 4) | 32.0% | FAIL |
+| After Plan 02-05 | 41.31% | FAIL |
+| After Phase 9 OIDC repair | 47.08% | FAIL |
+| After Plan 02-06 | **60.12%** | **PASS ✅** |
+
+### Per-File Coverage Lift (Plan 02-06 targets)
+
+| File | Before | After | Plan Target | Met? |
+|---|--:|--:|--:|:--:|
+| graph_service.py | 10.2% | **70.6%** | ≥40% | YES |
+| search_enhancer.py | 0.0% | **71.2%** | ≥40% | YES |
+| result_merger.py | 9.6% | **63.6%** | ≥45% | YES |
+| audit_service_postgres.py | 16.6% | **60.8%** | ≥40% | YES |
+| token_refresh_service.py | 17.0% | **52.3%** | ≥45% | YES |
+| middleware/role_resolver.py | 27.8% | **75.0%** | (bonus) | YES |
+| middleware/audit_logger.py | 63.2% | **78.9%** | (bonus) | YES |
+| middleware/security_headers.py | 0.0% | (covered) | (bonus) | YES |
+| middleware/csrf.py | 31.1% | (raised) | (bonus) | YES |
+| middleware/errors.py | 14.3% | (raised) | (bonus) | YES |
+
+### Gate Status
+
+- `pytest tests/` exit code: **0** (was non-zero)
+- `--cov-fail-under=60` in pyproject.toml: **PASSES** (combined coverage 60.12% ≥ 60%)
+- pyproject.toml `--cov-fail-under` value: **60** (unchanged from Plan 02-04 — D-11 contract preserved)
+- Pre-push hook (`bash .githooks/pre-push`) unblocks ordinary pushes from a clean tree
+
+### Tests Added (Plan 02-06)
+
+| File | Tests |
+|------|------:|
+| test_search_enhancer.py | 15 |
+| test_result_merger.py | 13 |
+| test_graph_service.py | 21 |
+| test_token_refresh_service.py | 12 |
+| test_audit_service_postgres.py | 20 |
+| test_cache_cleanup_service.py | 8 |
+| test_csrf.py | 16 |
+| test_errors.py | 7 |
+| test_role_resolver.py | 13 |
+| test_audit_logger.py | 5 |
+| test_security_headers.py | 7 |
+| **Total** | **137** |
+
+### Verification Status (re-run)
+
+| ROADMAP SC | Wave-4 Status | Plan-02-05 Status | Plan-02-06 Status |
+|------------|---------------|-------------------|-------------------|
+| #2 services + middleware ≥60% | FAIL (32.0%) | STILL FAIL (41.31%) | **PASS (60.12%)** |
+
+**Phase 2 verification status: `verified`. The single Phase 2 gap (60% aggregate gate) is fully closed.**
+
+_Plan-02-06 verification: 2026-04-25 — Phase 2 complete._

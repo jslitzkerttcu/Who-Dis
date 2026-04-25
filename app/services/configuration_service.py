@@ -30,24 +30,16 @@ logger = logging.getLogger(__name__)
 # .env.sandcastle.example documents and that scripts/cutover/migrate_secrets_to_portal.py
 # writes into the portal store.
 #
-# Anything not in this map falls back to AUTO_UPPER (key.replace(".", "_").upper()).
+# Only the keys whose env-var name does NOT match the AUTO_UPPER fallback need
+# to live in this map. Everything else (graph.client_id -> GRAPH_CLIENT_ID,
+# genesys.region -> GENESYS_REGION, etc.) is handled by the
+# `key.replace(".", "_").upper()` rule in config_get below.
+#
+# Per the canonical mapping in scripts/cutover/migrate_secrets_to_portal.py,
+# `ldap.host` is the lone exception — the portal env-var is LDAP_SERVER, not
+# LDAP_HOST. If you add a new exception, also update the migration script.
 ENV_BRIDGE = {
     "ldap.host": "LDAP_SERVER",
-    "ldap.bind_dn": "LDAP_BIND_DN",
-    "ldap.bind_password": "LDAP_BIND_PASSWORD",
-    "ldap.base_dn": "LDAP_BASE_DN",
-    "ldap.user_search_base": "LDAP_USER_SEARCH_BASE",
-    "ldap.port": "LDAP_PORT",
-    "ldap.use_ssl": "LDAP_USE_SSL",
-    "ldap.connect_timeout": "LDAP_CONNECT_TIMEOUT",
-    "ldap.connection_timeout": "LDAP_CONNECTION_TIMEOUT",
-    "ldap.operation_timeout": "LDAP_OPERATION_TIMEOUT",
-    "graph.tenant_id": "GRAPH_TENANT_ID",
-    "graph.client_id": "GRAPH_CLIENT_ID",
-    "graph.client_secret": "GRAPH_CLIENT_SECRET",
-    "genesys.client_id": "GENESYS_CLIENT_ID",
-    "genesys.client_secret": "GENESYS_CLIENT_SECRET",
-    "genesys.region": "GENESYS_REGION",
 }
 
 
