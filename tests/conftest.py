@@ -61,8 +61,11 @@ def app(database_url, _set_testing_env):
 
     # Apply schema BEFORE create_app() so init_db's db.create_all() is a no-op
     # against the canonical schema from database/create_tables.sql (D-02).
+    # testcontainers returns SQLAlchemy-style DSN (postgresql+psycopg2://...) — strip the
+    # driver suffix for psycopg2.connect which only accepts plain postgresql:// URLs.
     import psycopg2
-    conn = psycopg2.connect(database_url)
+    psycopg2_dsn = database_url.replace("postgresql+psycopg2://", "postgresql://")
+    conn = psycopg2.connect(psycopg2_dsn)
     try:
         conn.autocommit = True
         with conn.cursor() as cur:

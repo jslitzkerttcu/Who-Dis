@@ -134,9 +134,12 @@ def create_app():
     # OPS-03: Validate required encrypted-config keys are present before any
     # service that depends on them runs. Raises ConfigurationError (uncaught)
     # to abort boot with a clear, operator-actionable message.
+    # D-06: skip validation under TESTING — tests inject fake services and never
+    # hit the real LDAP/Graph/Genesys APIs, so the encrypted creds aren't required.
     from app.services.config_validator import validate_required_config
 
-    validate_required_config()
+    if not (app.config.get("TESTING") or os.environ.get("TESTING")):
+        validate_required_config()
 
     # Initialize audit service with Flask app
     # Skip initialization if we're in the reloader process
@@ -157,7 +160,7 @@ def create_app():
                 # registered after create_app() returns and drive refresh manually.
                 token_services = app.container.get_all_by_interface(ITokenService)
                 genesys_service = None
-                if not app.config.get("TESTING"):
+                if not (app.config.get("TESTING") or os.environ.get("TESTING")):
                     for service in token_services:
                         service_name = getattr(
                             service, "token_service_name", "unknown"
@@ -178,7 +181,7 @@ def create_app():
 
                 # Start background token refresh service with container
                 # D-06: skip background thread under TESTING; tests drive services synchronously.
-                if not app.config.get("TESTING"):
+                if not (app.config.get("TESTING") or os.environ.get("TESTING")):
                     token_refresh = app.container.get("token_refresh")
                     token_refresh.app = app
                     token_refresh.container = app.container
@@ -187,7 +190,7 @@ def create_app():
 
                 # DEBT-03: hourly background prune of expired SearchCache rows
                 # D-06: skip background thread under TESTING.
-                if not app.config.get("TESTING"):
+                if not (app.config.get("TESTING") or os.environ.get("TESTING")):
                     cache_cleanup = app.container.get("cache_cleanup")
                     cache_cleanup.app = app
                     cache_cleanup.start()
@@ -195,7 +198,7 @@ def create_app():
 
                 # Initialize Genesys cache using the validated service
                 # D-06: skip Genesys cache warmup under TESTING (avoids real HTTP calls).
-                if genesys_service and not app.config.get("TESTING"):
+                if genesys_service and not (app.config.get("TESTING") or os.environ.get("TESTING")):
                     try:
                         from app.services.genesys_cache_db import genesys_cache_db
 
