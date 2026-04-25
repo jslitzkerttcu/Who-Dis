@@ -321,7 +321,7 @@ def extend_session():
         ), 401
 
     # Check role
-    if g.role not in ["viewer", "editor", "admin"]:
+    if g.role not in ["viewer", "admin"]:  # Phase 9 D-05: editor tier removed
         return jsonify({"error": "Insufficient permissions"}), 403
 
     session_id = session.get("session_id")
@@ -373,7 +373,7 @@ def logout():
         ), 401
 
     # Check role
-    if g.role not in ["viewer", "editor", "admin"]:
+    if g.role not in ["viewer", "admin"]:  # Phase 9 D-05: editor tier removed
         return jsonify({"error": "Insufficient permissions"}), 403
 
     session_id = session.get("session_id")

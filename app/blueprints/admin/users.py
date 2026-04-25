@@ -420,7 +420,7 @@ def edit_user_modal(user_id):
     if not user:
         return '<div class="p-4 text-red-600">User not found</div>', 404
 
-    roles = ["viewer", "editor", "admin"]
+    roles = ["viewer", "admin"]  # Phase 9 D-05: editor tier removed
     role_options = "".join(
         [
             f'<option value="{role}" {"selected" if user.role == role else ""}>{role.capitalize()}</option>'
@@ -562,7 +562,7 @@ def _render_users_table(users):
         created_date = format_timestamp(user.created_at, "%Y-%m-%d")
 
         # Role colors
-        role_colors = {"admin": "purple", "editor": "blue", "viewer": "gray"}
+        role_colors = {"admin": "purple", "viewer": "gray"}  # Phase 9 D-05: editor removed
         role_color = role_colors.get(user.role, "gray")
 
         html += _render_user_row(
@@ -588,7 +588,7 @@ def _render_user_row(user, status_color, status_text, created_date, role_color):
     # Enhanced role badge with icons
     role_icons = {
         "admin": "fas fa-crown text-yellow-500",
-        "editor": "fas fa-edit text-blue-500",
+        # "editor": "fas fa-edit text-blue-500",  # Phase 9 D-05: editor tier removed
         "viewer": "fas fa-eye text-gray-500",
     }
     role_icon = role_icons.get(user.role, "fas fa-user")

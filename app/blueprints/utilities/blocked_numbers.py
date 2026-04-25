@@ -47,7 +47,7 @@ def get_blocked_numbers():
 
 @utilities.route("/api/blocked-numbers", methods=["POST"])
 @auth_required
-@require_role("editor")
+@require_role("admin")  # Phase 9 D-05: remapped from editor → admin (more restrictive)
 def add_blocked_number():
     """Add a new blocked number."""
     try:
@@ -115,7 +115,7 @@ def add_blocked_number():
 
 @utilities.route("/api/blocked-numbers/<ani>", methods=["PUT"])
 @auth_required
-@require_role("editor")
+@require_role("admin")  # Phase 9 D-05: remapped from editor → admin (more restrictive)
 def update_blocked_number(ani):
     """Update an existing blocked number."""
     try:
@@ -184,7 +184,7 @@ def update_blocked_number(ani):
 
 @utilities.route("/api/blocked-numbers/<ani>", methods=["DELETE"])
 @auth_required
-@require_role("editor")
+@require_role("admin")  # Phase 9 D-05: remapped from editor → admin (more restrictive)
 def delete_blocked_number(ani):
     """Delete a blocked number."""
     try:
