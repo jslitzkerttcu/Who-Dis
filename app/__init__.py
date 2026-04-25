@@ -2,7 +2,35 @@ from flask import Flask, g, request
 import os
 import logging
 import traceback
+
+from pythonjsonlogger import jsonlogger
+
 from app.container import inject_dependencies
+from app.middleware.request_id import RequestIdFilter, init_request_id
+
+
+def _configure_json_logging() -> None:
+    """Install a JSON formatter on the root logger with request_id injection."""
+    _root = logging.getLogger()
+    _root.setLevel(logging.INFO)
+    # Clear pre-existing handlers to avoid duplicate output under the
+    # Flask debug reloader (which imports this module twice).
+    for h in list(_root.handlers):
+        _root.removeHandler(h)
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        jsonlogger.JsonFormatter(
+            "%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s",
+            rename_fields={
+                "asctime": "timestamp",
+                "levelname": "level",
+                "name": "logger",
+            },
+        )
+    )
+    handler.addFilter(RequestIdFilter())
+    _root.addHandler(handler)
 
 
 def create_app():
@@ -13,16 +41,17 @@ def create_app():
 
     app.config["SECRET_KEY"] = secrets.token_hex(32)
 
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    # Configure JSON-structured logging with per-request correlation IDs.
+    _configure_json_logging()
 
-    # Suppress debug logging from noisy libraries
+    # Suppress debug logging from noisy libraries (preserved from DEBT-01 migration)
     logging.getLogger("app.services.simple_config").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("msal").setLevel(logging.WARNING)
+
+    # Wire request-ID middleware as early as possible so all subsequent
+    # before_request handlers (auth, audit, etc.) see g.request_id.
+    init_request_id(app)
 
     # Initialize database
     from app.database import init_db
