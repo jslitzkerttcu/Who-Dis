@@ -4,9 +4,24 @@ import logging
 import traceback
 
 from pythonjsonlogger import jsonlogger
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from app.container import inject_dependencies
 from app.middleware.request_id import RequestIdFilter, init_request_id
+
+
+# Module-level Limiter so route modules can `from app import limiter`.
+#
+# SEC-03: per-user rate limiting on search endpoints. Storage is in-memory
+# (Flask-Limiter's default) — Flask-Limiter v3.x dropped the PostgreSQL
+# backend, so we ship in-memory now and will swap to Redis during the
+# SandCastle integration phase (Redis is available on the SandCastle
+# internal network — see .planning/SANDCASTLE-INTEGRATION-REQUIREMENTS.md
+# WD-NET-01 and WD-CONT-02). In-memory limits enforce per-worker, which is
+# acceptable for the current single/low-worker deployment but MUST be
+# revisited when moving to multi-worker on SandCastle.
+limiter = Limiter(key_func=get_remote_address)
 
 
 def _configure_json_logging() -> None:
@@ -73,6 +88,12 @@ def create_app():
 
     # Initialize dependency injection container
     inject_dependencies(app)
+
+    # SEC-03: initialize Flask-Limiter against this app. Default in-memory
+    # storage; Retry-After/RateLimit-* headers enabled so 429 responses
+    # carry actionable backoff data for clients.
+    app.config["RATELIMIT_HEADERS_ENABLED"] = True
+    limiter.init_app(app)
 
     # Initialize configuration service
     try:

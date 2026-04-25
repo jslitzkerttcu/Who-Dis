@@ -161,6 +161,13 @@ def register_services(container: ServiceContainer) -> None:
     # Cache cleanup service (DEBT-03: hourly prune of expired SearchCache rows)
     container.register("cache_cleanup", lambda c: CacheCleanupService(container))
 
+    # SEC-03: Flask-Limiter instance (initialized in app/__init__.py against
+    # the Flask app) — exposed via the container so blueprints/services can
+    # retrieve it without importing the app module directly.
+    from app import limiter
+
+    container.register("limiter", lambda c: limiter)
+
     logger.info(f"Registered {len(container.list_services())} services")
 
 
