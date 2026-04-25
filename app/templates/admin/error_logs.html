@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{# Pagination contract — actual rendering happens inside admin/partials/_error_logs_table.html #}
+{% from "partials/pagination.html" import render_pagination %}
 
 {% block title %}Error Logs - Admin Panel{% endblock %}
 

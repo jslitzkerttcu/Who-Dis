@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{# Pagination contract — actual rendering happens inside admin/partials/_sessions_table.html #}
+{% from "partials/pagination.html" import render_pagination %}
 
 {% block title %}Active Sessions - Admin Panel{% endblock %}
 

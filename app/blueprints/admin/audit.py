@@ -3,9 +3,13 @@ Audit logging functionality for admin blueprint.
 Handles audit log viewing, querying, and metadata retrieval.
 """
 
-from flask import render_template, jsonify, request
-from app.middleware.auth import require_role
 from datetime import datetime
+
+from flask import jsonify, render_template, request
+from sqlalchemy import and_, desc, or_
+
+from app.middleware.auth import require_role
+from app.utils.pagination import paginate
 from app.utils.timezone import format_timestamp_long
 
 
@@ -38,7 +42,7 @@ def audit_logs():
 @require_role("admin")
 def api_audit_logs():
     """API endpoint for querying audit logs."""
-    from app.services.audit_service_postgres import audit_service
+    from app.models import AuditLog
 
     # Get query parameters - filter out empty strings
     event_type = request.args.get("event_type") or None
@@ -47,42 +51,91 @@ def api_audit_logs():
     end_date = request.args.get("end_date") or None
     search_query = request.args.get("search_query") or None
     ip_address = request.args.get("ip_address") or None
-    success = request.args.get("success") or None
-    limit = int(request.args.get("limit", 100))
-    offset = int(request.args.get("offset", 0))
+    success_param = request.args.get("success") or None
 
-    # Convert success parameter - handle empty string
-    if success is not None and success != "":
-        success = success.lower() == "true"
+    # Convert success parameter
+    if success_param is not None and success_param != "":
+        success_val = success_param.lower() == "true"
     else:
-        success = None
+        success_val = None
 
-    # Query logs
-    results = audit_service.query_logs(
-        event_type=event_type,
-        user_email=user_email,
-        start_date=start_date,
-        end_date=end_date,
-        search_query=search_query,
-        ip_address=ip_address,
-        success=success,
-        limit=limit,
-        offset=offset,
-    )
+    query = AuditLog.query
+    filters = []
+    if event_type:
+        filters.append(AuditLog.event_type == event_type)
+    if user_email:
+        filters.append(AuditLog.user_email.ilike(f"%{user_email}%"))
+    if start_date:
+        try:
+            filters.append(AuditLog.timestamp >= datetime.fromisoformat(start_date))
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            filters.append(AuditLog.timestamp <= datetime.fromisoformat(end_date))
+        except ValueError:
+            pass
+    if search_query:
+        filters.append(
+            or_(
+                AuditLog.search_query.ilike(f"%{search_query}%"),
+                AuditLog.action.ilike(f"%{search_query}%"),
+                AuditLog.target_resource.ilike(f"%{search_query}%"),
+            )
+        )
+    if ip_address:
+        filters.append(AuditLog.ip_address.ilike(f"%{ip_address}%"))
+    if success_val is not None:
+        filters.append(AuditLog.success == success_val)
 
-    # Debug logging
-    import logging
+    if filters:
+        query = query.filter(and_(*filters))
 
-    logger = logging.getLogger(__name__)
-    logger.info(
-        f"Audit query results: {results.get('total', 0)} total, {len(results.get('results', []))} returned"
-    )
+    query = query.order_by(desc(AuditLog.timestamp))
 
-    # Check if this is an Htmx request
+    page_result = paginate(query)
+
+    # Build template-friendly dicts (decouple template from ORM internals)
+    logs = []
+    for entry in page_result.items:
+        try:
+            formatted_ts = format_timestamp_long(entry.timestamp)
+        except Exception:
+            formatted_ts = str(entry.timestamp)
+        logs.append(
+            {
+                "formatted_timestamp": formatted_ts,
+                "event_type": entry.event_type,
+                "user_email": entry.user_email,
+                "search_query": entry.search_query,
+                "action": entry.action,
+                "resource": entry.target_resource,
+                "service": None,
+                "results_count": entry.search_results_count,
+                "target": entry.target_resource,
+                "ip_address": entry.ip_address,
+                "success": entry.success,
+            }
+        )
+
+    # Htmx fragment vs JSON
     if request.headers.get("HX-Request"):
-        return _render_audit_logs_table(results)
+        return render_template(
+            "admin/partials/_audit_logs_table.html",
+            pagination=page_result,
+            logs=logs,
+        )
 
-    return jsonify(results)
+    # JSON response — preserve legacy "results"/"total" shape
+    return jsonify(
+        {
+            "results": [entry.to_dict() for entry in page_result.items],
+            "total": page_result.total,
+            "page": page_result.page,
+            "per_page": page_result.per_page,
+            "pages": page_result.pages,
+        }
+    )
 
 
 @require_role("admin")
@@ -118,131 +171,6 @@ def api_audit_metadata():
             "users": audit_service.get_users_with_activity(),
         }
     )
-
-
-# ===== Htmx Helper Functions =====
-
-
-def _render_audit_logs_table(results):
-    """Render audit logs table for Htmx."""
-    logs = results.get("results", [])
-    total = results.get("total", 0)
-
-    if not logs:
-        return """
-        <div class="text-center py-8 text-gray-500">
-            No audit logs found matching your criteria.
-        </div>
-        """
-
-    # Build the table
-    html = f"""
-    <div data-result-count="Showing {len(logs)} of {total} entries">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event Type</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action/Query</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-    """
-
-    for log in logs:
-        event_class = _get_event_class(log["event_type"])
-        status_class = "text-green-600" if log.get("success", True) else "text-red-600"
-        status_icon = "check-circle" if log.get("success", True) else "times-circle"
-
-        # Format timestamp
-        try:
-            if isinstance(log.get("timestamp"), str):
-                timestamp = datetime.fromisoformat(
-                    log["timestamp"].replace("Z", "+00:00")
-                )
-            else:
-                timestamp = log.get("timestamp", datetime.now())
-            formatted_time = format_timestamp_long(timestamp)
-        except Exception:
-            formatted_time = str(log.get("timestamp", "Unknown"))
-
-        # Get action/query text
-        action_text = (
-            log.get("search_query") or log.get("action") or log.get("resource", "-")
-        )
-        if len(action_text) > 50:
-            action_text = action_text[:50] + "..."
-
-        # Format details
-        details = []
-        if log.get("service"):
-            details.append(f"Service: {log['service']}")
-        if log.get("results_count") is not None:
-            details.append(f"Results: {log['results_count']}")
-        if log.get("target"):
-            details.append(f"Target: {log['target']}")
-        details_text = ", ".join(details) if details else "-"
-
-        html += f"""
-        <tr class="hover:bg-gray-50">
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatted_time}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {event_class}">
-                    {_format_event_type(log["event_type"])}
-                </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.get("user_email", "Unknown")}</td>
-            <td class="px-6 py-4 text-sm text-gray-900">{action_text}</td>
-            <td class="px-6 py-4 text-sm text-gray-500">{details_text}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.get("ip_address", "-")}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm {status_class}">
-                <i class="fas fa-{status_icon}"></i>
-            </td>
-        </tr>
-        """
-
-    html += """
-            </tbody>
-        </table>
-    </div>
-    """
-
-    # Add pagination if needed
-    if total > len(logs):
-        html += """
-        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-            <div class="flex-1 flex justify-between sm:hidden">
-                <button class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Previous
-                </button>
-                <button class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    Next
-                </button>
-            </div>
-        </div>
-        """
-
-    return html
-
-
-def _get_event_class(event_type):
-    """Get CSS class for event type badge."""
-    if event_type == "search":
-        return "bg-blue-100 text-blue-800"
-    elif event_type == "access":
-        return "bg-yellow-100 text-yellow-800"
-    elif event_type == "admin":
-        return "bg-purple-100 text-purple-800"
-    elif event_type == "config":
-        return "bg-green-100 text-green-800"
-    elif event_type == "error":
-        return "bg-red-100 text-red-800"
-    else:
-        return "bg-gray-100 text-gray-800"
 
 
 def _format_event_type(event_type):

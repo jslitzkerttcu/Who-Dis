@@ -764,10 +764,8 @@ def api_error_logs():
     """API endpoint for querying error logs."""
     from app.models import ErrorLog
     from datetime import datetime, timedelta
+    from app.utils.pagination import paginate
 
-    # Get query parameters
-    limit = int(request.args.get("limit", 50))
-    offset = int(request.args.get("offset", 0))
     severity = request.args.get("severity")
     hours = int(request.args.get("hours", 24))
     search = request.args.get("search", "")
@@ -793,18 +791,34 @@ def api_error_logs():
             )
         )
 
-    # Get total count
-    total = query.count()
+    query = query.order_by(ErrorLog.timestamp.desc())
 
-    # Get paginated results
-    errors = query.order_by(ErrorLog.timestamp.desc()).offset(offset).limit(limit).all()
+    page_result = paginate(query)
+
+    # Build template-friendly dicts
+    error_rows = []
+    for error in page_result.items:
+        error_rows.append(
+            {
+                "id": error.id,
+                "formatted_timestamp": format_timestamp(error.timestamp),
+                "severity": error.severity,
+                "error_type": error.error_type,
+                "error_message": error.error_message,
+                "user_email": error.user_email,
+            }
+        )
 
     # Check if this is an Htmx request
     if request.headers.get("HX-Request"):
-        return _render_error_logs(errors, total)
+        return render_template(
+            "admin/partials/_error_logs_table.html",
+            pagination=page_result,
+            errors=error_rows,
+        )
 
     results = []
-    for error in errors:
+    for error in page_result.items:
         results.append(
             {
                 "id": error.id,
@@ -819,7 +833,15 @@ def api_error_logs():
             }
         )
 
-    return jsonify({"total": total, "errors": results})
+    return jsonify(
+        {
+            "total": page_result.total,
+            "errors": results,
+            "page": page_result.page,
+            "per_page": page_result.per_page,
+            "pages": page_result.pages,
+        }
+    )
 
 
 @require_role("admin")
@@ -842,42 +864,82 @@ def sessions():
 
 @require_role("admin")
 def api_sessions():
-    """Get active user sessions."""
+    """Get active user sessions (paginated)."""
     from app.models import UserSession
+    from app.utils.pagination import paginate
 
-    # Get active sessions (more lenient query to catch all sessions)
     now = datetime.now(timezone.utc)
 
-    # First try original query
-    active_sessions = (
-        UserSession.query.filter(
-            UserSession.expires_at > now,
+    # First try the strict "active" query
+    base_query = UserSession.query.filter(
+        UserSession.expires_at > now,
+        UserSession.last_activity > now - timedelta(hours=24),
+        UserSession.is_active.is_(True),
+    )
+
+    # Fallback to lenient (last 24h activity) if strict yields nothing
+    if base_query.count() == 0:
+        base_query = UserSession.query.filter(
             UserSession.last_activity > now - timedelta(hours=24),
             UserSession.is_active.is_(True),
         )
-        .order_by(UserSession.last_activity.desc())
-        .all()
-    )
 
-    # If no active sessions found, check for any recent sessions (debugging)
-    if not active_sessions:
-        # Look for sessions in the last 24 hours regardless of expiry
-        active_sessions = (
-            UserSession.query.filter(
-                UserSession.last_activity > now - timedelta(hours=24),
-                UserSession.is_active.is_(True),
+    base_query = base_query.order_by(UserSession.last_activity.desc())
+
+    page_result = paginate(base_query)
+
+    # Check if this is an Htmx request — build template-friendly rows
+    if request.headers.get("HX-Request"):
+        session_rows = []
+        for s in page_result.items:
+            la = s.last_activity
+            la_tz = la if la.tzinfo else la.replace(tzinfo=timezone.utc)
+            idle_minutes = int((now - la_tz).total_seconds() / 60)
+            if idle_minutes > 30:
+                status_color = "yellow"
+                status_text = f"Idle ({idle_minutes}m)"
+            else:
+                status_color = "green"
+                status_text = "Active"
+
+            ua = s.user_agent or "Unknown"
+            if "Chrome" in ua:
+                browser = "Chrome"
+            elif "Firefox" in ua:
+                browser = "Firefox"
+            elif "Safari" in ua:
+                browser = "Safari"
+            elif "Edge" in ua:
+                browser = "Edge"
+            else:
+                browser = "Other"
+
+            session_rows.append(
+                {
+                    "user_email": s.user_email,
+                    "ip_address": s.ip_address,
+                    "created": format_timestamp(s.created_at, "%m/%d %H:%M"),
+                    "last_activity": format_timestamp(s.last_activity, "%m/%d %H:%M"),
+                    "last_activity_iso": s.last_activity.isoformat(),
+                    "browser": browser,
+                    "status_color": status_color,
+                    "status_text": status_text,
+                    "escaped_id": s.id.replace("'", "\\'").replace('"', '\\"'),
+                    "escaped_email": s.user_email.replace("'", "\\'").replace(
+                        '"', '\\"'
+                    ),
+                }
             )
-            .order_by(UserSession.last_activity.desc())
-            .all()
+
+        return render_template(
+            "admin/partials/_sessions_table.html",
+            pagination=page_result,
+            sessions=session_rows,
         )
 
-    # Check if this is an Htmx request
-    if request.headers.get("HX-Request"):
-        return _render_sessions_table(active_sessions)
-
-    sessions = []
-    for session in active_sessions:
-        sessions.append(
+    sessions_json = []
+    for session in page_result.items:
+        sessions_json.append(
             {
                 "id": session.id,
                 "user_email": session.user_email,
@@ -888,7 +950,15 @@ def api_sessions():
             }
         )
 
-    return jsonify({"sessions": sessions})
+    return jsonify(
+        {
+            "sessions": sessions_json,
+            "total": page_result.total,
+            "page": page_result.page,
+            "per_page": page_result.per_page,
+            "pages": page_result.pages,
+        }
+    )
 
 
 @require_role("admin")

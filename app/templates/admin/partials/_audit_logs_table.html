@@ -1,0 +1,68 @@
+{% from "partials/pagination.html" import render_pagination %}
+
+{% if pagination.total == 0 %}
+  <div class="text-center py-8 text-gray-500">
+    <i class="fas fa-search text-5xl mb-3"></i>
+    <p class="text-lg">No entries found</p>
+    <p class="text-sm">Adjust your filters or expand the time range to see more results.</p>
+  </div>
+{% else %}
+  <div data-result-count="Showing {{ pagination.start_index }} to {{ pagination.end_index }} of {{ pagination.total }} entries">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event Type</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action/Query</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for log in logs %}
+          {% set event_type = log.event_type or 'unknown' %}
+          {% set event_class = {
+            'search': 'bg-blue-100 text-blue-800',
+            'access': 'bg-yellow-100 text-yellow-800',
+            'admin': 'bg-purple-100 text-purple-800',
+            'config': 'bg-green-100 text-green-800',
+            'error': 'bg-red-100 text-red-800'
+          }.get(event_type, 'bg-gray-100 text-gray-800') %}
+          {% set is_success = log.success if log.success is not none else true %}
+          {% set status_class = 'text-green-600' if is_success else 'text-red-600' %}
+          {% set status_icon = 'check-circle' if is_success else 'times-circle' %}
+          {% set action_text = log.search_query or log.action or log.resource or '-' %}
+          {% if action_text|length > 50 %}{% set action_text = action_text[:50] ~ '...' %}{% endif %}
+          {% set details = [] %}
+          {% if log.service %}{% set _ = details.append('Service: ' ~ log.service) %}{% endif %}
+          {% if log.results_count is not none %}{% set _ = details.append('Results: ' ~ log.results_count) %}{% endif %}
+          {% if log.target %}{% set _ = details.append('Target: ' ~ log.target) %}{% endif %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.formatted_timestamp }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ event_class }}">
+                {{ event_type.replace('_', ' ').title() }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.user_email or 'Unknown' }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ action_text }}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">{{ details|join(', ') if details else '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.ip_address or '-' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm {{ status_class }}">
+              <i class="fas fa-{{ status_icon }}"></i>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ render_pagination(
+       pagination=pagination,
+       endpoint=url_for('admin.api_audit_logs'),
+       target='#logsTable',
+       include='#filterForm',
+       item_noun='audit log entries'
+  ) }}
+{% endif %}
