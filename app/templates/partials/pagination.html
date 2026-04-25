@@ -1,0 +1,119 @@
+{#
+  Reusable pagination partial — locks the project-wide pagination contract.
+
+  Usage:
+    {% from "partials/pagination.html" import render_pagination %}
+    {{ render_pagination(
+         pagination=page_result,
+         endpoint=url_for('admin.api_audit_logs'),
+         target='#logsTable',
+         include='#filterForm',
+         item_noun='audit log entries'
+    ) }}
+
+  Params:
+    pagination  - PageResult-like object with .items, .page, .per_page, .total,
+                  .pages, .has_prev, .has_next, .prev_num, .next_num,
+                  .start_index, .end_index
+    endpoint    - URL the paginator HTMX-GETs (e.g. url_for('admin.api_xxx'))
+    target      - HTMX target selector (e.g. '#logsTable')
+    include     - Optional HTMX include selector for filter forms (e.g. '#filterForm')
+    item_noun   - Human-readable noun for the status line ("audit log entries")
+    min_total   - Visibility threshold (D-14): below this total only status text
+                  renders (no nav controls). Default 100.
+
+  Behavior:
+    - When pagination.total == 0 the macro renders NOTHING (caller owns empty state).
+    - When pagination.total <= min_total only the "Showing X to Y of Z" line renders.
+    - Otherwise full pagination chrome renders, with hx-push-url="true" so URLs
+      like ?page=3&size=50 are bookmarkable per D-13.
+#}
+{% macro render_pagination(pagination, endpoint, target, include='', item_noun='results', min_total=100) -%}
+  {% if pagination.total == 0 %}{# caller owns empty state #}
+  {% elif pagination.total <= min_total %}
+    <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+      <p class="text-sm text-gray-700">
+        Showing <span class="font-medium">{{ pagination.start_index }}</span>
+        to <span class="font-medium">{{ pagination.end_index }}</span>
+        of <span class="font-medium">{{ pagination.total }}</span> {{ item_noun }}
+      </p>
+    </div>
+  {% else %}
+    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+      {# mobile prev/next #}
+      <div class="flex-1 flex justify-between sm:hidden">
+        {% if pagination.has_prev %}
+          <a class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+             hx-get="{{ endpoint }}?page={{ pagination.prev_num }}&size={{ pagination.per_page }}"
+             hx-target="{{ target }}" hx-swap="innerHTML"
+             {% if include %}hx-include="{{ include }}"{% endif %}
+             hx-push-url="true">Previous</a>
+        {% endif %}
+        {% if pagination.has_next %}
+          <a class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+             hx-get="{{ endpoint }}?page={{ pagination.next_num }}&size={{ pagination.per_page }}"
+             hx-target="{{ target }}" hx-swap="innerHTML"
+             {% if include %}hx-include="{{ include }}"{% endif %}
+             hx-push-url="true">Next</a>
+        {% endif %}
+      </div>
+      {# desktop: status + page-size selector + nav #}
+      <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm text-gray-700">
+            Showing <span class="font-medium">{{ pagination.start_index }}</span>
+            to <span class="font-medium">{{ pagination.end_index }}</span>
+            of <span class="font-medium">{{ pagination.total }}</span> {{ item_noun }}
+          </p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <label class="text-sm text-gray-700">
+            Per page
+            <select class="ml-2 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-ttcu-green"
+                    hx-get="{{ endpoint }}?page=1"
+                    hx-target="{{ target }}" hx-swap="innerHTML"
+                    {% if include %}hx-include="{{ include }}"{% endif %}
+                    hx-push-url="true"
+                    name="size">
+              {% for opt in [25, 50, 100] %}
+                <option value="{{ opt }}" {% if opt == pagination.per_page %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            {% if pagination.has_prev %}
+              <a class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer"
+                 aria-label="Previous page"
+                 hx-get="{{ endpoint }}?page={{ pagination.prev_num }}&size={{ pagination.per_page }}"
+                 hx-target="{{ target }}" hx-swap="innerHTML"
+                 {% if include %}hx-include="{{ include }}"{% endif %}
+                 hx-push-url="true"><i class="fas fa-chevron-left" aria-hidden="true"></i></a>
+            {% endif %}
+            {% set window_start = [1, pagination.page - 2]|max %}
+            {% set window_end = [pagination.pages, pagination.page + 2]|min %}
+            {% for n in range(window_start, window_end + 1) %}
+              {% if n == pagination.page %}
+                <span aria-current="page"
+                      class="z-10 bg-blue-50 border-blue-500 text-blue-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">{{ n }}</span>
+              {% else %}
+                <a class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium cursor-pointer"
+                   hx-get="{{ endpoint }}?page={{ n }}&size={{ pagination.per_page }}"
+                   hx-target="{{ target }}" hx-swap="innerHTML"
+                   {% if include %}hx-include="{{ include }}"{% endif %}
+                   hx-push-url="true">{{ n }}</a>
+              {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+              <a class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 cursor-pointer"
+                 aria-label="Next page"
+                 hx-get="{{ endpoint }}?page={{ pagination.next_num }}&size={{ pagination.per_page }}"
+                 hx-target="{{ target }}" hx-swap="innerHTML"
+                 {% if include %}hx-include="{{ include }}"{% endif %}
+                 hx-push-url="true"><i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+            {% endif %}
+          </nav>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{%- endmacro %}
