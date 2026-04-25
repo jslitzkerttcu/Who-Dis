@@ -6,9 +6,10 @@ RUN groupadd -r app && useradd -r -g app -u 10001 app
 
 WORKDIR /app
 
-# Runtime libs for psycopg2 + ldap3 + curl (HEALTHCHECK) + postgresql-client (schema guard in entrypoint)
+# Runtime libs for psycopg2 + ldap3 + curl (HEALTHCHECK) + postgresql-client (schema guard in entrypoint).
+# libldap-2.6-0 on Debian trixie (libldap-2.5-0 was bookworm and is no longer in trixie).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libpq5 libldap-2.5-0 libsasl2-2 curl postgresql-client \
+      libpq5 libldap-2.6-0 libsasl2-2 curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Production deps only (WD-CONT-03 — no dev/test deps; image < 500 MB target)
