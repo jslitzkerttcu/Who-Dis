@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 load_dotenv()
 
-from app.app_factory import create_app  # noqa: E402
+from app import create_app  # noqa: E402
 from app.database import db  # noqa: E402
 
 

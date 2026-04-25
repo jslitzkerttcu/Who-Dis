@@ -19,6 +19,11 @@ def create_app():
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
+    # Suppress debug logging from noisy libraries
+    logging.getLogger("app.services.simple_config").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("msal").setLevel(logging.WARNING)
+
     # Initialize database
     from app.database import init_db
 
