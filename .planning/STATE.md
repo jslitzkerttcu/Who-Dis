@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-03-health-endpoints-PLAN.md
-last_updated: "2026-04-25T05:12:00.424Z"
+stopped_at: Completed 01-02-cache-cleanup-PLAN.md
+last_updated: "2026-04-25T05:17:02.152Z"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State: WhoDis v3.0
@@ -28,11 +28,11 @@ progress:
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 7 of 9 (next)
+Plan: 8 of 9 (next)
 **Phase:** 1 — Foundation
-**Plan:** 01-03-health-endpoints COMPLETE — OPS-01 satisfied (unauthenticated /health deep DB probe returning JSON with database.connected/latency_ms; /health/live shallow process-up probe; both registered at root in app/__init__.py)
+**Plan:** 01-02-cache-cleanup COMPLETE — DEBT-03 satisfied (CacheCleanupService background thread prunes expired SearchCache rows hourly; admin Run-now route at POST /admin/api/cache/cleanup/run with HTMX fragment response and audit logging; broom-icon button row added to _cache_actions.html)
 **Status:** Executing Phase 01
-**Progress:** [████████░░] 78%
+**Progress:** [█████████░] 89%
 
 ## Accumulated Context
 
@@ -47,6 +47,7 @@ Plan: 7 of 9 (next)
 - OPS-02: per-request UUID4 correlation IDs propagated through JSON logs via python-json-logger; inbound X-Request-ID validated against `^[0-9a-fA-F-]{8,64}$` to prevent log injection
 - OPS-03: REQUIRED_KEYS list lives in code (not DB) so operators cannot tamper around the startup gate; error messages list missing key names + labels but never echo decrypted values; Postgres creds remain in .env (bootstrap), validator scope is encrypted-config only
 - OPS-01: /health and /health/live are unauthenticated public probes registered at root; /health does DB-only deep check (SELECT 1 + latency_ms, 503 on failure) per D-12 — no LDAP/Graph/Genesys probes; error text truncated to 200 chars; rate limiting deliberately omitted so uptime monitors get free access
+- DEBT-03: CacheCleanupService is the third instance of the background-thread pattern (token_refresh, employee_profiles_refresh now joined by cache_cleanup); future scheduled jobs copy this skeleton verbatim. run_now() is the synchronous public entry point for admin invocations (caller already holds a request context). No confirmation modal on Run-now because the operation only deletes already-expired rows.
 
 ### Architecture Constraints
 
@@ -67,7 +68,7 @@ Plan: 7 of 9 (next)
 
 ## Session Continuity
 
-**Last session:** 2026-04-25T00:15:00Z
+**Last session:** 2026-04-25T05:16:55.383Z
 **Next action:** Continue Phase 1 — execute next plan (2 of 9 remaining)
 **Stopped at:** Completed 01-03-health-endpoints-PLAN.md
 **Blockers:** None
