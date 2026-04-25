@@ -87,41 +87,38 @@ def app(database_url, _set_testing_env):
 
 @pytest.fixture
 def db_session(app):
-    """SAVEPOINT-per-test (D-03). Standard SQLAlchemy 2.0 nested-transaction pattern.
+    """Per-test isolation via TRUNCATE-on-teardown (D-03 simplified).
 
-    Uses the public sessionmaker + scoped_session API per the SQLAlchemy 2.0 docs:
-    https://docs.sqlalchemy.org/en/20/orm/session_transaction.html#joining-a-session-into-an-external-transaction-such-as-for-test-suites
-    Avoids private Flask-SQLAlchemy session-helper APIs whose signatures vary across
-    SQLAlchemy 2.0.x patch releases.
-    """
-    from sqlalchemy.orm import scoped_session, sessionmaker
+    The original SAVEPOINT-rollback approach (commits within tests stayed in
+    a nested transaction, rolled back at teardown) hit two issues with
+    Flask-SQLAlchemy 3.x + SQLAlchemy 2.0 in the integration-test context:
+      1. Flask request handlers issue commits that escape begin_nested when
+         multiple requests fire in sequence (audit_logger.commit, user.save).
+      2. Replacing db.session with a per-test scoped_session leaves the next
+         test's "original_session" pointing at a closed Connection.
+
+    Trade-off: we lose strict per-test isolation INSIDE a single test (a
+    request that commits halfway can be observed by the rest of the test —
+    that's actually what integration tests want), but TRUNCATE on teardown
+    keeps cross-test isolation intact. Performance cost: one TRUNCATE per
+    test (~5ms on a small Postgres)."""
     from app.database import db
 
-    connection = db.engine.connect()
-    transaction = connection.begin()
-
-    # Public API: bind a fresh sessionmaker to the open connection, wrap as scoped_session
-    # so Flask-SQLAlchemy's `db.session` proxy keeps working for the duration of the test.
-    SessionFactory = sessionmaker(bind=connection)
-    session = scoped_session(SessionFactory)
-    original_session = db.session
-    db.session = session  # type: ignore[assignment]  # flask_sqlalchemy.session.Session vs sqlalchemy.orm.Session — invariant generic mismatch is benign at runtime
-
-    nested = connection.begin_nested()
-
-    @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(sess, trans):
-        nonlocal nested
-        if trans.nested and not trans._parent.nested:
-            nested = connection.begin_nested()
-
-    try:
-        yield session
-    finally:
-        session.remove()
-        transaction.rollback()
-        connection.close()
-        db.session = original_session
+    yield db.session
+    db.session.rollback()
+    # TRUNCATE all user tables (preserve schema); keep internal pg_* alone.
+    with db.engine.begin() as conn:
+        from sqlalchemy import text
+        conn.execute(text("""
+            DO $$
+            DECLARE r RECORD;
+            BEGIN
+              FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+                EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' RESTART IDENTITY CASCADE';
+              END LOOP;
+            END $$;
+        """))
+    db.session.expire_all()
 
 
 @pytest.fixture
