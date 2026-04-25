@@ -15,16 +15,6 @@ from app.interfaces.configuration_service import IConfigurationService
 from app.services.search_orchestrator import SearchOrchestrator
 from app.services.result_merger import ResultMerger
 from app.models.cache import SearchCache
-
-
-def _search_rate_key() -> str:
-    """SEC-03 rate-limit key: prefer authenticated user, fall back to remote IP.
-
-    The limiter decorator runs BEFORE @require_role's authenticate() call, so
-    g.user may be unset on the first request in a session. Falling back to the
-    remote address ensures unauthenticated abuse is also bounded.
-    """
-    return getattr(g, "user", None) or get_remote_address()
 import logging
 from typing import Optional, Dict, Any
 import base64
@@ -36,6 +26,16 @@ from app.utils.timezone import format_timestamp
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+
+def _search_rate_key() -> str:
+    """SEC-03 rate-limit key: prefer authenticated user, fall back to remote IP.
+
+    The limiter decorator runs BEFORE @require_role's authenticate() call, so
+    g.user may be unset on the first request in a session. Falling back to the
+    remote address ensures unauthenticated abuse is also bounded.
+    """
+    return getattr(g, "user", None) or get_remote_address()
 
 
 def _generate_search_cache_key(
@@ -1585,7 +1585,7 @@ def _render_azure_ad_card(user_data):
     # Sign-in logs section
     graph_id = user_data.get("id") or user_data.get("graphId")
     if graph_id:
-        html += f'''
+        html += f"""
         <div class="mt-6 pt-6 border-t border-gray-200">
             <div class="flex items-center justify-between mb-3">
                 <h5 class="text-sm font-medium text-gray-900 flex items-center">
@@ -1604,7 +1604,7 @@ def _render_azure_ad_card(user_data):
             </div>
             <div id="signin-logs-{graph_id}"></div>
         </div>
-        '''
+        """
 
     # Admin notes section
     if email and email != "No email":
@@ -1818,7 +1818,7 @@ def _render_genesys_card(user_data):
     # Licenses section (lazy-loaded via HTMX)
     genesys_user_id = user_data.get("id")
     if genesys_user_id:
-        html += f'''
+        html += f"""
         <div class="mb-4">
             <h6 class="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <i class="fas fa-id-badge mr-2 text-amber-500"></i>Licenses
@@ -1830,7 +1830,7 @@ def _render_genesys_card(user_data):
                 <span class="text-xs text-gray-400">Loading licenses...</span>
             </div>
         </div>
-        '''
+        """
 
     # Add JavaScript for toggle functionality
     html += """
@@ -2492,19 +2492,19 @@ def edit_note_form(note_id):
 def _render_signin_logs(logs):
     """Render Azure AD sign-in logs as an HTML fragment."""
     if logs is None:
-        return '''
+        return """
         <div class="p-3 bg-red-50 text-red-700 rounded-md text-sm">
             <i class="fas fa-exclamation-triangle mr-1"></i>
             Unable to fetch sign-in logs. The app may need AuditLog.Read.All permission.
         </div>
-        '''
+        """
 
     if not logs:
-        return '''
+        return """
         <div class="p-3 bg-gray-50 text-gray-500 rounded-md text-sm">
             <i class="fas fa-info-circle mr-1"></i>No sign-in logs found for this user.
         </div>
-        '''
+        """
 
     html = '<div class="max-h-96 overflow-y-auto border border-gray-200 rounded-md">'
     html += '<table class="w-full text-xs">'
@@ -2528,7 +2528,9 @@ def _render_signin_logs(logs):
             formatted = _format_signin_datetime(dt)
         else:
             formatted = "N/A"
-        html += f'<td class="px-3 py-2 text-gray-700 whitespace-nowrap">{formatted}</td>'
+        html += (
+            f'<td class="px-3 py-2 text-gray-700 whitespace-nowrap">{formatted}</td>'
+        )
 
         # Application
         app_name = html_escape(log.get("appDisplayName", "Unknown"))
@@ -2580,18 +2582,18 @@ def _format_signin_datetime(dt_str):
 def _render_genesys_licenses(licenses, user_id, can_edit=False):
     """Render Genesys license pills as an HTML fragment."""
     if licenses is None:
-        return '''
+        return """
         <div class="p-2 bg-red-50 text-red-700 rounded-md text-xs">
             <i class="fas fa-exclamation-triangle mr-1"></i>Unable to fetch licenses.
         </div>
-        '''
+        """
 
     if not licenses:
-        return '''
+        return """
         <div class="text-xs text-gray-400">
             <i class="fas fa-info-circle mr-1"></i>No licenses assigned.
         </div>
-        '''
+        """
 
     html = '<div class="flex flex-wrap gap-2">'
     for lic in licenses:
@@ -2603,7 +2605,7 @@ def _render_genesys_licenses(licenses, user_id, can_edit=False):
         html += f'<i class="fas fa-id-badge mr-1"></i>{lic_name}'
 
         if can_edit:
-            html += f'''
+            html += f"""
             <button class="ml-1.5 text-amber-600 hover:text-red-600 transition-colors"
                     title="Remove license"
                     hx-delete="/search/api/genesys-licenses/{user_id}/{lic_id}?name={lic_name_url}"
@@ -2613,7 +2615,7 @@ def _render_genesys_licenses(licenses, user_id, can_edit=False):
                     >
                 <i class="fas fa-times text-xs"></i>
             </button>
-            '''
+            """
 
         html += "</span>"
 

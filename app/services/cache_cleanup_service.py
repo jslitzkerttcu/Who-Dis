@@ -66,9 +66,7 @@ class CacheCleanupService:
         while self.is_running:
             try:
                 if not self.app:
-                    logger.warning(
-                        "Cache cleanup service has no Flask app configured"
-                    )
+                    logger.warning("Cache cleanup service has no Flask app configured")
                 else:
                     with self.app.app_context():
                         deleted, duration_ms = self._cleanup()
@@ -79,9 +77,7 @@ class CacheCleanupService:
                         )
             except Exception as e:
                 # Per T-01-02-03 (DoS mitigation): never let the thread die.
-                logger.error(
-                    f"Error in cache cleanup service: {str(e)}", exc_info=True
-                )
+                logger.error(f"Error in cache cleanup service: {str(e)}", exc_info=True)
 
             time.sleep(self.check_interval)
 

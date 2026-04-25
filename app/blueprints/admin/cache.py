@@ -279,9 +279,7 @@ def cache_cleanup_run():
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
     try:
-        deleted, duration_ms = current_app.container.get(
-            "cache_cleanup"
-        ).run_now()
+        deleted, duration_ms = current_app.container.get("cache_cleanup").run_now()
         audit_service.log_admin_action(
             user_email=admin_email,
             action="cache_cleanup_run",
@@ -297,7 +295,7 @@ def cache_cleanup_run():
             'class="p-2 bg-green-50 border border-green-200 rounded text-xs text-green-800">'
             '<i class="fas fa-check-circle mr-1"></i>'
             f"Cleaned up {deleted} expired entries at "
-            f'{datetime.now().strftime("%H:%M:%S")}'
+            f"{datetime.now().strftime('%H:%M:%S')}"
             "</div>"
         )
     except Exception as exc:

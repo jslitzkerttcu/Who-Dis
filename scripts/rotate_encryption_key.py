@@ -16,6 +16,7 @@ Exit codes:
     3  post-commit verify failed (some row will not decrypt under the new key)
     1  any other unexpected error (DB connection failure, decrypt error, etc.)
 """
+
 import argparse
 import os
 import sys
