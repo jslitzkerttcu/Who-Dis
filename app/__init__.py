@@ -159,10 +159,10 @@ def create_app():
                 genesys_service = None
                 if not app.config.get("TESTING"):
                     for service in token_services:
+                        service_name = getattr(
+                            service, "token_service_name", "unknown"
+                        )
                         try:
-                            service_name = getattr(
-                                service, "token_service_name", "unknown"
-                            )
                             if service.refresh_token_if_needed():
                                 app.logger.info(f"{service_name} token is valid")
                                 if service_name == "genesys":

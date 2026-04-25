@@ -102,7 +102,7 @@ def db_session(app):
     SessionFactory = sessionmaker(bind=connection)
     session = scoped_session(SessionFactory)
     original_session = db.session
-    db.session = session
+    db.session = session  # type: ignore[assignment]  # flask_sqlalchemy.session.Session vs sqlalchemy.orm.Session — invariant generic mismatch is benign at runtime
 
     nested = connection.begin_nested()
 
