@@ -9,29 +9,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: who-dis-app
-    environment:
-      # Flask runtime
-      - FLASK_ENV=production
-      - SECRET_KEY=${SECRET_KEY}
-      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
-      # Database (WD-CFG-02)
-      - DATABASE_URL=${DATABASE_URL}
-      # Keycloak OIDC (WD-AUTH-02 / WD-AUTH-03; confidential client per Plan 01)
-      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER}
-      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
-      # LDAP
-      - LDAP_SERVER=${LDAP_SERVER}
-      - LDAP_BIND_DN=${LDAP_BIND_DN}
-      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
-      # Microsoft Graph
-      - GRAPH_TENANT_ID=${GRAPH_TENANT_ID}
-      - GRAPH_CLIENT_ID=${GRAPH_CLIENT_ID}
-      - GRAPH_CLIENT_SECRET=${GRAPH_CLIENT_SECRET}
-      # Genesys Cloud
-      - GENESYS_CLIENT_ID=${GENESYS_CLIENT_ID}
-      - GENESYS_CLIENT_SECRET=${GENESYS_CLIENT_SECRET}
-      - GENESYS_REGION=${GENESYS_REGION}
+    # Use env_file (not ${VAR} substitution) so the SandCastle deploy worker's
+    # leaked-through env (DATABASE_URL, etc. for the portal) does NOT win
+    # over the .env we wrote for who-dis. With env_file, every key in the
+    # file is injected directly into the container's runtime environment;
+    # there is no compose-time variable substitution against the worker's shell.
+    env_file:
+      - .env
     networks:
       - proxy
       - internal
