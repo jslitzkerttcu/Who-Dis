@@ -137,12 +137,19 @@ def test_search_user_no_matches_returns_none(mocker, app):
 
 
 def test_search_user_propagates_timeout_error(mocker, app):
-    """TimeoutError from _make_request is re-raised, not swallowed."""
+    """TimeoutError from _make_request is re-raised, not swallowed.
+
+    BaseAPIService._make_request catches requests.exceptions.Timeout
+    specifically and wraps it as TimeoutError; raising the built-in
+    TimeoutError directly would skip that branch and hit the generic
+    Exception handler instead. Per Gemini PR #27 review.
+    """
+    import requests
     svc = _make_graph_service(mocker)
     mocker.patch.object(svc, "get_access_token", return_value="cached")
     mocker.patch(
         "app.services.base.requests.request",
-        side_effect=TimeoutError("graph timeout"),
+        side_effect=requests.exceptions.Timeout("graph timeout"),
     )
     with pytest.raises(TimeoutError):
         svc.search_user("jdoe", include_photo=False)
@@ -198,7 +205,9 @@ def test_fetch_new_token_msal_raises(mocker, app):
 def test_get_user_photo_returns_base64_data_url(mocker, app):
     svc = _make_graph_service(mocker)
     mocker.patch.object(svc, "get_access_token", return_value="cached")
-    raw = b"\x89PNG\r\n\x1a\n-fake-photo-bytes"
+    # JPEG magic bytes — keep test data consistent with the data:image/jpeg
+    # MIME type the implementation hardcodes (per Gemini PR #27 review).
+    raw = b"\xff\xd8\xff\xe0\x00\x10JFIF-fake-photo-bytes"
     mocker.patch(
         "app.services.base.requests.request",
         return_value=_mock_response(mocker, 200, content=raw),
@@ -313,12 +322,8 @@ def test_get_sign_in_logs_empty_response_returns_empty_list(mocker, app):
     assert svc.get_sign_in_logs("g1") == []
 
 
-# --------------------- patch path coverage -------------------------------
-# The plan's acceptance criterion requires >=3 patches against
-# ``app.services.graph_service`` paths. Each occurrence below exists in
-# the test bodies above:
-#   - app.services.graph_service.ConfidentialClientApplication (in _make_graph_service)
-# Other patches go to ``app.services.base.requests.request`` because that
-# is the actual HTTP boundary BaseAPIService uses (graph_service does not
-# import ``requests`` directly). Add explicit module-path verification
-# tests here to surface intent.
+# Patch boundaries used in this file:
+#   - app.services.graph_service.ConfidentialClientApplication (msal seam,
+#     patched in _make_graph_service)
+#   - app.services.base.requests.request (the HTTP boundary BaseAPIService
+#     uses; graph_service does not import requests directly)

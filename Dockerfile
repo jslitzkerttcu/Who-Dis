@@ -6,10 +6,15 @@ RUN groupadd -r app && useradd -r -g app -u 10001 app
 
 WORKDIR /app
 
-# Runtime libs for psycopg2 + ldap3 + curl (HEALTHCHECK) + postgresql-client (schema guard in entrypoint).
-# Debian trixie renamed the OpenLDAP binary package to `libldap2` (was libldap-2.5-0 on bookworm).
+# Runtime tools only — apt resolves the rest as transitive deps:
+#   - curl pulls in libldap2 + libsasl2-2 (used by HEALTHCHECK)
+#   - postgresql-client pulls in libpq5 (used by entrypoint schema guard)
+# ldap3 is pure Python (no OpenLDAP C dep) and psycopg2-binary ships its
+# own libpq, so neither needs an explicit apt entry. Per Gemini PR #28
+# review — keeps the image resilient to upstream package renames
+# (libldap-2.5-0 -> libldap2 churn on bookworm -> trixie).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libpq5 libldap2 libsasl2-2 curl postgresql-client \
+      curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Production deps only (WD-CONT-03 — no dev/test deps; image < 500 MB target)
