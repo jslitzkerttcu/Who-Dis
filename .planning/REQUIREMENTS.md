@@ -11,7 +11,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### Testing
 
 - [x] **TEST-01**: Developer can run `pytest tests/ -v` and get passing unit tests for all service classes
-- [ ] **TEST-02**: External APIs (LDAP, Graph, Genesys) are mocked at container level in test fixtures
+- [x] **TEST-02**: External APIs (LDAP, Graph, Genesys) are mocked at container level in test fixtures
 - [ ] **TEST-03**: Integration tests verify authentication middleware pipeline and search flow end-to-end
 - [x] **TEST-04**: Coverage report generated with `pytest --cov=app` showing 60%+ on services and middleware
 
@@ -209,7 +209,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SEC-03 | Phase 1 | Complete |
 | SEC-04 | Phase 1 | Complete |
 | TEST-01 | Phase 2 | Complete |
-| TEST-02 | Phase 2 | Pending |
+| TEST-02 | Phase 2 | Complete |
 | TEST-03 | Phase 2 | Pending |
 | TEST-04 | Phase 2 | Complete |
 | WD-CONT-01 | Phase 3 | Pending |

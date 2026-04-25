@@ -74,7 +74,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   4. A failing test blocks a developer from merging (even without CI, the suite is runnable as a gate)
 **Plans**: 4 plans
 - [x] 02-01-test-infra-scaffolding-PLAN.md — requirements split, pyproject.toml pytest+coverage config, Makefile, pre-push hook, .gitignore verification (TEST-01, TEST-04)
-- [ ] 02-02-fixtures-fakes-factories-PLAN.md — TESTING gate in app/__init__.py, conftest tree (Postgres+SAVEPOINT), fakes (LDAP/Graph/Genesys), factories (User/ApiToken/JobCode/SystemRole) (TEST-01, TEST-02)
+- [x] 02-02-fixtures-fakes-factories-PLAN.md — TESTING gate in app/__init__.py, conftest tree (Postgres+SAVEPOINT), fakes (LDAP/Graph/Genesys), factories (User/ApiToken/JobCode/SystemRole) (TEST-01, TEST-02)
 - [ ] 02-03-targeted-and-integration-tests-PLAN.md — Unit tests for orchestrator/LDAP/Genesys (D-12 hot paths) + integration tests for auth pipeline + search flow (D-13/D-14) (TEST-01, TEST-02, TEST-03)
 - [ ] 02-04-coverage-gate-and-docs-PLAN.md — Full-suite verification, coverage report, README hook installer docs, pre-push gate human verification (TEST-04)
 
