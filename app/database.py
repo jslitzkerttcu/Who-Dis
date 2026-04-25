@@ -33,11 +33,16 @@ def init_db(app):
     """Initialize database with Flask app"""
     app.config["SQLALCHEMY_DATABASE_URI"] = get_database_uri()
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    # WD-DB-04 — connection-pool tuning for containerized deployment
+    # pool_size=5 matches the container's gunicorn worker count (GUNICORN_WORKERS default 2,
+    # max tuned to 5). pool_pre_ping detects stale connections. pool_recycle=1800 recycles
+    # connections every 30 min (within gunicorn worker lifetime). max_overflow=5 caps total
+    # connections to 10 under burst, preventing container OOM (T-09-04-04).
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_size": 10,
-        "pool_recycle": 3600,
+        "pool_size": 5,
+        "pool_recycle": 1800,
         "pool_pre_ping": True,
-        "max_overflow": 20,
+        "max_overflow": 5,
     }
 
     db.init_app(app)
