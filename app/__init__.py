@@ -110,6 +110,13 @@ def create_app():
         app.logger.warning(f"Failed to initialize configuration service: {e}")
         app.logger.warning("Falling back to environment variables")
 
+    # OPS-03: Validate required encrypted-config keys are present before any
+    # service that depends on them runs. Raises ConfigurationError (uncaught)
+    # to abort boot with a clear, operator-actionable message.
+    from app.services.config_validator import validate_required_config
+
+    validate_required_config()
+
     # Initialize audit service with Flask app
     # Skip initialization if we're in the reloader process
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
