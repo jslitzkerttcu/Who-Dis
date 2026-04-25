@@ -193,10 +193,10 @@ def refresh_genesys_cache():
 def data_warehouse_cache_status():
     """Get data warehouse cache status."""
     try:
-        # Get data warehouse service from container
-        data_warehouse_service = current_app.container.get("data_warehouse_service")
+        # Use consolidated employee_profiles_refresh service
+        profiles_service = current_app.container.get("employee_profiles_refresh")
 
-        status = data_warehouse_service.get_cache_status()
+        status = profiles_service.get_cache_status()
         return jsonify(status)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -208,11 +208,11 @@ def refresh_data_warehouse_cache():
     from app.services.audit_service_postgres import audit_service
 
     try:
-        # Get data warehouse service from container
-        data_warehouse_service = current_app.container.get("data_warehouse_service")
+        # Use consolidated employee_profiles_refresh service
+        profiles_service = current_app.container.get("employee_profiles_refresh")
 
         # Execute cache refresh
-        results = data_warehouse_service.refresh_cache()
+        results = profiles_service.refresh_cache()
 
         # Log action
         admin_email = request.headers.get(
