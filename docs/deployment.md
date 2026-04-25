@@ -1,3 +1,8 @@
+> **DEPRECATED:** This document covers the pre-Phase-9 Azure App Service
+> deployment path. The current canonical deployment target is SandCastle —
+> see [`docs/sandcastle.md`](sandcastle.md). The Azure App Service environment
+> will be decommissioned post-Phase-9 verification.
+
 # WhoDis Production Deployment Guide
 
 This guide provides comprehensive instructions for deploying WhoDis to production environments.

@@ -120,7 +120,6 @@ def register_services(container: ServiceContainer) -> None:
     to register all service factories.
     """
     # Import services here to avoid circular imports
-    from app.services.configuration_service import configuration_service
     from app.services.ldap_service import LDAPService
     from app.services.genesys_service import GenesysCloudService
     from app.services.graph_service import GraphService
@@ -128,14 +127,12 @@ def register_services(container: ServiceContainer) -> None:
     from app.services.token_refresh_service import TokenRefreshService
     from app.services.cache_cleanup_service import CacheCleanupService
     from app.services.genesys_cache_db import GenesysCacheDB
-    from app.services.encryption_service import EncryptionService
     from app.services.refresh_employee_profiles import EmployeeProfilesRefreshService
 
-    # Configuration service (use singleton instance)
-    container.register("config", lambda c: configuration_service)
-
-    # Encryption service
-    container.register("encryption", lambda c: EncryptionService())
+    # Phase 9 D-11: EncryptionService and configuration_service singleton removed.
+    # Secrets come from os.environ via portal env-var injection (D-16).
+    # The "config" container slot is no longer registered — services that previously
+    # called current_app.container.get("config") must now use os.environ directly.
 
     # Audit services (create new instance that implements both interfaces)
     audit_service_instance = PostgresAuditService()

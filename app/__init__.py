@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from flask import Flask, g, request
+from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 import logging
 import traceback
@@ -51,16 +54,28 @@ def _configure_json_logging() -> None:
 def create_app():
     app = Flask(__name__)
 
-    # Set a temporary secret key for Flask initialization
-    import secrets
+    # WD-NET-04 — honor X-Forwarded-Proto/Host so url_for(_external=True) emits HTTPS
+    # behind Traefik. Hop count is 1 (Traefik only). DO NOT set higher — would trust
+    # forged X-Forwarded-* headers from the client (Pitfall 4 in 09-RESEARCH.md).
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=0)
 
-    app.config["SECRET_KEY"] = secrets.token_hex(32)
+    # Session cookie hardening (Pitfall 7). SameSite=Lax is REQUIRED for OIDC —
+    # Strict breaks the Keycloak->Who-Dis redirect-back because it's cross-site.
+    app.config.update(
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    )
+
+    # SECRET_KEY sourced from environment (portal env-var injection, D-16).
+    # The pre-Phase-9 pattern of storing it encrypted in the DB is removed (D-11).
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
 
     # Configure JSON-structured logging with per-request correlation IDs.
     _configure_json_logging()
 
     # Suppress debug logging from noisy libraries (preserved from DEBT-01 migration)
-    logging.getLogger("app.services.simple_config").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("msal").setLevel(logging.WARNING)
 
@@ -95,48 +110,24 @@ def create_app():
     app.config["RATELIMIT_HEADERS_ENABLED"] = True
     limiter.init_app(app)
 
-    # Initialize configuration service
+    # Phase 9 D-13 carve-out: read the debug-mode toggle from DB (non-secret flag).
+    # All secrets now come from os.environ via portal env-var injection (D-11, D-16).
     try:
-        from app.services.configuration_service import config_get, config_clear_cache
+        from app.services.configuration_service import get_debug_mode, get_flask_config_from_env
 
-        # Clear cache to ensure fresh config on startup
-        config_clear_cache()
-
-        # Override Flask config with database values
-        app.config["FLASK_HOST"] = config_get("flask.host", "0.0.0.0")
-        app.config["FLASK_PORT"] = config_get("flask.port", 5000)
-        app.config["FLASK_DEBUG"] = config_get("flask.debug", False)
-
-        # Load encrypted Flask secret key from database
-        with app.app_context():
-            from app.services.simple_config import (
-                config_get as simple_config_get,
-                config_set as simple_config_set,
-            )
-
-            secret_key = simple_config_get("flask.secret_key")
-            if not secret_key:
-                # Generate and store a new key
-                secret_key = secrets.token_hex(32)
-                simple_config_set("flask.secret_key", secret_key, "system")
-            app.config["SECRET_KEY"] = secret_key
-
-        # Initialize CSRF protection after configuration is loaded
-        from app.middleware.csrf import DoubleSubmitCSRF
-
-        csrf = DoubleSubmitCSRF()
-        csrf.init_app(app)
+        flask_cfg = get_flask_config_from_env()
+        app.config["FLASK_HOST"] = flask_cfg["FLASK_HOST"]
+        app.config["FLASK_PORT"] = flask_cfg["FLASK_PORT"]
+        app.config["FLASK_DEBUG"] = flask_cfg["FLASK_DEBUG"]
 
     except Exception as e:
-        app.logger.warning(f"Failed to initialize configuration service: {e}")
-        app.logger.warning("Falling back to environment variables")
+        app.logger.warning(f"Failed to read Flask config from env/DB: {e}")
 
-    # OPS-03: Validate required encrypted-config keys are present before any
-    # service that depends on them runs. Raises ConfigurationError (uncaught)
-    # to abort boot with a clear, operator-actionable message.
-    from app.services.config_validator import validate_required_config
+    # Initialize CSRF protection
+    from app.middleware.csrf import DoubleSubmitCSRF
 
-    validate_required_config()
+    csrf = DoubleSubmitCSRF()
+    csrf.init_app(app)
 
     # Initialize audit service with Flask app
     # Skip initialization if we're in the reloader process
@@ -153,37 +144,49 @@ def create_app():
                 app.logger.info("Checking and refreshing API tokens at startup...")
 
                 # Get all token services from container and refresh them
+                # D-06: skip startup token refresh under TESTING; tests use fake services
+                # registered after create_app() returns and drive refresh manually.
                 token_services = app.container.get_all_by_interface(ITokenService)
                 genesys_service = None
-                for service in token_services:
-                    try:
-                        service_name = getattr(service, "token_service_name", "unknown")
-                        if service.refresh_token_if_needed():
-                            app.logger.info(f"{service_name} token is valid")
-                            if service_name == "genesys":
-                                genesys_service = service
-                        else:
+                if not (app.config.get("TESTING") or os.environ.get("TESTING")):
+                    for service in token_services:
+                        service_name = getattr(
+                            service, "token_service_name", "unknown"
+                        )
+                        try:
+                            if service.refresh_token_if_needed():
+                                app.logger.info(f"{service_name} token is valid")
+                                if service_name == "genesys":
+                                    genesys_service = service
+                            else:
+                                app.logger.warning(
+                                    f"Failed to refresh {service_name} token at startup"
+                                )
+                        except Exception as e:
                             app.logger.warning(
-                                f"Failed to refresh {service_name} token at startup"
+                                f"Error checking {service_name} token: {e}"
                             )
-                    except Exception as e:
-                        app.logger.warning(f"Error checking {service_name} token: {e}")
 
                 # Start background token refresh service with container
-                token_refresh = app.container.get("token_refresh")
-                token_refresh.app = app
-                token_refresh.container = app.container
-                token_refresh.start()
-                app.logger.info("Token refresh background service started")
+                # D-06: skip background thread under TESTING; tests drive services synchronously.
+                if not (app.config.get("TESTING") or os.environ.get("TESTING")):
+                    token_refresh = app.container.get("token_refresh")
+                    token_refresh.app = app
+                    token_refresh.container = app.container
+                    token_refresh.start()
+                    app.logger.info("Token refresh background service started")
 
                 # DEBT-03: hourly background prune of expired SearchCache rows
-                cache_cleanup = app.container.get("cache_cleanup")
-                cache_cleanup.app = app
-                cache_cleanup.start()
-                app.logger.info("Cache cleanup background service started")
+                # D-06: skip background thread under TESTING.
+                if not (app.config.get("TESTING") or os.environ.get("TESTING")):
+                    cache_cleanup = app.container.get("cache_cleanup")
+                    cache_cleanup.app = app
+                    cache_cleanup.start()
+                    app.logger.info("Cache cleanup background service started")
 
                 # Initialize Genesys cache using the validated service
-                if genesys_service:
+                # D-06: skip Genesys cache warmup under TESTING (avoids real HTTP calls).
+                if genesys_service and not (app.config.get("TESTING") or os.environ.get("TESTING")):
                     try:
                         from app.services.genesys_cache_db import genesys_cache_db
 
@@ -251,6 +254,11 @@ def create_app():
     # OPS-01: unauthenticated /health and /health/live for external monitors
     app.register_blueprint(health_bp)
 
+    # Phase 9 — Authlib OIDC (D-01..D-04, WD-AUTH-01..07)
+    from app.auth import init_oauth, auth_bp
+    init_oauth(app)
+    app.register_blueprint(auth_bp)
+
     # Global error handlers
     @app.errorhandler(Exception)
     def handle_exception(e):
@@ -259,9 +267,8 @@ def create_app():
             from app.services.audit_service_postgres import audit_service
             from app.utils.ip_utils import format_ip_info, get_all_ips
 
-            user_email = request.headers.get(
-                "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user
-            )
+            from flask import session as _session
+            user_email = (_session.get("user") or {}).get("email") or request.remote_user
             user_role = getattr(request, "user_role", None)
 
             audit_service.log_error(

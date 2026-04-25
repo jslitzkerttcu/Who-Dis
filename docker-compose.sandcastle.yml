@@ -1,0 +1,57 @@
+# Phase 9 — Who-Dis SandCastle compose file (D-15, WD-CONT-04, WD-NET-01..02).
+# Lives at repo root. Joins the SandCastle shared `proxy` and `internal` networks.
+# Traefik label values use the canonical hostname `who-dis.sandcastle.ttcu.com`
+# per ROADMAP phase description (auto-mode hostname decision).
+
+services:
+  who-dis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: who-dis-app
+    environment:
+      # Flask runtime
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY}
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
+      # Database (WD-CFG-02)
+      - DATABASE_URL=${DATABASE_URL}
+      # Keycloak OIDC (WD-AUTH-02 / WD-AUTH-03; confidential client per Plan 01)
+      - KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
+      # LDAP
+      - LDAP_SERVER=${LDAP_SERVER}
+      - LDAP_BIND_DN=${LDAP_BIND_DN}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD}
+      # Microsoft Graph
+      - GRAPH_TENANT_ID=${GRAPH_TENANT_ID}
+      - GRAPH_CLIENT_ID=${GRAPH_CLIENT_ID}
+      - GRAPH_CLIENT_SECRET=${GRAPH_CLIENT_SECRET}
+      # Genesys Cloud
+      - GENESYS_CLIENT_ID=${GENESYS_CLIENT_ID}
+      - GENESYS_CLIENT_SECRET=${GENESYS_CLIENT_SECRET}
+      - GENESYS_REGION=${GENESYS_REGION}
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.who-dis.rule=Host(`who-dis.sandcastle.ttcu.com`)"
+      - "traefik.http.routers.who-dis.entrypoints=websecure"
+      - "traefik.http.routers.who-dis.tls=true"
+      - "traefik.http.routers.who-dis.tls.certresolver=letsencrypt"
+      - "traefik.http.services.who-dis.loadbalancer.server.port=5000"
+      - "traefik.docker.network=proxy"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  proxy:
+    external: true
+  internal:
+    external: true

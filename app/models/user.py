@@ -14,7 +14,7 @@ class User(BaseModel, TimestampMixin):
 
     # Role constants
     ROLE_VIEWER = "viewer"
-    ROLE_EDITOR = "editor"
+    ROLE_EDITOR = "editor"  # DEPRECATED — Phase 9 D-05; rows still exist in legacy users.role column
     ROLE_ADMIN = "admin"
 
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
@@ -132,11 +132,16 @@ class User(BaseModel, TimestampMixin):
         )
 
     def has_permission(self, required_role: str) -> bool:
-        """Check if user has required permission level."""
+        """Check if user has required permission level.
+
+        Phase 9 D-05: editor tier removed from hierarchy. ROLE_EDITOR constant
+        retained for legacy DB rows but no longer grants elevated access above viewer.
+        """
         role_hierarchy = {
             self.__class__.ROLE_VIEWER: 1,
-            self.__class__.ROLE_EDITOR: 2,
-            self.__class__.ROLE_ADMIN: 3,
+            # ROLE_EDITOR mapped to viewer level — legacy rows treated as viewer (D-05)
+            self.__class__.ROLE_EDITOR: 1,
+            self.__class__.ROLE_ADMIN: 2,
         }
 
         user_level = role_hierarchy.get(self.role, 0)

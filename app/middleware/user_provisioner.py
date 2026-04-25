@@ -23,6 +23,11 @@ class UserProvisioner:
         # Try to get existing user
         user = User.get_by_email(email)
         if user:
+            # Touch last_login so admins can see recent activity. Pre-Phase-9 the
+            # role_resolver did this during DB lookup; that path was removed when
+            # roles moved to OIDC claims (commit d36a134), so the trace is restored
+            # here at the single per-request user-management touchpoint.
+            user.update_last_login()
             return user
 
         # Create new user

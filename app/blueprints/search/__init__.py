@@ -717,7 +717,7 @@ def get_genesys_licenses(user_id):
     genesys_service = current_app.container.get("genesys_service")
     licenses = genesys_service.get_user_licenses(user_id)
 
-    can_edit = hasattr(g, "role") and g.role in ("editor", "admin")
+    can_edit = hasattr(g, "role") and g.role in ("admin",)  # Phase 9 D-05: editor tier removed
 
     if request.headers.get("HX-Request"):
         return _render_genesys_licenses(licenses, user_id, can_edit)
@@ -725,7 +725,7 @@ def get_genesys_licenses(user_id):
 
 
 @search_bp.route("/api/genesys-licenses/<user_id>/<license_id>", methods=["DELETE"])
-@require_role("editor")
+@require_role("admin")  # Phase 9 D-05: remapped from editor → admin (more restrictive)
 @handle_errors(json_response=True)
 def remove_genesys_license(user_id, license_id):
     """Remove a Genesys Cloud license from a user."""
@@ -751,7 +751,7 @@ def remove_genesys_license(user_id, license_id):
 
     # Return refreshed license list
     licenses = genesys_service.get_user_licenses(user_id)
-    can_edit = hasattr(g, "role") and g.role in ("editor", "admin")
+    can_edit = hasattr(g, "role") and g.role in ("admin",)  # Phase 9 D-05: editor tier removed
 
     if request.headers.get("HX-Request"):
         return _render_genesys_licenses(licenses, user_id, can_edit)
@@ -2158,7 +2158,7 @@ def _render_notes_empty(email):
     from flask import g
 
     # Check if user can add notes (editor or admin)
-    can_edit = hasattr(g, "role") and g.role in ["editor", "admin"]
+    can_edit = hasattr(g, "role") and g.role in ["admin"]  # Phase 9 D-05: editor tier removed
 
     html = '<div class="space-y-2">'
     html += '<p class="text-sm text-gray-500">No notes yet</p>'
@@ -2182,7 +2182,7 @@ def _render_notes_list(notes, email):
     from flask import g
 
     # Check if user can add notes (editor or admin)
-    can_edit = hasattr(g, "role") and g.role in ["editor", "admin"]
+    can_edit = hasattr(g, "role") and g.role in ["admin"]  # Phase 9 D-05: editor tier removed
 
     html = '<div class="space-y-2">'
 
@@ -2208,7 +2208,7 @@ def _render_single_note(note, email):
     from flask import g
 
     # Check if user can edit notes (editor or admin)
-    can_edit = hasattr(g, "role") and g.role in ["editor", "admin"]
+    can_edit = hasattr(g, "role") and g.role in ["admin"]  # Phase 9 D-05: editor tier removed
 
     # Format dates
     created_date = (

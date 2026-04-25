@@ -1,52 +1,118 @@
+"""Configuration service — Phase 9 SandCastle (D-13 carve-out only).
+
+The encrypted-config layer (D-11) was removed in Phase 9. Secrets now live in
+the portal env-var store and are read via os.environ. The ONLY surviving
+capability is the WD-CFG-04 debug-mode DB toggle — a non-secret operational
+flag toggled from the admin DB or directly to enable Flask debug at runtime.
+
+All secret-bearing functions and the SimpleConfig/EncryptionService imports
+have been removed. The legacy `configuration` table will be dropped from the
+live DB after the Plan 06 post-cutover verification (per
+`scripts/cutover/README.md`); until then it remains for forensics but is not
+read by the running app except for the debug toggle.
 """
-Configuration service implementing IConfigurationService interface.
+import logging
+from typing import Optional
 
-This module now provides a direct instance of SimpleConfig which implements
-the IConfigurationService interface, eliminating the duplication that existed
-with the wrapper approach.
-"""
+from sqlalchemy import text
 
-from app.interfaces.configuration_service import IConfigurationService
-from app.services.simple_config import (
-    SimpleConfig,
-    config_get,
-    config_set,
-    config_delete,
-    config_get_all,
-    config_clear_cache,
-    config_exists,
-)
-
-# Lazy initialization of configuration service
-_configuration_service = None
+logger = logging.getLogger(__name__)
 
 
-def get_configuration_service() -> IConfigurationService:
-    """Get the singleton configuration service instance."""
-    global _configuration_service
-    if _configuration_service is None:
-        _configuration_service = SimpleConfig()
-    return _configuration_service
+def get_debug_mode() -> bool:
+    """Return the runtime debug toggle (WD-CFG-04 / D-13).
+
+    Reads the non-encrypted 'flask.debug' row from the legacy `configuration`
+    table. Returns False if the table does not exist or the row is absent
+    (safe default for production).
+    """
+    try:
+        from app.database import db
+
+        with db.engine.connect() as conn:
+            result = conn.execute(
+                text(
+                    "SELECT setting_value FROM configuration "
+                    "WHERE category = 'flask' AND setting_key = 'debug'"
+                )
+            ).first()
+
+        if result and result[0] is not None:
+            return str(result[0]).lower() in ("true", "1", "yes")
+        return False
+    except Exception as exc:
+        logger.debug("Could not read debug toggle from DB (returning False): %s", exc)
+        return False
 
 
-# For backward compatibility, create a wrapper class
-class LazyConfigurationService:
-    """Lazy wrapper for configuration service."""
+def set_debug_mode(value: bool) -> bool:
+    """Persist the runtime debug toggle (admin write path, WD-CFG-04 / D-13).
 
-    def __getattr__(self, name):
-        return getattr(get_configuration_service(), name)
+    Uses an upsert so the row is created if absent. Returns True on success.
+    """
+    try:
+        from datetime import datetime
+        from app.database import db
+
+        with db.engine.begin() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO configuration
+                        (category, setting_key, setting_value, updated_by, updated_at, is_sensitive)
+                    VALUES
+                        ('flask', 'debug', :val, 'system', :now, FALSE)
+                    ON CONFLICT (category, setting_key) DO UPDATE
+                        SET setting_value = EXCLUDED.setting_value,
+                            updated_by    = EXCLUDED.updated_by,
+                            updated_at    = EXCLUDED.updated_at
+                """),
+                {"val": str(value).lower(), "now": datetime.utcnow()},
+            )
+        return True
+    except Exception as exc:
+        logger.error("Failed to set debug toggle: %s", exc)
+        return False
 
 
-# Export the lazy wrapper
-configuration_service = LazyConfigurationService()
+def config_get(key: str, default=None):
+    """Phase 9 shim — encrypted-config layer was removed (D-11). Returns ``default``.
 
-__all__ = [
-    "get_configuration_service",
-    "configuration_service",
-    "config_get",
-    "config_set",
-    "config_delete",
-    "config_get_all",
-    "config_clear_cache",
-    "config_exists",
-]
+    Pre-Phase-9 services call ``config_get("category.key", default)`` to read
+    encrypted settings. Those settings now live in os.environ; this shim keeps
+    legacy import sites importable until callers migrate to the env-var pattern
+    or to ``service._config_cache`` test overrides (Plan 02-PATTERNS).
+    """
+    return default
+
+
+def config_set(key: str, value, *args, **kwargs) -> bool:
+    """Phase 9 shim — no-op for compatibility (D-11 retirement)."""
+    return False
+
+
+def config_delete(key: str, *args, **kwargs) -> bool:
+    """Phase 9 shim — no-op for compatibility (D-11 retirement)."""
+    return False
+
+
+def config_get_all(*args, **kwargs) -> dict:
+    """Phase 9 shim — returns empty dict (D-11 retirement)."""
+    return {}
+
+
+def get_flask_config_from_env() -> dict:
+    """Return Flask config values sourced from os.environ (Phase 9 SandCastle pattern).
+
+    Replaces the pre-Phase-9 pattern of reading these from the encrypted
+    configuration DB. After D-11 retirement, every secret lives in the portal
+    env-var store and is injected as an environment variable at container start.
+
+    Returns a dict suitable for `app.config.update(...)`.
+    """
+    import os
+
+    return {
+        "FLASK_HOST": os.environ.get("FLASK_HOST", "0.0.0.0"),
+        "FLASK_PORT": int(os.environ.get("FLASK_PORT", "5000")),
+        "FLASK_DEBUG": get_debug_mode(),
+    }

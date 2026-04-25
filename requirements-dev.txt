@@ -1,0 +1,21 @@
+# Test framework + coverage
+pytest>=8,<9
+pytest-cov>=5,<6
+pytest-mock>=3.14,<4
+
+# Fixtures, factories, ephemeral DB
+factory-boy>=3.3,<4
+testcontainers[postgres]>=4,<5
+
+# HTML response assertions (Discretion §4 — used in integration tests)
+beautifulsoup4>=4.12,<5
+
+# Linting + type-checking (moved from requirements.txt — dev-only per WD-CONT-03)
+ruff
+mypy
+types-tabulate
+types-flask
+types-requests
+types-psycopg2
+types-pytz
+types-cryptography

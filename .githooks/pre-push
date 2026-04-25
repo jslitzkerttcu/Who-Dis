@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# D-09: pre-push gate. Blocks `git push` when tests fail or coverage drops below 60%.
+# Bypass with `git push --no-verify` (explicit emergency escape only).
+# Install once per clone: git config core.hooksPath .githooks
+set -euo pipefail
+echo "[pre-push] running test suite..."
+make test
