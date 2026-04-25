@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-04-request-id-json-logging-PLAN.md
-last_updated: "2026-04-25T05:06:51.829Z"
+stopped_at: Completed 01-05-config-validator-PLAN.md
+last_updated: "2026-04-25T05:09:13.248Z"
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 9
-  completed_plans: 5
-  percent: 56
+  completed_plans: 6
+  percent: 67
 ---
 
 # Project State: WhoDis v3.0
@@ -28,11 +28,11 @@ progress:
 ## Current Position
 
 Phase: 01 (foundation) — EXECUTING
-Plan: 6 of 9 (next)
+Plan: 7 of 9 (next)
 **Phase:** 1 — Foundation
-**Plan:** 01-04-request-id-json-logging COMPLETE — OPS-02 satisfied (X-Request-ID propagation + JSON-structured logging with request_id field on every record)
+**Plan:** 01-05-config-validator COMPLETE — OPS-03 satisfied (startup validator over 7 required encrypted-config keys; ConfigurationError aborts boot with operator-actionable missing-keys list)
 **Status:** Executing Phase 01
-**Progress:** [██████░░░░] 56%
+**Progress:** [███████░░░] 67%
 
 ## Accumulated Context
 
@@ -45,6 +45,7 @@ Plan: 6 of 9 (next)
 - Pagination pattern locked: `paginate(query, page, size)` helper + `render_pagination` Jinja macro with `hx-push-url` for bookmarkable URLs (D-13/D-14/D-15) — pattern inherited by Phases 4 and 5
 - SEC-04: dev auth bypass is env-var-only (DANGEROUS_DEV_AUTH_BYPASS_USER) — cannot be enabled via DB config or admin UI; deployment-time gate prevents accidental enablement
 - OPS-02: per-request UUID4 correlation IDs propagated through JSON logs via python-json-logger; inbound X-Request-ID validated against `^[0-9a-fA-F-]{8,64}$` to prevent log injection
+- OPS-03: REQUIRED_KEYS list lives in code (not DB) so operators cannot tamper around the startup gate; error messages list missing key names + labels but never echo decrypted values; Postgres creds remain in .env (bootstrap), validator scope is encrypted-config only
 
 ### Architecture Constraints
 
@@ -65,9 +66,9 @@ Plan: 6 of 9 (next)
 
 ## Session Continuity
 
-**Last session:** 2026-04-25T05:06:45.990Z
-**Next action:** Continue Phase 1 — execute next plan (4 of 9 remaining)
-**Stopped at:** Completed 01-04-request-id-json-logging-PLAN.md
+**Last session:** 2026-04-25T05:09:13.237Z
+**Next action:** Continue Phase 1 — execute next plan (3 of 9 remaining)
+**Stopped at:** Completed 01-05-config-validator-PLAN.md
 **Blockers:** None
 
 ---

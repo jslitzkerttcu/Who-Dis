@@ -78,7 +78,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [ ] **OPS-01**: Application exposes `/health` endpoint returning JSON status with database connectivity check
 - [x] **OPS-02**: Every request gets a unique request ID propagated through all logs and async tasks
-- [ ] **OPS-03**: Application validates required configuration values at startup with clear error messages
+- [x] **OPS-03**: Application validates required configuration values at startup with clear error messages
 - [x] **OPS-04**: Admin list views paginate tables with 100+ rows using offset/limit pattern
 
 ### Security Hardening
@@ -178,7 +178,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WKFL-04 | Phase 8 | Pending |
 | OPS-01 | Phase 1 | Pending |
 | OPS-02 | Phase 1 | Complete |
-| OPS-03 | Phase 1 | Pending |
+| OPS-03 | Phase 1 | Complete |
 | OPS-04 | Phase 1 | Complete |
 | SEC-01 | Phase 1 | Pending |
 | SEC-02 | Phase 1 | Pending |
