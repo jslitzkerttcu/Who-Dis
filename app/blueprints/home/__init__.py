@@ -23,15 +23,22 @@ def index():
 @home_bp.route("/login")
 @handle_errors
 def login():
-    """Login page (redirects to home if already authenticated)"""
+    """Phase 9: redirect unauthenticated users to the Keycloak OIDC flow (D-04).
+
+    The legacy login.html form (Azure AD / Easy-Auth) is no longer used.
+    Authenticated users are sent directly to the home page. Unauthenticated
+    users are forwarded to /auth/login which initiates the Authlib OIDC dance.
+    The ?next= and ?reason= query params are forwarded for post-login return
+    and session-expired messaging (WD-AUTH-04).
+    """
     from app.middleware.auth import authenticate
 
     if authenticate():
         return redirect(url_for("home.index"))
 
-    # Show login reason if provided
-    reason = request.args.get("reason", "")
-    return render_template("home/login.html", reason=reason)
+    # Pass through any ?next= param so /auth/login can stash it for post-callback return.
+    next_url = request.args.get("next", "/")
+    return redirect(url_for("auth.login", next=next_url))
 
 
 @home_bp.route("/logout", methods=["POST"])

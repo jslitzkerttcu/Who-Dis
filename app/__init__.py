@@ -283,6 +283,11 @@ def create_app():
     # OPS-01: unauthenticated /health and /health/live for external monitors
     app.register_blueprint(health_bp)
 
+    # Phase 9 — Authlib OIDC (D-01..D-04, WD-AUTH-01..07)
+    from app.auth import init_oauth, auth_bp
+    init_oauth(app)
+    app.register_blueprint(auth_bp)
+
     # Global error handlers
     @app.errorhandler(Exception)
     def handle_exception(e):
@@ -291,9 +296,8 @@ def create_app():
             from app.services.audit_service_postgres import audit_service
             from app.utils.ip_utils import format_ip_info, get_all_ips
 
-            user_email = request.headers.get(
-                "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user
-            )
+            from flask import session as _session
+            user_email = (_session.get("user") or {}).get("email") or request.remote_user
             user_role = getattr(request, "user_role", None)
 
             audit_service.log_error(
