@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from flask import Flask, g, request
+from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 import logging
 import traceback
@@ -50,6 +53,20 @@ def _configure_json_logging() -> None:
 
 def create_app():
     app = Flask(__name__)
+
+    # WD-NET-04 — honor X-Forwarded-Proto/Host so url_for(_external=True) emits HTTPS
+    # behind Traefik. Hop count is 1 (Traefik only). DO NOT set higher — would trust
+    # forged X-Forwarded-* headers from the client (Pitfall 4 in 09-RESEARCH.md).
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=0)
+
+    # Session cookie hardening (Pitfall 7). SameSite=Lax is REQUIRED for OIDC —
+    # Strict breaks the Keycloak->Who-Dis redirect-back because it's cross-site.
+    app.config.update(
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    )
 
     # Set a temporary secret key for Flask initialization
     import secrets
