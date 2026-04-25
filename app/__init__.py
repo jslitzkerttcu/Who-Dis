@@ -214,12 +214,15 @@ def create_app():
     from app.blueprints.admin import admin_bp
     from app.blueprints.session import session_bp
     from app.blueprints.utilities import utilities
+    from app.blueprints.health import health_bp
 
     app.register_blueprint(home_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(session_bp)
     app.register_blueprint(utilities, url_prefix="/utilities")
+    # OPS-01: unauthenticated /health and /health/live for external monitors
+    app.register_blueprint(health_bp)
 
     # Global error handlers
     @app.errorhandler(Exception)
