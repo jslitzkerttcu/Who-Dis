@@ -2284,12 +2284,12 @@ def data_warehouse_cache_stats_html():
 def data_warehouse_connection_status():
     """Get data warehouse connection status as HTML for HTMX."""
     from app.services.refresh_employee_profiles import employee_profiles_service
-    from app.services.simple_config import config_get
+    import os
 
     try:
-        # Check if credentials are configured
-        client_id = config_get("data_warehouse.client_id", "")
-        client_secret = config_get("data_warehouse.client_secret", "")
+        # Check if credentials are configured (Phase 9: read from os.environ, D-11)
+        client_id = os.environ.get("DATA_WAREHOUSE_CLIENT_ID", "")
+        client_secret = os.environ.get("DATA_WAREHOUSE_CLIENT_SECRET", "")
 
         if not client_id or not client_secret:
             return """

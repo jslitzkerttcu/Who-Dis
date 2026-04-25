@@ -68,16 +68,14 @@ def create_app():
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
     )
 
-    # Set a temporary secret key for Flask initialization
-    import secrets
-
-    app.config["SECRET_KEY"] = secrets.token_hex(32)
+    # SECRET_KEY sourced from environment (portal env-var injection, D-16).
+    # The pre-Phase-9 pattern of storing it encrypted in the DB is removed (D-11).
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
 
     # Configure JSON-structured logging with per-request correlation IDs.
     _configure_json_logging()
 
     # Suppress debug logging from noisy libraries (preserved from DEBT-01 migration)
-    logging.getLogger("app.services.simple_config").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("msal").setLevel(logging.WARNING)
 
@@ -112,51 +110,24 @@ def create_app():
     app.config["RATELIMIT_HEADERS_ENABLED"] = True
     limiter.init_app(app)
 
-    # Initialize configuration service
+    # Phase 9 D-13 carve-out: read the debug-mode toggle from DB (non-secret flag).
+    # All secrets now come from os.environ via portal env-var injection (D-11, D-16).
     try:
-        from app.services.configuration_service import config_get, config_clear_cache
+        from app.services.configuration_service import get_debug_mode, get_flask_config_from_env
 
-        # Clear cache to ensure fresh config on startup
-        config_clear_cache()
-
-        # Override Flask config with database values
-        app.config["FLASK_HOST"] = config_get("flask.host", "0.0.0.0")
-        app.config["FLASK_PORT"] = config_get("flask.port", 5000)
-        app.config["FLASK_DEBUG"] = config_get("flask.debug", False)
-
-        # Load encrypted Flask secret key from database
-        with app.app_context():
-            from app.services.simple_config import (
-                config_get as simple_config_get,
-                config_set as simple_config_set,
-            )
-
-            secret_key = simple_config_get("flask.secret_key")
-            if not secret_key:
-                # Generate and store a new key
-                secret_key = secrets.token_hex(32)
-                simple_config_set("flask.secret_key", secret_key, "system")
-            app.config["SECRET_KEY"] = secret_key
-
-        # Initialize CSRF protection after configuration is loaded
-        from app.middleware.csrf import DoubleSubmitCSRF
-
-        csrf = DoubleSubmitCSRF()
-        csrf.init_app(app)
+        flask_cfg = get_flask_config_from_env()
+        app.config["FLASK_HOST"] = flask_cfg["FLASK_HOST"]
+        app.config["FLASK_PORT"] = flask_cfg["FLASK_PORT"]
+        app.config["FLASK_DEBUG"] = flask_cfg["FLASK_DEBUG"]
 
     except Exception as e:
-        app.logger.warning(f"Failed to initialize configuration service: {e}")
-        app.logger.warning("Falling back to environment variables")
+        app.logger.warning(f"Failed to read Flask config from env/DB: {e}")
 
-    # OPS-03: Validate required encrypted-config keys are present before any
-    # service that depends on them runs. Raises ConfigurationError (uncaught)
-    # to abort boot with a clear, operator-actionable message.
-    # D-06: skip validation under TESTING — tests inject fake services and never
-    # hit the real LDAP/Graph/Genesys APIs, so the encrypted creds aren't required.
-    from app.services.config_validator import validate_required_config
+    # Initialize CSRF protection
+    from app.middleware.csrf import DoubleSubmitCSRF
 
-    if not (app.config.get("TESTING") or os.environ.get("TESTING")):
-        validate_required_config()
+    csrf = DoubleSubmitCSRF()
+    csrf.init_app(app)
 
     # Initialize audit service with Flask app
     # Skip initialization if we're in the reloader process
