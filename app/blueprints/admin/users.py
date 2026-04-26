@@ -3,7 +3,7 @@ User management functionality for admin blueprint.
 Handles user CRUD operations and role management.
 """
 
-from flask import render_template, request, jsonify
+from flask import render_template, request, jsonify, g
 from app.middleware.auth import require_role
 from app.database import db
 from app.models import User, UserNote
@@ -57,9 +57,7 @@ def add_user():
         return jsonify({"success": False, "error": "User already exists"}), 409
 
     # Add user
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     user = User(email=email, role=role, created_by=admin_email)
     db.session.add(user)
     db.session.commit()
@@ -111,9 +109,7 @@ def update_user():
         return jsonify({"success": True, "message": "No changes made"})
 
     # Update user
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     user.updated_by = admin_email
     db.session.commit()
 
@@ -149,9 +145,7 @@ def delete_user():
         return jsonify({"success": False, "error": "User not found"}), 404
 
     # Don't allow self-deletion
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     if user.email == admin_email:
         return jsonify(
             {"success": False, "error": "Cannot delete your own account"}
@@ -222,9 +216,7 @@ def add_user_note(user_id):
         return jsonify({"success": False, "error": "Note content is required"}), 400
 
     # Create note
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     note = UserNote(
         user_id=user_id,
         user_email=user.email,
@@ -276,9 +268,7 @@ def update_user_note(note_id):
         return jsonify({"success": False, "error": "Note content is required"}), 400
 
     # Update note
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     note.content = content
     note.updated_by = admin_email
     db.session.commit()
@@ -309,9 +299,7 @@ def delete_user_note(note_id):
         return jsonify({"success": False, "error": "Note not found"}), 404
 
     # Delete note
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     user_email = note.user_email
     db.session.delete(note)
     db.session.commit()
@@ -371,9 +359,7 @@ def add_user_note_by_email(email):
         return jsonify({"success": False, "error": "Note content is required"}), 400
 
     # Create note
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL_NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     note = UserNote(
         user_email=email,
         content=content,
@@ -480,9 +466,7 @@ def update_user_htmx(user_id):
     old_role = user.role
 
     # Update user
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     user.role = new_role
     user.updated_by = admin_email
     db.session.commit()
@@ -514,9 +498,7 @@ def toggle_user_status(user_id):
         return '<div class="p-4 text-red-600">User not found</div>', 404
 
     # Toggle status
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     user.is_active = not user.is_active
     user.updated_by = admin_email
     db.session.commit()

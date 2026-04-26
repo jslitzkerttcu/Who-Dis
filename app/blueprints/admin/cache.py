@@ -6,7 +6,7 @@ Handles search cache, Genesys cache operations, and cache status monitoring.
 import logging
 from datetime import datetime
 
-from flask import jsonify, request, current_app
+from flask import jsonify, request, current_app, g
 from app.middleware.auth import require_role
 from app.database import db
 from app.services.genesys_cache_db import genesys_cache_db as genesys_cache
@@ -56,9 +56,7 @@ def clear_caches():
         genesys_cache.clear()
 
         # Log action
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
+        admin_email = g.user or "unknown"
         admin_role = getattr(request, "user_role", None)
         user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -110,17 +108,13 @@ def genesys_cache_config():
             config_service = current_app.config.get("CONFIG_SERVICE")
             if config_service:
                 # Get admin email for updated_by
-                admin_email = request.headers.get(
-                    "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-                )
+                admin_email = g.user or "unknown"
                 config_service.set(
                     "genesys", "cache_refresh_period", seconds, updated_by=admin_email
                 )
 
                 # Log action
-                admin_email = request.headers.get(
-                    "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-                )
+                admin_email = g.user or "unknown"
                 admin_role = getattr(request, "user_role", None)
                 user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -220,9 +214,7 @@ def refresh_data_warehouse_cache():
         results = profiles_service.refresh_cache()
 
         # Log action
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
+        admin_email = g.user or "unknown"
         admin_role = getattr(request, "user_role", None)
         user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -241,9 +233,7 @@ def refresh_data_warehouse_cache():
     except Exception as e:
         # Log failed action
         try:
-            admin_email = request.headers.get(
-                "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-            )
+            admin_email = g.user or "unknown"
             admin_role = getattr(request, "user_role", None)
             user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -272,9 +262,7 @@ def cache_cleanup_run():
     """
     from app.services.audit_service_postgres import audit_service
 
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -332,9 +320,7 @@ def clear_data_warehouse_cache():
         cleared_count = EmployeeProfiles.clear_cache()
 
         # Log action
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
+        admin_email = g.user or "unknown"
         admin_role = getattr(request, "user_role", None)
         user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
