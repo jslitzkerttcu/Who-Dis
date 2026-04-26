@@ -96,8 +96,8 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   4. `/health` returns 200 unauthenticated for the SandCastle poller; `/health/ready` returns 503 when the database is unreachable; structured JSON logs go to stdout/stderr; the Dockerfile `HEALTHCHECK` exercises `/health` every 30s
   5. WhoDis is registered in the SandCastle portal catalog with auto-deploy on `main` push via webhook; `docs/sandcastle.md` documents the env var matrix, deployment flow, and rollback procedure; legacy Azure App Service notes are removed or marked deprecated
 **Plans**: 3 plans
-- [ ] 03-01-PLAN.md — Redis-backed Flask-Limiter swap (RATELIMIT_STORAGE_URI; closes Phase 1 D-08 deviation / SC#2)
-- [ ] 03-02-PLAN.md — DATABASE_URL refactor in app/database.py + .env.example + verify_deployment.py (WD-CFG-02, WD-DB-01 cross-phase)
+- [x] 03-01-PLAN.md — Redis-backed Flask-Limiter swap (RATELIMIT_STORAGE_URI; closes Phase 1 D-08 deviation / SC#2)
+- [x] 03-02-PLAN.md — DATABASE_URL refactor in app/database.py + .env.example + verify_deployment.py (WD-CFG-02, WD-DB-01 cross-phase)
 - [ ] 03-03-PLAN.md — README deployment-pointer cleanup + docs/sandcastle.md Operational Verification + verify_deployment.py --sandcastle (WD-OPS-01, WD-OPS-04, WD-DOC-02)
 **UI hint**: no
 **Planning notes**:
