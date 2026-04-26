@@ -95,10 +95,11 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   3. All runtime configuration comes from environment variables documented in `.env.sandcastle.example` — no hardcoded secrets, no `instance/` files, no JSON config baked into the image
   4. `/health` returns 200 unauthenticated for the SandCastle poller; `/health/ready` returns 503 when the database is unreachable; structured JSON logs go to stdout/stderr; the Dockerfile `HEALTHCHECK` exercises `/health` every 30s
   5. WhoDis is registered in the SandCastle portal catalog with auto-deploy on `main` push via webhook; `docs/sandcastle.md` documents the env var matrix, deployment flow, and rollback procedure; legacy Azure App Service notes are removed or marked deprecated
-**Plans**: 3 plans
+**Plans**: 4 plans
 - [x] 03-01-PLAN.md — Redis-backed Flask-Limiter swap (RATELIMIT_STORAGE_URI; closes Phase 1 D-08 deviation / SC#2)
 - [x] 03-02-PLAN.md — DATABASE_URL refactor in app/database.py + .env.example + verify_deployment.py (WD-CFG-02, WD-DB-01 cross-phase)
 - [x] 03-03-PLAN.md — README deployment-pointer cleanup + docs/sandcastle.md Operational Verification + verify_deployment.py --sandcastle (WD-OPS-01, WD-OPS-04, WD-DOC-02)
+- [ ] 03-04-PLAN.md — Configuration discipline hardening (SQLite fallback, SECRET_KEY fail-fast, Limiter timing) + README onboarding sweep (DATABASE_URL install block, Keycloak OIDC auth references) — gap closure for VERIFICATION.md CR-01..04 / WR-01..02
 **UI hint**: no
 **Planning notes**:
   - **Gap-closure framing:** PR #25 shipped ~80% of this phase. Plans 03-01..03-03 close the 4 remaining gaps (WD-CFG-02, WD-OPS-01, WD-OPS-04, WD-DOC-02) plus SC#2 Redis swap. All 25 WD-* requirements are covered across the 3 plans.
