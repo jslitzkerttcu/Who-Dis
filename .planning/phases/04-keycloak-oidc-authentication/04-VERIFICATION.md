@@ -5,6 +5,9 @@ status: passed
 score: 8/8 WD-AUTH requirements verified
 verified: 2026-04-26
 verifier: gsd-executor (retroactive)
+audited_by: gsd-verifier
+audit_date: 2026-04-26
+audit_result: confirmed — all on-disk evidence matches doc claims; WD-AUTH-08 carve-out present at error_handler.py:242 with inline citation
 source: PR #25 (commit fdb6ff2) + auto-grant fix (35c1c1f) + Wave 1 sweep (commits d3e1004..fca3f28, head c1f42d0)
 upstream_audit: .planning/PR-25-AUDIT.md §"Phase 4 — Keycloak OIDC Authentication"
 re_verification:
@@ -284,6 +287,31 @@ No blockers. No gaps remain in Phase 4 scope.
 
 ---
 
+## Goal-Backward Audit (gsd-verifier, 2026-04-26)
+
+Independent re-verification of the doc above against the on-disk codebase at HEAD. Performed per gap-closure protocol — audit the existing 04-VERIFICATION.md, do not re-author it.
+
+| Audit check | Expected (per doc) | Observed | Result |
+|---|---|---|---|
+| `grep -rn "X-MS-CLIENT-PRINCIPAL" --include="*.py" app/` | 1 match at `app/utils/error_handler.py:242` | 1 match — `app/utils/error_handler.py:242: sensitive_headers = ["Authorization", "Cookie", "X-MS-CLIENT-PRINCIPAL-NAME"]` | ✓ MATCH |
+| `error_handler.py` carve-out comment cites D-G3-04 / WD-AUTH-08 | inline 3-line comment above literal | lines 239-241: `# Defensive: redact the legacy Azure Easy-Auth header... Retained intentionally per D-G3-04 / WD-AUTH-08 carve-out — do NOT remove this literal during future grep-based cleanups.` | ✓ MATCH |
+| `authentication_handler.py:21` — identity from `session.get("user")` | session-based identity, no header read | line 21: `user = session.get("user")` (module docstring also cites D-04, WD-AUTH-01, WD-AUTH-08) | ✓ MATCH |
+| `app/auth/oidc.py` line numbers | 100/132/176/179/195 | grep returns: 100 oauth.register, 132 authorize_redirect, 176/179 UserProvisioner, 195 end_session_endpoint | ✓ EXACT MATCH |
+| `requirements.txt` Authlib pin | line 19, `Authlib==1.7.0` | line 19: `Authlib==1.7.0` | ✓ MATCH |
+| Blueprint sweep coverage | 33 `g.user or` sites | `grep -rn "g\.user or" app/blueprints --include="*.py" \| wc -l` → 33 | ✓ MATCH |
+| Regression test exists & meaningful | `tests/integration/test_audit_attribution.py` asserts OIDC email lands in audit | file exists; asserts `latest.user_email == "test-admin@example.com"` and `!= "unknown"` (also has a 2nd test for ErrorLog attribution) | ✓ MATCH (test is more thorough than doc claims — covers both audit_log AND error_log attribution) |
+| All 8 WD-AUTH IDs scored | each ID has its own section + status | each ID PASS, executive summary table covers all 8 | ✓ MATCH |
+| Carve-out grep across whole repo (not just `app/`) | only the documented redaction-list literal in `app/` | repo-wide: 1 in `app/utils/error_handler.py:242` + 1 in `tests/integration/test_audit_attribution.py:4` (test docstring naming what it guards against) — both intentional | ✓ MATCH |
+
+**Audit verdict:** All evidence claims in the verification doc reconcile to the codebase exactly. No drift between doc and reality. WD-AUTH-08 acceptance criterion (1 expected match, not 0) is correctly framed and the literal is properly carve-out-documented inline at the source.
+
+**Requirements coverage:** All 8 WD-AUTH IDs (01-08) declared in PLAN frontmatter are satisfied per file:line evidence above. No orphaned requirements.
+
+**Audit result:** ✓ VERIFICATION PASSED — Phase 4 closeable as-is.
+
+---
+
 _Verified: 2026-04-26_
 _Verifier: gsd-executor (retroactive — Plan 04-02)_
+_Audited: 2026-04-26 by gsd-verifier (goal-backward re-verification)_
 _Source of evidence: PR-25-AUDIT.md + on-disk inspection at HEAD `c1f42d0`_
