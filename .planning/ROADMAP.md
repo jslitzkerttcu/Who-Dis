@@ -116,7 +116,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   4. Logout terminates both the Flask session and the Keycloak session via RP-initiated logout, and a subsequent request restarts the OIDC flow
   5. `grep -r "X-MS-CLIENT-PRINCIPAL"` across the codebase returns zero matches; `app/middleware/authentication_handler.py` no longer reads Azure AD headers
 **Plans**: 2 plans
-  - [ ] 04-01-PLAN.md — Sweep all Azure header (X-MS-CLIENT-PRINCIPAL-NAME) reads across 8 files, replace with g.user; add audit-attribution regression test (closes WD-AUTH-08)
+  - [x] 04-01-PLAN.md — Sweep all Azure header (X-MS-CLIENT-PRINCIPAL-NAME) reads across 8 files, replace with g.user; add audit-attribution regression test (closes WD-AUTH-08)
   - [ ] 04-02-PLAN.md — Author retroactive 04-VERIFICATION.md scoring all 8 WD-AUTH requirements with file:line evidence (mirrors Phase 3 verification format)
 **UI hint**: yes
 **Planning notes**:
