@@ -10,23 +10,25 @@ logger = logging.getLogger(__name__)
 db = SQLAlchemy()
 
 
-def get_database_uri():
-    """Get PostgreSQL database URI from environment variables
+def get_database_uri() -> str:
+    """Return the database connection URI from the DATABASE_URL environment variable.
 
-    Note: We must use os.getenv here instead of config_get because
-    the configuration service needs a database connection to function.
-    PostgreSQL credentials must remain in environment variables.
+    Note: We must use os.getenv here instead of config_get because the
+    configuration service needs a database connection to function — bootstrap
+    problem (see CLAUDE.md). DATABASE_URL is the single canonical connection
+    string for both Flask-SQLAlchemy and Alembic (docker-entrypoint.sh:12).
+
+    Local dev: set DATABASE_URL in .env (see .env.example).
+    SandCastle: injected by the portal env-var system (see .env.sandcastle.example).
     """
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    database = os.getenv("POSTGRES_DB", "whodis_db")
-    user = os.getenv("POSTGRES_USER", "whodis_user")
-    password = os.getenv("POSTGRES_PASSWORD", "")
-
-    if not password:
-        logger.warning("POSTGRES_PASSWORD not set in environment variables")
-
-    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not set. "
+            "Set it in .env (local dev: see .env.example) or the portal "
+            "env-var store (SandCastle: see .env.sandcastle.example)."
+        )
+    return url
 
 
 def init_db(app):
