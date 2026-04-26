@@ -60,15 +60,16 @@ class DeploymentVerifier:
             logging.getLogger().setLevel(logging.DEBUG)
 
     def get_db_connection(self):
-        """Get database connection."""
+        """Get database connection using DATABASE_URL (aligned with app/database.py D-G1-01)."""
         try:
-            return psycopg2.connect(
-                host=os.getenv("POSTGRES_HOST"),
-                port=os.getenv("POSTGRES_PORT", 5432),
-                database=os.getenv("POSTGRES_DB"),
-                user=os.getenv("POSTGRES_USER"),
-                password=os.getenv("POSTGRES_PASSWORD"),
-            )
+            dsn = os.getenv("DATABASE_URL")
+            if not dsn:
+                raise ConnectionError(
+                    "DATABASE_URL is not set. Check .env or portal env-var store."
+                )
+            return psycopg2.connect(dsn=dsn)
+        except ConnectionError:
+            raise
         except Exception as e:
             raise ConnectionError(f"Failed to connect to database: {e}")
 
