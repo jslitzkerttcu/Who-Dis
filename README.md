@@ -27,7 +27,7 @@ A comprehensive Flask-based identity lookup service that provides unified search
 - **👥 Database User Management**: Persistent user storage with role-based access
 - **📦 Enhanced Caching**: Consolidated employee data with Genesys integration
 - **🚨 Security Monitoring**: Advanced access tracking and threat detection
-- **🔒 Azure AD Only**: Streamlined authentication removing basic auth
+- **🔒 SSO Only**: Streamlined authentication removing basic auth (Keycloak OIDC via SandCastle; legacy Azure AD path deprecated)
 
 ---
 
@@ -52,7 +52,7 @@ A comprehensive Flask-based identity lookup service that provides unified search
 * **Encrypted Storage**: All sensitive configuration values encrypted at rest with unique per-installation salt
 * **Audit Trail**: Complete audit log of all searches, access attempts, and configuration changes
 * **Role-Based Access**: Three-tier access control (Viewer, Editor, Admin)
-* **Azure AD Only**: Basic authentication disabled for enhanced security
+* **SSO Only**: Basic authentication disabled for enhanced security (Keycloak OIDC via SandCastle; legacy Azure AD path deprecated)
 * **Session Management**: Persistent sessions with automatic cleanup and inactivity timeout
 * **Inactivity Protection**: Configurable session timeout with warning modal (15min default)
 * **Error Tracking**: Comprehensive error logging with stack traces
@@ -77,7 +77,7 @@ A comprehensive Flask-based identity lookup service that provides unified search
 | Backend | Flask 3.1 | Web framework with blueprint architecture |
 | Database | PostgreSQL 12+ | Data persistence with encrypted configuration |
 | Encryption | cryptography (Fernet) | Configuration encryption with unique salts |
-| Authentication | Azure AD SSO | Single sign-on with role-based access control |
+| Authentication | Keycloak OIDC (Authlib) | Single sign-on via SandCastle Keycloak realm — see [docs/sandcastle.md](docs/sandcastle.md#keycloak-oidc-setup) |
 | LDAP | ldap3 | Active Directory integration with fuzzy search |
 | Graph API | MSAL + requests | Microsoft Graph integration with enhanced profiles |
 | Genesys | OAuth2 + requests | Contact center data with cached groups/skills |
@@ -387,9 +387,9 @@ WhoDis/
 ## 🔐 Authentication & Authorization
 
 ### Authentication Method
-**Azure AD SSO**: Checks `X-MS-CLIENT-PRINCIPAL-NAME` header from Azure App Service
+**Keycloak OIDC (Authlib)**: WhoDis authenticates users through the SandCastle Keycloak realm via the OpenID Connect Authorization Code flow (Authlib client). On first login, users are auto-provisioned with the `viewer` role; admins promote to `editor`/`admin` via the admin UI. See [docs/sandcastle.md](docs/sandcastle.md#keycloak-oidc-setup) for portal env-var configuration (`KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`).
 
-*Note: Basic authentication has been removed for enhanced security.*
+*Note: Basic authentication is disabled. The legacy Azure AD path (header-based identity from Azure App Service) is deprecated and will be decommissioned post-Phase-9 verification (see [Legacy Deployment](docs/deployment.md)).*
 
 ### Role Hierarchy
 - **👀 Viewers**: Can search and view user information
