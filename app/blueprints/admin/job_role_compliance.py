@@ -7,7 +7,7 @@ including the visual matrix editor and compliance dashboard.
 
 import logging
 from datetime import datetime, timezone
-from flask import request, jsonify, render_template
+from flask import request, jsonify, render_template, g
 
 from app.middleware.auth import require_role
 from app.models.job_role_compliance import (
@@ -266,7 +266,7 @@ def api_create_job_role_mapping():
         mapping_type = data.get("mapping_type", "required")
         priority = data.get("priority", 1)
         notes = data.get("notes", "")
-        created_by = request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME", "admin")
+        created_by = g.user or "admin"
 
         # Get job code and system role
         job_code = JobCode.query.get(job_code_id)
@@ -340,7 +340,7 @@ def api_delete_job_role_mapping():
     try:
         data = request.get_json()
         mapping_id = data.get("mapping_id")
-        deleted_by = request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME", "admin")
+        deleted_by = g.user or "admin"
 
         mapping = JobRoleMapping.query.get(mapping_id)
         if not mapping:
@@ -560,7 +560,7 @@ def api_run_compliance_check():
         from app.services.compliance_checking_service import ComplianceCheckingService
 
         engine = ComplianceCheckingService()
-        started_by = request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME", "admin")
+        started_by = g.user or "admin"
         check_run = engine.run_compliance_check(started_by=started_by)
 
         # Since the compliance check runs in background, we'll return basic info

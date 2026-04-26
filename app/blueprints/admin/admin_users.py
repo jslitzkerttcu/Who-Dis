@@ -1,6 +1,6 @@
 """Admin user management routes."""
 
-from flask import render_template, request, jsonify, session
+from flask import render_template, request, jsonify, session, g
 from app.middleware.auth import require_role
 from app.models import User
 from app.database import db
@@ -69,9 +69,7 @@ def api_add_user():
         return jsonify({"success": False, "message": "User already exists"}), 400
 
     # Create user
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
 
     user = User.create_user(email=email, role=role, created_by=admin_email)
 
@@ -135,9 +133,7 @@ def api_update_user(user_id):
         return jsonify({"success": False, "message": "Failed to update user"}), 500
 
     # Log action
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -186,9 +182,7 @@ def api_delete_user(user_id):
         return jsonify({"success": False, "message": "Failed to delete user"}), 500
 
     # Log action
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 

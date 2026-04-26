@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import jsonify, render_template, request
+from flask import jsonify, render_template, request, g
 from sqlalchemy.exc import SQLAlchemyError
 import traceback
 from typing import Callable, Any, Optional, Dict
@@ -48,8 +48,8 @@ def handle_errors(
                 try:
                     if hasattr(request, "user_email"):
                         user_email = request.user_email
-                    elif "X-MS-CLIENT-PRINCIPAL-NAME" in request.headers:
-                        user_email = request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME")
+                    elif getattr(g, "user", None):
+                        user_email = g.user
                 except Exception:
                     pass
 
@@ -235,7 +235,10 @@ def _safe_request_data() -> Optional[Dict[str, Any]]:
             "ip_info": ip_info,  # Add detailed IP information
         }
 
-        # Remove sensitive headers
+        # Remove sensitive headers.
+        # Defensive: redact the legacy Azure Easy-Auth header if any upstream proxy
+        # ever forwards it. Retained intentionally per D-G3-04 / WD-AUTH-08 carve-out
+        # — do NOT remove this literal during future grep-based cleanups.
         sensitive_headers = ["Authorization", "Cookie", "X-MS-CLIENT-PRINCIPAL-NAME"]
         headers_dict = data["headers"]
         if isinstance(headers_dict, dict):

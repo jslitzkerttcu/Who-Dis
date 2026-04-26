@@ -115,7 +115,9 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   3. First-time SSO arrivals provision a local user record with the default `viewer` role; existing users match by email and retain their stored role
   4. Logout terminates both the Flask session and the Keycloak session via RP-initiated logout, and a subsequent request restarts the OIDC flow
   5. `grep -r "X-MS-CLIENT-PRINCIPAL"` across the codebase returns zero matches; `app/middleware/authentication_handler.py` no longer reads Azure AD headers
-**Plans**: TBD
+**Plans**: 2 plans
+  - [x] 04-01-PLAN.md — Sweep all Azure header (X-MS-CLIENT-PRINCIPAL-NAME) reads across 8 files, replace with g.user; add audit-attribution regression test (closes WD-AUTH-08)
+  - [x] 04-02-PLAN.md — Author retroactive 04-VERIFICATION.md scoring all 8 WD-AUTH requirements with file:line evidence (mirrors Phase 3 verification format)
 **UI hint**: yes
 **Planning notes**:
   - **OIDC library:** Deferred to `/gsd-plan-phase 4`. Recommendation noted: **`authlib`** (most active maintenance, strong Flask integration, less hand-rolling than `python-jose`). Alternatives considered: `flask-oidc` (older, less active), hand-rolled with `python-jose` + manual session handling. Final selection during planning.

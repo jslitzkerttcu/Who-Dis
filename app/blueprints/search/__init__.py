@@ -327,9 +327,7 @@ def search_user():
     logger.info(f"Searching for user: {search_term}")
 
     # Get user info for audit logging
-    user_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    user_email = g.user or "unknown"
     user_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
     user_agent = request.headers.get("User-Agent")
@@ -584,11 +582,7 @@ def add_search_note(email):
         )
 
     # Get current user from authentication context
-    current_user = (
-        g.user
-        if hasattr(g, "user")
-        else request.headers.get("X-MS-CLIENT-PRINCIPAL-NAME", "system")
-    )
+    current_user = g.user or "system"
 
     # Create note with search context
     note = UserNote.create_note(
@@ -821,9 +815,7 @@ def search():
         return html
 
     # Get user info for audit logging
-    user_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    user_email = g.user or "unknown"
     user_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
     user_agent = request.headers.get("User-Agent")
@@ -2653,9 +2645,7 @@ def search_specific():
         return html
 
     # Get user info for audit logging
-    user_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    user_email = g.user or "unknown"
     user_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
     user_agent = request.headers.get("User-Agent")
