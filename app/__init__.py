@@ -72,7 +72,27 @@ def create_app():
 
     # SECRET_KEY sourced from environment (portal env-var injection, D-16).
     # The pre-Phase-9 pattern of storing it encrypted in the DB is removed (D-11).
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
+    # CR-03: fail fast in production. Multi-worker gunicorn (WD-CONT-02) requires
+    # a stable shared key — per-worker random bytes silently break sessions and
+    # CSRF tokens across workers. In dev (FLASK_ENV != production) we still allow
+    # an ephemeral random key but warn so the developer can fix it.
+    secret_key = os.environ.get("SECRET_KEY")
+    if not secret_key:
+        if os.environ.get("FLASK_ENV") == "production":
+            raise RuntimeError(
+                "SECRET_KEY environment variable is not set. "
+                "Set it in the portal env-var store (see .env.sandcastle.example). "
+                "Multi-worker gunicorn requires a stable shared key — random fallback "
+                "would break sessions across workers."
+            )
+        secret_key = os.urandom(32).hex()
+        # NOTE: app.logger isn't fully configured yet (this runs before
+        # _configure_json_logging); use the module logger to ensure the
+        # warning still surfaces.
+        logging.getLogger(__name__).warning(
+            "SECRET_KEY not set — using ephemeral random key (dev only)"
+        )
+    app.config["SECRET_KEY"] = secret_key
 
     # Configure JSON-structured logging with per-request correlation IDs.
     _configure_json_logging()
