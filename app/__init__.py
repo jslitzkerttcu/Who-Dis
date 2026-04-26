@@ -22,11 +22,16 @@ from app.middleware.request_id import RequestIdFilter, init_request_id
 # redis://redis:6379/0 — the `redis` hostname resolves on the SandCastle internal
 # network. Multi-worker gunicorn requires a shared Redis counter store; memory://
 # enforces per-worker only and will NOT correctly limit users across workers.
-# Phase 1 D-08 deviation closed by Plan 03-01 (2026-04-26).
-limiter = Limiter(
-    key_func=get_remote_address,
-    storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),
-)
+#
+# CR-04: storage_uri is NOT read here — module body executes when `from app
+# import create_app` runs (run.py line 1), BEFORE run.py line 4 calls
+# load_dotenv(). Reading os.environ at this point would miss any value set in
+# .env (local dev, non-container deploys). Instead, storage_uri is set inside
+# create_app() via app.config["RATELIMIT_STORAGE_URI"] which Flask-Limiter 3.x
+# reads at limiter.init_app(app) time — by then load_dotenv() has run.
+# Phase 1 D-08 deviation closed by Plan 03-01 (2026-04-26); CR-04 timing fix
+# applied by Plan 03-04 (2026-04-26).
+limiter = Limiter(key_func=get_remote_address)
 
 
 def _configure_json_logging() -> None:
@@ -121,17 +126,23 @@ def create_app():
     # Initialize dependency injection container
     inject_dependencies(app)
 
-    # SEC-03: initialize Flask-Limiter against this app. Default in-memory
-    # storage; Retry-After/RateLimit-* headers enabled so 429 responses
-    # carry actionable backoff data for clients.
+    # SEC-03: initialize Flask-Limiter against this app. Storage URI is
+    # resolved here (not at module import) so python-dotenv has had a chance
+    # to populate os.environ from .env first (CR-04). Flask-Limiter 3.x reads
+    # RATELIMIT_STORAGE_URI from app.config at init_app(app) time.
+    storage_uri = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    app.config["RATELIMIT_STORAGE_URI"] = storage_uri
+    # Retry-After/RateLimit-* headers enabled so 429 responses carry
+    # actionable backoff data for clients.
     app.config["RATELIMIT_HEADERS_ENABLED"] = True
     limiter.init_app(app)
     # D-G2-02: warn loudly if production mode is using in-memory rate limiting.
     # In-memory storage enforces counters per-worker only — incorrect under
     # multi-worker gunicorn. This warning surfaces in structured docker logs.
-    _ratelimit_uri = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    # CR-04: read from the resolved local `storage_uri` so non-container
+    # deploys (using python-dotenv) see the same value Flask-Limiter sees.
     if os.environ.get("FLASK_ENV") == "production" and (
-        not _ratelimit_uri or _ratelimit_uri == "memory://"
+        not storage_uri or storage_uri == "memory://"
     ):
         app.logger.warning(
             "RATELIMIT_STORAGE_URI is unset or memory:// in production — "
