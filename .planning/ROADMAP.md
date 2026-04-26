@@ -95,8 +95,15 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   3. All runtime configuration comes from environment variables documented in `.env.sandcastle.example` — no hardcoded secrets, no `instance/` files, no JSON config baked into the image
   4. `/health` returns 200 unauthenticated for the SandCastle poller; `/health/ready` returns 503 when the database is unreachable; structured JSON logs go to stdout/stderr; the Dockerfile `HEALTHCHECK` exercises `/health` every 30s
   5. WhoDis is registered in the SandCastle portal catalog with auto-deploy on `main` push via webhook; `docs/sandcastle.md` documents the env var matrix, deployment flow, and rollback procedure; legacy Azure App Service notes are removed or marked deprecated
-**Plans**: TBD
+**Plans**: 4 plans
+- [x] 03-01-PLAN.md — Redis-backed Flask-Limiter swap (RATELIMIT_STORAGE_URI; closes Phase 1 D-08 deviation / SC#2)
+- [x] 03-02-PLAN.md — DATABASE_URL refactor in app/database.py + .env.example + verify_deployment.py (WD-CFG-02, WD-DB-01 cross-phase)
+- [x] 03-03-PLAN.md — README deployment-pointer cleanup + docs/sandcastle.md Operational Verification + verify_deployment.py --sandcastle (WD-OPS-01, WD-OPS-04, WD-DOC-02)
+- [x] 03-04-PLAN.md — Configuration discipline hardening (SQLite fallback, SECRET_KEY fail-fast, Limiter timing) + README onboarding sweep (DATABASE_URL install block, Keycloak OIDC auth references) — gap closure for VERIFICATION.md CR-01..04 / WR-01..02
 **UI hint**: no
+**Planning notes**:
+  - **Gap-closure framing:** PR #25 shipped ~80% of this phase. Plans 03-01..03-03 close the 4 remaining gaps (WD-CFG-02, WD-OPS-01, WD-OPS-04, WD-DOC-02) plus SC#2 Redis swap. All 25 WD-* requirements are covered across the 3 plans.
+  - **Cross-phase:** Plan 03-02 also satisfies WD-DB-01 (Phase 5). Phase 5 retains WD-DB-02..05 only.
 
 ### Phase 4: Keycloak OIDC Authentication
 **Goal**: WhoDis authenticates users through the SandCastle Keycloak realm via OIDC — Azure AD header reads are gone, role-based decorators continue to work unchanged, and existing user records match by email
@@ -208,7 +215,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 |-------|----------------|--------|-----------|
 | 1. Foundation | 9/9 | Complete | 2026-04-25 |
 | 2. Test Suite | 4/4 | Complete | 2026-04-25 |
-| 3. SandCastle Containerization & Deployment | 0/? | Not started | - |
+| 3. SandCastle Containerization & Deployment | 0/3 | In progress | - |
 | 4. Keycloak OIDC Authentication | 0/? | Not started | - |
 | 5. Database Migration & Alembic | 0/? | Not started | - |
 | 6. Enriched Profiles & Search Export | 0/? | Not started | - |
@@ -225,3 +232,4 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 ---
 *Roadmap defined: 2026-04-24*
 *Last updated: 2026-04-24 — SandCastle integration insertion + re-prioritization (3 new phases inserted at positions 3-5; original Phases 3-8 renumbered to 6-11)*
+*Revised: 2026-04-26 — Phase 3 plans finalized (3 gap-closure plans: 03-01 Redis, 03-02 DATABASE_URL, 03-03 README+ops)*

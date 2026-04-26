@@ -16,14 +16,21 @@ from app.middleware.request_id import RequestIdFilter, init_request_id
 
 # Module-level Limiter so route modules can `from app import limiter`.
 #
-# SEC-03: per-user rate limiting on search endpoints. Storage is in-memory
-# (Flask-Limiter's default) — Flask-Limiter v3.x dropped the PostgreSQL
-# backend, so we ship in-memory now and will swap to Redis during the
-# SandCastle integration phase (Redis is available on the SandCastle
-# internal network — see .planning/SANDCASTLE-INTEGRATION-REQUIREMENTS.md
-# WD-NET-01 and WD-CONT-02). In-memory limits enforce per-worker, which is
-# acceptable for the current single/low-worker deployment but MUST be
-# revisited when moving to multi-worker on SandCastle.
+# SEC-03 / WD-NET-01 / WD-CONT-02: per-user rate limiting on search endpoints.
+# Storage URI comes from RATELIMIT_STORAGE_URI env var (default: "memory://" for
+# local dev and CI). In production (SandCastle), set RATELIMIT_STORAGE_URI to
+# redis://redis:6379/0 — the `redis` hostname resolves on the SandCastle internal
+# network. Multi-worker gunicorn requires a shared Redis counter store; memory://
+# enforces per-worker only and will NOT correctly limit users across workers.
+#
+# CR-04: storage_uri is NOT read here — module body executes when `from app
+# import create_app` runs (run.py line 1), BEFORE run.py line 4 calls
+# load_dotenv(). Reading os.environ at this point would miss any value set in
+# .env (local dev, non-container deploys). Instead, storage_uri is set inside
+# create_app() via app.config["RATELIMIT_STORAGE_URI"] which Flask-Limiter 3.x
+# reads at limiter.init_app(app) time — by then load_dotenv() has run.
+# Phase 1 D-08 deviation closed by Plan 03-01 (2026-04-26); CR-04 timing fix
+# applied by Plan 03-04 (2026-04-26).
 limiter = Limiter(key_func=get_remote_address)
 
 
@@ -70,7 +77,27 @@ def create_app():
 
     # SECRET_KEY sourced from environment (portal env-var injection, D-16).
     # The pre-Phase-9 pattern of storing it encrypted in the DB is removed (D-11).
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or os.urandom(32).hex()
+    # CR-03: fail fast in production. Multi-worker gunicorn (WD-CONT-02) requires
+    # a stable shared key — per-worker random bytes silently break sessions and
+    # CSRF tokens across workers. In dev (FLASK_ENV != production) we still allow
+    # an ephemeral random key but warn so the developer can fix it.
+    secret_key = os.environ.get("SECRET_KEY")
+    if not secret_key:
+        if os.environ.get("FLASK_ENV") == "production":
+            raise RuntimeError(
+                "SECRET_KEY environment variable is not set. "
+                "Set it in the portal env-var store (see .env.sandcastle.example). "
+                "Multi-worker gunicorn requires a stable shared key — random fallback "
+                "would break sessions across workers."
+            )
+        secret_key = os.urandom(32).hex()
+        # NOTE: app.logger isn't fully configured yet (this runs before
+        # _configure_json_logging); use the module logger to ensure the
+        # warning still surfaces.
+        logging.getLogger(__name__).warning(
+            "SECRET_KEY not set — using ephemeral random key (dev only)"
+        )
+    app.config["SECRET_KEY"] = secret_key
 
     # Configure JSON-structured logging with per-request correlation IDs.
     _configure_json_logging()
@@ -83,32 +110,57 @@ def create_app():
     # before_request handlers (auth, audit, etc.) see g.request_id.
     init_request_id(app)
 
-    # Initialize database
+    # Initialize database — fail fast on missing/bad DATABASE_URL (D-G1-01, CR-01).
+    # No SQLite fallback: silent fallback would mask config errors and write
+    # encrypted data to a stray file (logs/app.db). PostgreSQL is mandatory
+    # in all environments per CLAUDE.md "Important Database Notes". The
+    # RuntimeError raised by get_database_uri() must surface so docker-entrypoint.sh
+    # / gunicorn / run.py abort startup cleanly.
     from app.database import init_db
 
-    try:
-        init_db(app)
-        app.logger.info(
-            f"Database initialized: {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured')}"
-        )
-    except Exception as e:
-        app.logger.error(f"Database initialization failed: {str(e)}")
-        # Fallback to SQLite if PostgreSQL fails
-        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///logs/app.db"
-        app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-        from app.database import db
-
-        db.init_app(app)
-        app.logger.warning("Falling back to SQLite database")
+    init_db(app)
+    # Log scheme+host+db only — DATABASE_URL of the form postgresql://user:pass@host/db
+    # would otherwise leak the password into container/structured-log streams.
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "Not configured")
+    if db_uri != "Not configured":
+        from urllib.parse import urlparse
+        parsed = urlparse(db_uri)
+        host_part = parsed.hostname or "?"
+        if parsed.port:
+            host_part = f"{host_part}:{parsed.port}"
+        db_name = (parsed.path or "/").lstrip("/") or "?"
+        db_target = f"{parsed.scheme}://{host_part}/{db_name}"
+    else:
+        db_target = db_uri
+    app.logger.info(f"Database initialized: {db_target}")
 
     # Initialize dependency injection container
     inject_dependencies(app)
 
-    # SEC-03: initialize Flask-Limiter against this app. Default in-memory
-    # storage; Retry-After/RateLimit-* headers enabled so 429 responses
-    # carry actionable backoff data for clients.
+    # SEC-03: initialize Flask-Limiter against this app. Storage URI is
+    # resolved here (not at module import) so python-dotenv has had a chance
+    # to populate os.environ from .env first (CR-04). Flask-Limiter 3.x reads
+    # RATELIMIT_STORAGE_URI from app.config at init_app(app) time.
+    storage_uri = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    app.config["RATELIMIT_STORAGE_URI"] = storage_uri
+    # Retry-After/RateLimit-* headers enabled so 429 responses carry
+    # actionable backoff data for clients.
     app.config["RATELIMIT_HEADERS_ENABLED"] = True
     limiter.init_app(app)
+    # D-G2-02: warn loudly if production mode is using in-memory rate limiting.
+    # In-memory storage enforces counters per-worker only — incorrect under
+    # multi-worker gunicorn. This warning surfaces in structured docker logs.
+    # CR-04: read from the resolved local `storage_uri` so non-container
+    # deploys (using python-dotenv) see the same value Flask-Limiter sees.
+    if os.environ.get("FLASK_ENV") == "production" and (
+        not storage_uri or storage_uri == "memory://"
+    ):
+        app.logger.warning(
+            "RATELIMIT_STORAGE_URI is unset or memory:// in production — "
+            "rate-limit counters are per-worker and will not enforce correctly "
+            "under multi-worker gunicorn. Set RATELIMIT_STORAGE_URI=redis://redis:6379/0 "
+            "in the portal env-var store (see .env.sandcastle.example)."
+        )
 
     # Phase 9 D-13 carve-out: read the debug-mode toggle from DB (non-secret flag).
     # All secrets now come from os.environ via portal env-var injection (D-11, D-16).

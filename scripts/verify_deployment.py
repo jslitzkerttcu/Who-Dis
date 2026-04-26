@@ -19,6 +19,7 @@ import os
 import sys
 import argparse
 import logging
+import socket
 import requests
 from pathlib import Path
 from typing import List
@@ -60,15 +61,16 @@ class DeploymentVerifier:
             logging.getLogger().setLevel(logging.DEBUG)
 
     def get_db_connection(self):
-        """Get database connection."""
+        """Get database connection using DATABASE_URL (aligned with app/database.py D-G1-01)."""
         try:
-            return psycopg2.connect(
-                host=os.getenv("POSTGRES_HOST"),
-                port=os.getenv("POSTGRES_PORT", 5432),
-                database=os.getenv("POSTGRES_DB"),
-                user=os.getenv("POSTGRES_USER"),
-                password=os.getenv("POSTGRES_PASSWORD"),
-            )
+            dsn = os.getenv("DATABASE_URL")
+            if not dsn:
+                raise ConnectionError(
+                    "DATABASE_URL is not set. Check .env or portal env-var store."
+                )
+            return psycopg2.connect(dsn=dsn)
+        except ConnectionError:
+            raise
         except Exception as e:
             raise ConnectionError(f"Failed to connect to database: {e}")
 
@@ -364,19 +366,150 @@ class DeploymentVerifier:
         return success
 
 
+# Hardcoded hostname — SSRF mitigation (T-03-03-01): no user input reaches this value.
+SANDCASTLE_URL = "https://who-dis.sandcastle.ttcu.com"
+SANDCASTLE_HOST = "who-dis.sandcastle.ttcu.com"
+
+
+class SandcastleVerifier:
+    """Live-deployment verification checks for the SandCastle production instance.
+
+    Run with: python scripts/verify_deployment.py --sandcastle
+    Expected output when all checks pass:
+      [PASS] GET https://who-dis.sandcastle.ttcu.com/health -> 200
+      [PASS] GET https://who-dis.sandcastle.ttcu.com/health/ready -> 200
+      [PASS] DNS who-dis.sandcastle.ttcu.com resolves
+    """
+
+    def __init__(self, verbose: bool = False):
+        self.verbose = verbose
+        self.checks_passed = 0
+        self.checks_total = 0
+        self.errors: List[str] = []
+
+        if verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
+
+    def check_sandcastle_health(self) -> bool:
+        """Verify /health returns 200 (WD-HEALTH-01)."""
+        self.checks_total += 1
+        url = f"{SANDCASTLE_URL}/health"
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                logger.info(f"[PASS] GET {url} -> 200")
+                self.checks_passed += 1
+                return True
+            else:
+                self.errors.append(
+                    f"[FAIL] GET {url} -> {response.status_code} (expected 200)"
+                )
+                return False
+        except requests.exceptions.RequestException as e:
+            self.errors.append(f"[FAIL] GET {url} -> connection error: {e}")
+            return False
+
+    def check_sandcastle_ready(self) -> bool:
+        """Verify /health/ready returns 200 when database is reachable (WD-HEALTH-02)."""
+        self.checks_total += 1
+        url = f"{SANDCASTLE_URL}/health/ready"
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                logger.info(f"[PASS] GET {url} -> 200")
+                self.checks_passed += 1
+                return True
+            else:
+                self.errors.append(
+                    f"[FAIL] GET {url} -> {response.status_code} "
+                    f"(expected 200; 503 means database is unreachable)"
+                )
+                return False
+        except requests.exceptions.RequestException as e:
+            self.errors.append(f"[FAIL] GET {url} -> connection error: {e}")
+            return False
+
+    def check_sandcastle_dns(self) -> bool:
+        """Verify the canonical hostname resolves (basic network reachability)."""
+        self.checks_total += 1
+        try:
+            socket.getaddrinfo(SANDCASTLE_HOST, 443)
+            logger.info(f"[PASS] DNS {SANDCASTLE_HOST} resolves")
+            self.checks_passed += 1
+            return True
+        except socket.gaierror as e:
+            self.errors.append(
+                f"[FAIL] DNS {SANDCASTLE_HOST} does not resolve: {e}"
+            )
+            return False
+
+    def run_all_checks(self) -> bool:
+        """Run all SandCastle live-deployment checks."""
+        logger.info("Starting SandCastle live-deployment verification...")
+        logger.info("=" * 60)
+
+        checks = [
+            self.check_sandcastle_dns,
+            self.check_sandcastle_health,
+            self.check_sandcastle_ready,
+        ]
+
+        for check in checks:
+            try:
+                check()
+            except Exception as e:
+                self.errors.append(f"Unexpected error in {check.__name__}: {e}")
+                logger.error(f"[ERROR] {check.__name__} raised: {e}")
+
+        logger.info("=" * 60)
+        logger.info(
+            f"Verification Summary: {self.checks_passed}/{self.checks_total} checks passed"
+        )
+
+        if self.errors:
+            for error in self.errors:
+                logger.error(f"  {error}")
+
+        success = self.checks_passed == self.checks_total and len(self.errors) == 0
+        if success:
+            logger.info(
+                "All SandCastle checks passed. Record date + initials in "
+                ".planning/phases/03-sandcastle-containerization-deployment/03-VERIFICATION.md "
+                "for WD-OPS-01 and WD-OPS-04 closure."
+            )
+        else:
+            logger.error(
+                "SandCastle verification failed. Resolve errors above before "
+                "recording WD-OPS-01/WD-OPS-04 closure."
+            )
+        return success
+
+
 def main():
     """Main verification function."""
-    parser = argparse.ArgumentParser(description="Verify WhoDis 2.0 deployment")
+    parser = argparse.ArgumentParser(description="Verify WhoDis deployment")
     parser.add_argument(
-        "--skip-photos", action="store_true", help="Skip photo loading tests"
+        "--skip-photos", action="store_true", help="Skip photo loading tests (local mode)"
     )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument(
+        "--sandcastle",
+        action="store_true",
+        help=(
+            "Run live-deployment checks against who-dis.sandcastle.ttcu.com "
+            "(WD-OPS-01/WD-OPS-04 operator confirmation). "
+            "Checks: /health, /health/ready, DNS resolution."
+        ),
+    )
 
     args = parser.parse_args()
 
-    verifier = DeploymentVerifier(verbose=args.verbose, skip_photos=args.skip_photos)
-    success = verifier.run_all_checks()
+    if args.sandcastle:
+        verifier = SandcastleVerifier(verbose=args.verbose)
+    else:
+        verifier = DeploymentVerifier(verbose=args.verbose, skip_photos=args.skip_photos)
 
+    success = verifier.run_all_checks()
     sys.exit(0 if success else 1)
 
 
