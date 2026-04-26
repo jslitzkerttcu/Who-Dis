@@ -5,7 +5,7 @@ Handles audit log viewing, querying, and metadata retrieval.
 
 from datetime import datetime
 
-from flask import jsonify, render_template, request
+from flask import jsonify, render_template, request, g
 from sqlalchemy import and_, desc, or_
 
 from app.middleware.auth import require_role
@@ -19,9 +19,7 @@ def audit_logs():
     # Log the access to audit logs
     from app.services.audit_service_postgres import audit_service
 
-    user_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    user_email = g.user or "unknown"
     user_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 

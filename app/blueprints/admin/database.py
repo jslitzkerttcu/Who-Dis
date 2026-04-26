@@ -3,7 +3,7 @@ Database management functionality for admin blueprint.
 Handles database health checks, table statistics, optimization, and session management.
 """
 
-from flask import render_template, jsonify, request, Response
+from flask import render_template, jsonify, request, Response, g
 from app.middleware.auth import require_role
 from app.database import db
 from datetime import datetime, timedelta, timezone
@@ -363,9 +363,7 @@ def refresh_cache(cache_type):
 
     try:
         # Get common audit fields
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
+        admin_email = g.user or "unknown"
         admin_role = getattr(request, "user_role", None)
         user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -525,9 +523,7 @@ def clear_all_caches():
         db.session.commit()
 
         # Log action
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
+        admin_email = g.user or "unknown"
         admin_role = getattr(request, "user_role", None)
         user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -628,9 +624,7 @@ def optimize_database():
         db.session.commit()
 
         # Log action
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
+        admin_email = g.user or "unknown"
         admin_role = getattr(request, "user_role", None)
         user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -979,9 +973,7 @@ def terminate_session(session_id):
     db.session.commit()
 
     # Log action
-    admin_email = request.headers.get(
-        "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-    )
+    admin_email = g.user or "unknown"
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -1037,9 +1029,7 @@ def refresh_token(service_name):
 
         if success:
             # Log action
-            admin_email = request.headers.get(
-                "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-            )
+            admin_email = g.user or "unknown"
             admin_role = getattr(request, "user_role", None)
             user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
@@ -2567,9 +2557,7 @@ def clear_single_cache(cache_type):
         db.session.commit()
 
         # Log action
-        admin_email = request.headers.get(
-            "X-MS-CLIENT-PRINCIPAL-NAME", request.remote_user or "unknown"
-        )
+        admin_email = g.user or "unknown"
         admin_role = getattr(request, "user_role", None)
         user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
