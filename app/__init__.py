@@ -85,23 +85,18 @@ def create_app():
     # before_request handlers (auth, audit, etc.) see g.request_id.
     init_request_id(app)
 
-    # Initialize database
+    # Initialize database — fail fast on missing/bad DATABASE_URL (D-G1-01, CR-01).
+    # No SQLite fallback: silent fallback would mask config errors and write
+    # encrypted data to a stray file (logs/app.db). PostgreSQL is mandatory
+    # in all environments per CLAUDE.md "Important Database Notes". The
+    # RuntimeError raised by get_database_uri() must surface so docker-entrypoint.sh
+    # / gunicorn / run.py abort startup cleanly.
     from app.database import init_db
 
-    try:
-        init_db(app)
-        app.logger.info(
-            f"Database initialized: {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured')}"
-        )
-    except Exception as e:
-        app.logger.error(f"Database initialization failed: {str(e)}")
-        # Fallback to SQLite if PostgreSQL fails
-        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///logs/app.db"
-        app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-        from app.database import db
-
-        db.init_app(app)
-        app.logger.warning("Falling back to SQLite database")
+    init_db(app)
+    app.logger.info(
+        f"Database initialized: {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured')}"
+    )
 
     # Initialize dependency injection container
     inject_dependencies(app)
