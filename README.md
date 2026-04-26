@@ -133,17 +133,16 @@ A comprehensive Flask-based identity lookup service that provides unified search
 
 5. **Configure minimal environment**:
    ```bash
-   # Create .env file with only database connection and encryption key
+   # Create .env file with only database connection and encryption key.
+   # Mirrors .env.example — DATABASE_URL is the single canonical connection
+   # string for both Flask-SQLAlchemy and Alembic (see docs/sandcastle.md
+   # for the SandCastle portal env-var contract).
    cat > .env << EOF
-   # PostgreSQL Configuration
-   POSTGRES_HOST=localhost
-   POSTGRES_PORT=5432
-   POSTGRES_DB=whodis_db
-   POSTGRES_USER=whodis_user
-   POSTGRES_PASSWORD=your-secure-password
+   # PostgreSQL connection (required)
+   DATABASE_URL=postgresql://whodis_user:your-secure-password@localhost:5432/whodis_db
    
-   # Encryption key for configuration
-   WHODIS_ENCRYPTION_KEY=$(python -c "from app.services.encryption_service import EncryptionService; print(EncryptionService.generate_key())")
+   # Encryption key for configuration (Fernet-format base64 32 bytes)
+   WHODIS_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
    EOF
    ```
 
