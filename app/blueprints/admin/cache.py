@@ -114,7 +114,6 @@ def genesys_cache_config():
                 )
 
                 # Log action
-                admin_email = g.user or "unknown"
                 admin_role = getattr(request, "user_role", None)
                 user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
