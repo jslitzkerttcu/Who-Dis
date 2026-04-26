@@ -26,7 +26,7 @@ IT staff can find everything they need to know about any employee — and act on
 - :white_check_mark: Admin interface for user management, config editing, cache control, audit logs — existing
 - :white_check_mark: Background token refresh and cache management — existing
 - :white_check_mark: User notes for internal admin documentation — existing
-- :white_check_mark: SandCastle containerized deployment with Docker, gunicorn, structured JSON logs, and `/healthz`/`/readyz` probes — Validated in Phase 3
+- :white_check_mark: SandCastle containerized deployment with Docker, gunicorn, structured JSON logs, and `/health` / `/health/live` / `/health/ready` probes — Validated in Phase 3
 - :white_check_mark: Fail-fast environment-variable configuration (DATABASE_URL, SECRET_KEY in production, Redis-backed Flask-Limiter) — Validated in Phase 3
 
 ### Active

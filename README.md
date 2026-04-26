@@ -77,7 +77,7 @@ A comprehensive Flask-based identity lookup service that provides unified search
 | Backend | Flask 3.1 | Web framework with blueprint architecture |
 | Database | PostgreSQL 12+ | Data persistence with encrypted configuration |
 | Encryption | cryptography (Fernet) | Configuration encryption with unique salts |
-| Authentication | Keycloak OIDC (Authlib) | Single sign-on via SandCastle Keycloak realm — see [docs/sandcastle.md](docs/sandcastle.md#keycloak-oidc-setup) |
+| Authentication | Keycloak OIDC (Authlib) | Single sign-on via SandCastle Keycloak realm — see [docs/sandcastle.md](docs/sandcastle.md#keycloak-oidc-setup-wd-auth-03) |
 | LDAP | ldap3 | Active Directory integration with fuzzy search |
 | Graph API | MSAL + requests | Microsoft Graph integration with enhanced profiles |
 | Genesys | OAuth2 + requests | Contact center data with cached groups/skills |
@@ -387,7 +387,7 @@ WhoDis/
 ## 🔐 Authentication & Authorization
 
 ### Authentication Method
-**Keycloak OIDC (Authlib)**: WhoDis authenticates users through the SandCastle Keycloak realm via the OpenID Connect Authorization Code flow (Authlib client). On first login, users are auto-provisioned with the `viewer` role; admins promote to `editor`/`admin` via the admin UI. See [docs/sandcastle.md](docs/sandcastle.md#keycloak-oidc-setup) for portal env-var configuration (`KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`).
+**Keycloak OIDC (Authlib)**: WhoDis authenticates users through the SandCastle Keycloak realm via the OpenID Connect Authorization Code flow (Authlib client). On first login, users are auto-provisioned with the `viewer` role; admins promote to `editor`/`admin` via the admin UI. See [docs/sandcastle.md](docs/sandcastle.md#keycloak-oidc-setup-wd-auth-03) for portal env-var configuration (`KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`).
 
 *Note: Basic authentication is disabled. The legacy Azure AD path (header-based identity from Azure App Service) is deprecated and will be decommissioned post-Phase-9 verification (see [Legacy Deployment](docs/deployment.md)).*
 

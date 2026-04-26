@@ -23,7 +23,7 @@ progress:
 
 **Core Value:** IT staff can find everything about any employee and act on it from a single interface — no switching between AD, Azure portal, Genesys admin, or M365 admin center.
 
-**Current Focus:** Phase 03 — sandcastle-containerization-deployment
+**Current Focus:** Phase 04 — keycloak-oidc-authentication
 
 ## Current Position
 
@@ -31,9 +31,10 @@ Phase: 04
 Plan: Not started
 **Phase 1:** Foundation ✓
 **Phase 2:** Test Suite ✓ (gate green)
+**Phase 3:** SandCastle Containerization & Deployment ✓ (verified passed 27/27, secured 14/14 threats, PR #31)
 **Phase 9:** SandCastle Onboarding ✓ (PR #25 — containerization, Authlib OIDC, Alembic, encrypted-config retirement)
 **Status:** Ready to plan
-**Next:** Phase 3 review — most of Phase 3 scope (containerization, env-var config, structured logs) shipped via Phase 9. Run `/gsd-progress` to triage what remains.
+**Next:** Phase 4 — Keycloak OIDC authentication (CONTEXT.md already present; run `/gsd-plan-phase 4`).
 **Progress:** [██████████] Phase 2 100%
 
 ## Accumulated Context

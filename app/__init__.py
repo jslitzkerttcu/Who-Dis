@@ -119,9 +119,20 @@ def create_app():
     from app.database import init_db
 
     init_db(app)
-    app.logger.info(
-        f"Database initialized: {app.config.get('SQLALCHEMY_DATABASE_URI', 'Not configured')}"
-    )
+    # Log scheme+host+db only — DATABASE_URL of the form postgresql://user:pass@host/db
+    # would otherwise leak the password into container/structured-log streams.
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "Not configured")
+    if db_uri != "Not configured":
+        from urllib.parse import urlparse
+        parsed = urlparse(db_uri)
+        host_part = parsed.hostname or "?"
+        if parsed.port:
+            host_part = f"{host_part}:{parsed.port}"
+        db_name = (parsed.path or "/").lstrip("/") or "?"
+        db_target = f"{parsed.scheme}://{host_part}/{db_name}"
+    else:
+        db_target = db_uri
+    app.logger.info(f"Database initialized: {db_target}")
 
     # Initialize dependency injection container
     inject_dependencies(app)
