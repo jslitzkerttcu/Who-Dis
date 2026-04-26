@@ -183,7 +183,8 @@ WhoDis includes comprehensive documentation for users, administrators, and devel
 - **[CLAUDE.md](CLAUDE.md)** - Quick reference for AI assistants working on the codebase
 
 ### 🔧 Operations & Deployment
-- **[Deployment Guide](docs/deployment.md)** - Production deployment for Azure App Service, Ubuntu, and Docker
+- **[Deployment Guide](docs/sandcastle.md)** - SandCastle deployment (canonical)
+- **[Legacy Deployment](docs/deployment.md)** - Deprecated; pre-Phase-9 Azure App Service notes
 - **[Troubleshooting Guide](docs/troubleshooting.md)** - Centralized troubleshooting reference with diagnostic scripts
 - **[Contributing Guide](CONTRIBUTING.md)** - Contribution guidelines with code standards and workflow
 
@@ -713,7 +714,7 @@ Special thanks to all contributors who helped evolve WhoDis from a simple LDAP t
 
 - **New to WhoDis?** Start with the [Getting Started Guide](docs/user-guide/getting-started.md)
 - **Need help with search?** See the [Search Guide](docs/user-guide/search.md)
-- **System administrators?** Check the [Admin Tasks Guide](docs/user-guide/admin-tasks.md) and [Deployment Guide](docs/deployment.md)
+- **System administrators?** Check the [Admin Tasks Guide](docs/user-guide/admin-tasks.md) and [SandCastle Deployment Guide](docs/sandcastle.md)
 - **Developers?** Explore the [API Documentation](docs/api/) and [Architecture Guide](docs/architecture.md)
 - **Experiencing issues?** Consult the [Troubleshooting Guide](docs/troubleshooting.md)
 - **Want to contribute?** Read the [Contributing Guide](CONTRIBUTING.md)

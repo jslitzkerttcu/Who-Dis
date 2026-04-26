@@ -231,3 +231,50 @@ GET /health/ready -> 200  {"status": "healthy", "database": {"connected": true, 
 | Cutover operator runbook | `scripts/cutover/README.md` |
 | Editor remap audit | `.planning/editor-remap-audit.md` |
 | Env-var contract | `.env.sandcastle.example` |
+
+## Operational Verification (WD-OPS-01, WD-OPS-04)
+
+These two requirements close via operator confirmation, not code. Complete
+both steps and record the date and your initials in
+`.planning/phases/03-sandcastle-containerization-deployment/03-VERIFICATION.md`.
+
+### WD-OPS-01 — SandCastle portal catalog registration
+
+**Confirm:**
+1. Open the SandCastle portal at `https://sandcastle.ttcu.com`
+2. Navigate to Apps (or Services catalog)
+3. Verify `who-dis` appears with a green/healthy status badge
+4. Record the app UUID as `WHODIS_APP_ID` in `scripts/cutover/README.md` step 4 (if not already done)
+
+### WD-OPS-04 — GitHub webhook configured for `main` push
+
+**Confirm:**
+1. Open the Who-Dis GitHub repo settings → Webhooks
+2. Verify the SandCastle webhook (`https://sandcastle.ttcu.com/api/webhooks/github`) is listed
+3. Verify the last delivery has a green tick (successful)
+4. Smoke test: re-deliver the last event from the GitHub webhook UI (or push a trivial commit to `main`) and confirm the portal deploy log shows a successful build
+
+### Live-deployment checklist
+
+Run the bundled verification script against the production URL:
+
+```bash
+python scripts/verify_deployment.py --sandcastle
+```
+
+Expected output (all three lines must show `[PASS]`):
+
+```
+[PASS] DNS who-dis.sandcastle.ttcu.com resolves
+[PASS] GET https://who-dis.sandcastle.ttcu.com/health -> 200
+[PASS] GET https://who-dis.sandcastle.ttcu.com/health/ready -> 200
+```
+
+Once all three pass, record the date and your initials in `03-VERIFICATION.md`
+under the WD-OPS-01 and WD-OPS-04 entries. That is the in-repo evidence of
+portal registration and webhook configuration.
+
+**If `health/ready` returns 503:** The database is unreachable. Check
+`DATABASE_URL` in the portal env-var store and confirm the SandCastle Postgres
+instance is running (`provision-db.sh who-dis` idempotently re-provisions if
+needed).
