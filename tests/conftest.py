@@ -14,7 +14,6 @@ import os
 import subprocess
 import pytest
 from pathlib import Path
-from urllib.parse import urlparse
 from sqlalchemy import event
 from testcontainers.postgres import PostgresContainer
 
@@ -57,25 +56,20 @@ def _set_testing_env():
 def app(database_url, _set_testing_env):
     """Session-scoped Flask app pointed at the testcontainers DB.
 
-    init_db (app/database.py) composes the URI from POSTGRES_HOST/PORT/DB/USER/PASSWORD
-    env vars — we override those with the testcontainers DSN parts rather than bypass init_db.
+    init_db (app/database.py) reads the DATABASE_URL env var exclusively after
+    Phase 3 / Plan 03-02 — point it at the testcontainers DSN so create_app()
+    boots against the ephemeral test database.
     """
-    # Parse the testcontainers DSN and project its parts into the env vars init_db reads.
-    parsed = urlparse(database_url)
-    os.environ["POSTGRES_HOST"] = parsed.hostname or "localhost"
-    os.environ["POSTGRES_PORT"] = str(parsed.port or 5432)
-    os.environ["POSTGRES_USER"] = parsed.username or "postgres"
-    os.environ["POSTGRES_PASSWORD"] = parsed.password or ""
-    os.environ["POSTGRES_DB"] = (parsed.path or "/postgres").lstrip("/")
+    # Strip the SQLAlchemy driver prefix to match the canonical DATABASE_URL form
+    # (psycopg2 accepts both, but app/database.py and Alembic share this same DSN).
+    plain_dsn = database_url.replace("postgresql+psycopg2://", "postgresql://")
+    os.environ["DATABASE_URL"] = plain_dsn
 
     # Apply schema BEFORE create_app() so init_db's db.create_all() is a no-op.
     # Phase 9 Plan 04: database/create_tables.sql retired (WD-DB-05); schema is now
     # applied via `alembic upgrade head`. The baseline migration (001_baseline_from_live_schema.py)
     # is a no-op scaffold until Plan 06 cutover — in that case db.create_all() below catches
     # any tables Alembic doesn't create, ensuring tests remain green pre-cutover.
-    #
-    # Strip the SQLAlchemy driver prefix so Alembic's psycopg2 URL parser is happy.
-    plain_dsn = database_url.replace("postgresql+psycopg2://", "postgresql://")
     alembic_result = subprocess.run(
         ["python", "-m", "alembic", "upgrade", "head"],
         cwd=str(REPO_ROOT),
