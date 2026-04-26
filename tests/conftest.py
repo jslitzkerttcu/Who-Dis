@@ -37,19 +37,26 @@ def database_url(postgres_container):
 def _set_testing_env():
     """Set TESTING + WHODIS_ENCRYPTION_KEY BEFORE create_app() runs so the D-06 gates fire.
 
-    Configuration service requires a valid Fernet key for the encryption layer to bootstrap;
-    we generate a fresh per-session key so tests don't depend on developer .env contents.
+    Uses pytest.MonkeyPatch() (not direct os.environ assignment) so env state is
+    restored after the session ends — prevents leakage into other test runs in the
+    same Python process (e.g., IDE test runners that keep the interpreter alive).
     """
-    os.environ["TESTING"] = "1"
+    mp = pytest.MonkeyPatch()
+    mp.setenv("TESTING", "1")
     from cryptography.fernet import Fernet
-    os.environ.setdefault("WHODIS_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    if "WHODIS_ENCRYPTION_KEY" not in os.environ:
+        mp.setenv("WHODIS_ENCRYPTION_KEY", Fernet.generate_key().decode())
     # Phase 9 OIDC (app/auth/oidc.py:init_oauth) reads these at app boot. Real values
     # are unnecessary under TESTING — Authlib only resolves the discovery URL on first
     # /auth/login, which tests don't hit. Provide stable dummies so create_app() boots.
-    os.environ.setdefault("KEYCLOAK_ISSUER", "https://keycloak.test.local/realms/test")
-    os.environ.setdefault("KEYCLOAK_CLIENT_ID", "whodis-test")
-    os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "test-secret")
+    if "KEYCLOAK_ISSUER" not in os.environ:
+        mp.setenv("KEYCLOAK_ISSUER", "https://keycloak.test.local/realms/test")
+    if "KEYCLOAK_CLIENT_ID" not in os.environ:
+        mp.setenv("KEYCLOAK_CLIENT_ID", "whodis-test")
+    if "KEYCLOAK_CLIENT_SECRET" not in os.environ:
+        mp.setenv("KEYCLOAK_CLIENT_SECRET", "test-secret")
     yield
+    mp.undo()
 
 
 @pytest.fixture(scope="session")
@@ -58,12 +65,14 @@ def app(database_url, _set_testing_env):
 
     init_db (app/database.py) reads the DATABASE_URL env var exclusively after
     Phase 3 / Plan 03-02 — point it at the testcontainers DSN so create_app()
-    boots against the ephemeral test database.
+    boots against the ephemeral test database. DATABASE_URL is set via
+    pytest.MonkeyPatch() so the original value is restored when the session ends.
     """
     # Strip the SQLAlchemy driver prefix to match the canonical DATABASE_URL form
     # (psycopg2 accepts both, but app/database.py and Alembic share this same DSN).
     plain_dsn = database_url.replace("postgresql+psycopg2://", "postgresql://")
-    os.environ["DATABASE_URL"] = plain_dsn
+    mp = pytest.MonkeyPatch()
+    mp.setenv("DATABASE_URL", plain_dsn)
 
     # Apply schema BEFORE create_app() so init_db's db.create_all() is a no-op.
     # Phase 9 Plan 04: database/create_tables.sql retired (WD-DB-05); schema is now
@@ -95,6 +104,7 @@ def app(database_url, _set_testing_env):
         from app.database import db
         db.create_all()
         yield flask_app
+    mp.undo()
 
 
 @pytest.fixture
