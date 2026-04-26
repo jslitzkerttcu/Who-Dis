@@ -26,6 +26,8 @@ IT staff can find everything they need to know about any employee — and act on
 - :white_check_mark: Admin interface for user management, config editing, cache control, audit logs — existing
 - :white_check_mark: Background token refresh and cache management — existing
 - :white_check_mark: User notes for internal admin documentation — existing
+- :white_check_mark: SandCastle containerized deployment with Docker, gunicorn, structured JSON logs, and `/healthz`/`/readyz` probes — Validated in Phase 3
+- :white_check_mark: Fail-fast environment-variable configuration (DATABASE_URL, SECRET_KEY in production, Redis-backed Flask-Limiter) — Validated in Phase 3
 
 ### Active
 
@@ -67,9 +69,9 @@ IT staff can find everything they need to know about any employee — and act on
 - [ ] Checklist completion tracking with audit trail
 
 **Operational Hardening:**
-- [ ] Health check endpoint for monitoring and load balancer probes
+- [x] Health check endpoint for monitoring and load balancer probes — Phase 3
 - [ ] Request ID tracking through all logs and async tasks
-- [ ] Configuration validation on application startup
+- [x] Configuration validation on application startup — Phase 3 (DATABASE_URL / SECRET_KEY fail-fast)
 - [ ] Admin pagination for tables with 100+ rows
 
 **Security Hardening:**
@@ -98,7 +100,7 @@ IT staff can find everything they need to know about any employee — and act on
 ## Context
 
 - **Users:** 4-5 internal IT service desk staff with Admin/Editor/Viewer roles
-- **Deployment:** Azure App Service behind Azure AD App Proxy
+- **Deployment:** SandCastle (Docker + Traefik) at `whodis.sandcastle.ttcu.com`; legacy Azure App Service path is being decommissioned post-Phase-9 verification
 - **External APIs:** LDAP (AD), Microsoft Graph (beta), Genesys Cloud (OAuth2)
 - **Codebase maturity:** v2.1.1 released, well-architected with DI container, interfaces, base service classes, middleware pipeline. Zero automated tests.
 - **Key gap:** Profile cards underutilize available API data. No reporting, no write ops, no API.
@@ -140,4 +142,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-24 after initialization*
+*Last updated: 2026-04-26 after Phase 3 (SandCastle Containerization & Deployment) closure*
