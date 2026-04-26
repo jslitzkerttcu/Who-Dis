@@ -16,15 +16,17 @@ from app.middleware.request_id import RequestIdFilter, init_request_id
 
 # Module-level Limiter so route modules can `from app import limiter`.
 #
-# SEC-03: per-user rate limiting on search endpoints. Storage is in-memory
-# (Flask-Limiter's default) — Flask-Limiter v3.x dropped the PostgreSQL
-# backend, so we ship in-memory now and will swap to Redis during the
-# SandCastle integration phase (Redis is available on the SandCastle
-# internal network — see .planning/SANDCASTLE-INTEGRATION-REQUIREMENTS.md
-# WD-NET-01 and WD-CONT-02). In-memory limits enforce per-worker, which is
-# acceptable for the current single/low-worker deployment but MUST be
-# revisited when moving to multi-worker on SandCastle.
-limiter = Limiter(key_func=get_remote_address)
+# SEC-03 / WD-NET-01 / WD-CONT-02: per-user rate limiting on search endpoints.
+# Storage URI comes from RATELIMIT_STORAGE_URI env var (default: "memory://" for
+# local dev and CI). In production (SandCastle), set RATELIMIT_STORAGE_URI to
+# redis://redis:6379/0 — the `redis` hostname resolves on the SandCastle internal
+# network. Multi-worker gunicorn requires a shared Redis counter store; memory://
+# enforces per-worker only and will NOT correctly limit users across workers.
+# Phase 1 D-08 deviation closed by Plan 03-01 (2026-04-26).
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),
+)
 
 
 def _configure_json_logging() -> None:
@@ -109,6 +111,19 @@ def create_app():
     # carry actionable backoff data for clients.
     app.config["RATELIMIT_HEADERS_ENABLED"] = True
     limiter.init_app(app)
+    # D-G2-02: warn loudly if production mode is using in-memory rate limiting.
+    # In-memory storage enforces counters per-worker only — incorrect under
+    # multi-worker gunicorn. This warning surfaces in structured docker logs.
+    _ratelimit_uri = os.environ.get("RATELIMIT_STORAGE_URI", "memory://")
+    if os.environ.get("FLASK_ENV") == "production" and (
+        not _ratelimit_uri or _ratelimit_uri == "memory://"
+    ):
+        app.logger.warning(
+            "RATELIMIT_STORAGE_URI is unset or memory:// in production — "
+            "rate-limit counters are per-worker and will not enforce correctly "
+            "under multi-worker gunicorn. Set RATELIMIT_STORAGE_URI=redis://redis:6379/0 "
+            "in the portal env-var store (see .env.sandcastle.example)."
+        )
 
     # Phase 9 D-13 carve-out: read the debug-mode toggle from DB (non-secret flag).
     # All secrets now come from os.environ via portal env-var injection (D-11, D-16).
