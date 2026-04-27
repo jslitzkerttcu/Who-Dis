@@ -145,7 +145,11 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   3. Extended data lives in collapsible sections that are closed by default — the default card is not cluttered
   4. Expensive fields (sign-in logs, licenses) load after the initial card render via HTMX, not blocking page paint
   5. User can copy a structured text summary to clipboard or download a CSV of all visible fields
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 06.01-graph-enrichment-PLAN.md — Extend graph_service with signInActivity, assignedLicenses, MFA methods, license details, subscribed SKUs (PROF-01, PROF-02, PROF-06)
+- [ ] 06.02-sku-catalog-cache-PLAN.md — SkuCatalogCache service + container registration + daily refresh hook (PROF-01)
+- [ ] 06.03-profile-sections-htmx-PLAN.md — 5 Jinja partials + 2 HTMX lazy-load endpoints + per-card mount (PROF-01..06)
+- [ ] 06.04-copy-export-PLAN.md — Copy-to-clipboard JS + Export CSV endpoint + button partial (SRCH-01, SRCH-02)
 **UI hint**: yes
 
 ### Phase 7: Compliance Polish
@@ -158,7 +162,6 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   3. Admin can download compliance results as CSV with employee, job code, expected/actual roles, violation type, and severity columns
   4. Warehouse sync failures display a human-readable error message instead of a stack trace or blank screen
   5. Admin UI shows the timestamp of the last successful warehouse sync with a manual re-sync trigger button
-**Plans**: TBD
 **UI hint**: yes
 
 ### Phase 8: Reporting
