@@ -4,6 +4,7 @@ import logging
 from typing import Optional, Dict, Any, List
 from msal import ConfidentialClientApplication  # type: ignore[import-untyped]
 import base64
+import requests
 from app.services.base import BaseAPITokenService
 
 # Legacy GraphPhoto model removed - photos now stored in employee_profiles
@@ -12,6 +13,11 @@ from app.interfaces.search_service import ISearchService
 from app.interfaces.token_service import ITokenService
 
 logger = logging.getLogger(__name__)
+
+# Module-level dedupe set for missing-permission ERROR logs (D-06).
+# Each Graph permission string is logged exactly once per process startup
+# so operators see a clear signal in stdout JSON without log spam on every call.
+_logged_missing_perms: set = set()
 
 
 class GraphService(BaseAPITokenService, ISearchService, ITokenService):
@@ -391,6 +397,127 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                 continue
 
         return None
+
+    def _permission_missing(self, permission: str) -> Dict[str, Any]:
+        """Return the D-06 sentinel and log ERROR once per startup per permission.
+
+        Callers MUST type-check the returned value (dict with "error" key) before
+        iterating, since success responses return list payloads.
+        """
+        if permission not in _logged_missing_perms:
+            logger.error(
+                f"Graph permission missing: {permission} — feature will display "
+                f"inline degradation banner",
+            )
+            _logged_missing_perms.add(permission)
+        return {"error": "permission_missing", "permission": permission}
+
+    def get_authentication_methods(self, user_id: str) -> Optional[Any]:
+        """Get authentication methods (MFA) for a user from Graph.
+
+        Requires UserAuthenticationMethod.Read.All permission on the app registration.
+        Returns a list of methods on success, or {"error": "permission_missing",
+        "permission": "UserAuthenticationMethod.Read.All"} on 403 (D-06).
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error(
+                "Failed to get Graph API access token for authentication methods"
+            )
+            return None
+
+        try:
+            url = f"{self.graph_base_url}/users/{user_id}/authentication/methods"
+            response = self._make_request("GET", url, token)
+            data = self._handle_response(response)
+            if not data or "value" not in data:
+                return []
+            return data["value"]
+        except requests.HTTPError as e:
+            # _make_request raises HTTPError on 4xx (response.raise_for_status).
+            # Detect 403 here and degrade gracefully (D-06) instead of returning None.
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("UserAuthenticationMethod.Read.All")
+            logger.error(
+                f"HTTP error fetching authentication methods for user {user_id}: "
+                f"{str(e)}",
+                exc_info=True,
+            )
+            return None
+        except Exception as e:
+            logger.error(
+                f"Error fetching authentication methods for user {user_id}: {str(e)}",
+                exc_info=True,
+            )
+            return None
+
+    def get_license_details(self, user_id: str) -> Optional[Any]:
+        """Get assigned license details for a user from Graph.
+
+        Uses User.Read.All (already granted on existing app reg per D-05).
+        Returns a list of license-detail dicts on success, or the permission_missing
+        sentinel on 403 (defensive — should not happen in production).
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Graph API access token for license details")
+            return None
+
+        try:
+            url = f"{self.graph_base_url}/users/{user_id}/licenseDetails"
+            response = self._make_request("GET", url, token)
+            data = self._handle_response(response)
+            if not data or "value" not in data:
+                return []
+            return data["value"]
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("User.Read.All")
+            logger.error(
+                f"HTTP error fetching license details for user {user_id}: {str(e)}",
+                exc_info=True,
+            )
+            return None
+        except Exception as e:
+            logger.error(
+                f"Error fetching license details for user {user_id}: {str(e)}",
+                exc_info=True,
+            )
+            return None
+
+    def get_subscribed_skus(self) -> Optional[Any]:
+        """Get the tenant SKU catalog from Graph.
+
+        Requires Organization.Read.All permission on the app registration.
+        Used by SkuCatalogCache (Plan 02) for daily SKU GUID → friendly name refresh.
+        Returns a list of SKU dicts on success, or the permission_missing sentinel on 403.
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Graph API access token for subscribed SKUs")
+            return None
+
+        try:
+            url = f"{self.graph_base_url}/subscribedSkus"
+            response = self._make_request("GET", url, token)
+            data = self._handle_response(response)
+            if not data or "value" not in data:
+                return []
+            return data["value"]
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("Organization.Read.All")
+            logger.error(
+                f"HTTP error fetching subscribed SKUs: {str(e)}",
+                exc_info=True,
+            )
+            return None
+        except Exception as e:
+            logger.error(
+                f"Error fetching subscribed SKUs: {str(e)}",
+                exc_info=True,
+            )
+            return None
 
     def get_sign_in_logs(
         self, user_id: str, top: int = 25
