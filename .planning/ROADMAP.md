@@ -149,7 +149,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 - [x] 06.01-graph-enrichment-PLAN.md — Extend graph_service with signInActivity, assignedLicenses, MFA methods, license details, subscribed SKUs (PROF-01, PROF-02, PROF-06)
 - [x] 06.02-sku-catalog-cache-PLAN.md — SkuCatalogCache service + container registration + daily refresh hook (PROF-01)
 - [x] 06.03-profile-sections-htmx-PLAN.md — 5 Jinja partials + 2 HTMX lazy-load endpoints + per-card mount (PROF-01..06)
-- [ ] 06.04-copy-export-PLAN.md — Copy-to-clipboard JS + Export CSV endpoint + button partial (SRCH-01, SRCH-02)
+- [x] 06.04-copy-export-PLAN.md — Copy-to-clipboard JS + Export CSV endpoint + button partial (SRCH-01, SRCH-02)
 **UI hint**: yes
 
 ### Phase 7: Compliance Polish
