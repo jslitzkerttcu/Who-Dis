@@ -27,6 +27,11 @@ from app.services.graph_service import GraphService
 from app.models.employee_profiles import EmployeeProfiles
 from app.utils.error_handler import handle_service_errors
 
+try:
+    from flask import current_app
+except ImportError:  # pragma: no cover - Flask is a hard dependency
+    current_app = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 
@@ -593,6 +598,20 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
             logger.error(f"Error during employee profiles refresh: {str(e)}")
             raise
         finally:
+            # Phase 06 D-04 / D-07: piggyback the daily SKU catalog refresh on
+            # the existing employee-profiles refresh cycle. Reuses the existing
+            # 24h schedule — no new thread, no new TTL layer. Wrapped in
+            # try/except so a SKU-cache failure cannot crash the parent job.
+            try:
+                if current_app is not None:
+                    sku_catalog = current_app.container.get("sku_catalog")
+                    if sku_catalog.needs_refresh():
+                        sku_catalog.refresh()
+            except Exception as e:
+                logger.error(
+                    f"SKU catalog refresh failed: {str(e)}", exc_info=True
+                )
+
             end_time = datetime.now(timezone.utc)
             duration = (end_time - start_time).total_seconds()
             logger.info(
