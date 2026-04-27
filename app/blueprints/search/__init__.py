@@ -1422,15 +1422,38 @@ def _render_unified_profile(results):
             endpoint_url=f"/search/api/profile/{genesys_user_id}/genesys",
         )
 
+    # Phase 6 SRCH-01/02: data-profile-card scope + data-copy-field markers on
+    # default-card fields so clipboard.js (D-13) and the export.csv endpoint
+    # have a stable contract. WYSIWYG: enrichment sections handled separately.
+    export_user_id = graph_user_id or genesys_user_id
+    export_buttons_html = ""
+    if export_user_id:
+        export_buttons_html = render_template(
+            "search/_export_buttons.html",
+            user_id=export_user_id,
+        )
+
+    title_block = (
+        '<div class="bg-yellow-50 border border-yellow-200 rounded-md p-2 mt-1"><div class="flex items-center"><i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i><div class="text-sm"><span class="font-medium text-yellow-800">Title Mismatch:</span> <span class="text-gray-700">LDAP:</span> <span class="font-medium" data-copy-field="Title (LDAP)">'
+        + str(ldap_title)
+        + '</span> | <span class="text-gray-700">Genesys:</span> <span class="font-medium" data-copy-field="Title (Genesys)">'
+        + str(genesys_title)
+        + "</span></div></div></div>"
+        if title_mismatch
+        else '<p class="text-lg text-gray-600" data-copy-field="Title">'
+        + str(title)
+        + "</p>"
+    )
+
     html = f"""
-    <div class="space-y-6">
+    <div class="space-y-6" data-profile-card>
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center">
                 {photo_element}
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-900">{name}</h2>
-                    {'<div class="bg-yellow-50 border border-yellow-200 rounded-md p-2 mt-1"><div class="flex items-center"><i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i><div class="text-sm"><span class="font-medium text-yellow-800">Title Mismatch:</span> <span class="text-gray-700">LDAP:</span> <span class="font-medium">' + str(ldap_title) + '</span> | <span class="text-gray-700">Genesys:</span> <span class="font-medium">' + str(genesys_title) + "</span></div></div></div>" if title_mismatch else '<p class="text-lg text-gray-600">' + str(title) + "</p>"}
-                    <p class="text-md text-gray-500">{department}</p>
+                    <h2 class="text-2xl font-bold text-gray-900" data-copy-field="Name">{name}</h2>
+                    {title_block}
+                    <p class="text-md text-gray-500" data-copy-field="Department">{department}</p>
                     <div class="mt-4 flex flex-wrap gap-2">{user_badges_html}</div>
                 </div>
             </div>
@@ -1438,12 +1461,13 @@ def _render_unified_profile(results):
                 <dl class="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
                     <div class="sm:col-span-1">
                         <dt class="text-sm font-medium text-gray-500">Email address</dt>
-                        <dd class="mt-1 text-sm text-gray-900">{ldap_data.get("mail", "N/A")}</dd>
+                        <dd class="mt-1 text-sm text-gray-900" data-copy-field="Email">{ldap_data.get("mail", "N/A")}</dd>
                     </div>
                     {phone_html_items}
                 </dl>
             </div>
             {enrichment_html}
+            {export_buttons_html}
         </div>
         {keystone_accordion_html}
     </div>
