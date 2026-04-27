@@ -1195,6 +1195,30 @@ def _render_unified_profile(results):
             keystone_data, keystone_error
         )
 
+    # Phase 6 D-08/D-09: enrichment sections (M365, Genesys), collapsed by default,
+    # lazy-load on first expand via /search/api/profile/<id>/<section>.
+    enrichment_html = ""
+    graph_user_id = graph_data.get("id") if isinstance(graph_data, dict) else None
+    genesys_user_id = genesys_data.get("id") if isinstance(genesys_data, dict) else None
+    if graph_user_id:
+        enrichment_html += render_template(
+            "search/_profile_section.html",
+            section_id=f"m365-{graph_user_id}",
+            title="Microsoft 365",
+            icon_class="fa-microsoft",
+            accent_class="text-ttcu-green",
+            endpoint_url=f"/search/api/profile/{graph_user_id}/m365",
+        )
+    if genesys_user_id:
+        enrichment_html += render_template(
+            "search/_profile_section.html",
+            section_id=f"genesys-{genesys_user_id}",
+            title="Genesys Cloud",
+            icon_class="fa-headset",
+            accent_class="text-genesys-orange",
+            endpoint_url=f"/search/api/profile/{genesys_user_id}/genesys",
+        )
+
     html = f"""
     <div class="space-y-6">
         <div class="bg-white rounded-lg shadow-md p-6">
@@ -1216,6 +1240,7 @@ def _render_unified_profile(results):
                     {phone_html_items}
                 </dl>
             </div>
+            {enrichment_html}
         </div>
         {keystone_accordion_html}
     </div>
