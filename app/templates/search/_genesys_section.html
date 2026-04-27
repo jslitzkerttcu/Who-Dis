@@ -1,0 +1,96 @@
+{# Genesys Cloud enrichment section body — HTMX response fragment (PROF-03/06).
+
+Expected `data` shape (built by _build_genesys_section_data in search/__init__.py):
+  {
+    "queues": [str],
+    "skills": [{"name": str, "proficiency": int (0-5)}],
+    "presence": "Available"|"Away"|"Offline"|str|None,
+    "permission_warnings": [{"field": str, "permission": str}],
+  }
+
+All field reads use `.get()` so a missing key never raises (PROF-06).
+#}
+{% set warnings = data.get('permission_warnings', []) %}
+{% set has_data = (data.get('queues') or data.get('skills') or data.get('presence')) %}
+
+{% if not has_data and not warnings %}
+  <div class="text-sm text-gray-500 italic py-6 text-center">
+    <i class="fas fa-info-circle mr-1"></i>
+    No Genesys Cloud profile for this user.
+  </div>
+{% else %}
+  {% for w in warnings %}
+    {% with field=w.get('field', 'Field'), permission=w.get('permission', 'unknown') %}
+      {% include "search/_permission_warning.html" %}
+    {% endwith %}
+  {% endfor %}
+
+  <div class="space-y-4">
+    {# Presence #}
+    <div>
+      <div class="text-xs font-semibold text-gray-600 mb-1">Presence</div>
+      <div class="text-sm text-gray-900 flex items-center gap-2">
+        <span data-copy-field="Presence" class="inline-flex items-center gap-1">
+          {% set p = data.get('presence') %}
+          {% if p == 'Available' %}
+            <i class="fas fa-circle text-green-600 text-xs"></i> Available
+          {% elif p == 'Away' %}
+            <i class="fas fa-circle text-amber-600 text-xs"></i> Away
+          {% elif p == 'Offline' %}
+            <i class="fas fa-circle text-gray-400 text-xs"></i> Offline
+          {% elif p %}
+            <i class="fas fa-circle text-gray-400 text-xs"></i> {{ p }}
+          {% else %}
+            —
+          {% endif %}
+        </span>
+        {% with source='Genesys' %}{% include "search/_source_chip.html" %}{% endwith %}
+      </div>
+    </div>
+
+    {# Queues #}
+    <div>
+      <div class="text-xs font-semibold text-gray-600 mb-1">Queues</div>
+      <div class="text-sm text-gray-900 flex items-center gap-2 flex-wrap">
+        {% if data.get('queues') %}
+          <span data-copy-field="Queues" class="flex flex-wrap gap-2">
+            {% for q in data.get('queues', []) %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ q }}</span>
+            {% endfor %}
+          </span>
+        {% else %}
+          <span data-copy-field="Queues">—</span>
+        {% endif %}
+        {% with source='Genesys' %}{% include "search/_source_chip.html" %}{% endwith %}
+      </div>
+    </div>
+
+    {# Skills #}
+    <div>
+      <div class="text-xs font-semibold text-gray-600 mb-1">Skills</div>
+      {% if data.get('skills') %}
+        <div data-copy-field="Skills" class="space-y-1">
+          {% for s in data.get('skills', []) %}
+            {% set prof = s.get('proficiency', 0) or 0 %}
+            {% set pct = prof * 20 %}
+            <div class="flex items-center gap-3 text-sm">
+              <span class="w-40 truncate text-gray-900">{{ s.get('name') }}</span>
+              <div class="w-24 h-2 bg-gray-200 rounded">
+                <div class="h-2 bg-genesys-orange rounded" style="width: {{ pct }}%"></div>
+              </div>
+              <span class="text-xs text-gray-500">{{ prof }}/5</span>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="mt-1">
+          {% with source='Genesys' %}{% include "search/_source_chip.html" %}{% endwith %}
+        </div>
+      {% else %}
+        <div class="text-sm text-gray-900 flex items-center gap-2">
+          <span data-copy-field="Skills">—</span>
+          {% with source='Genesys' %}{% include "search/_source_chip.html" %}{% endwith %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}

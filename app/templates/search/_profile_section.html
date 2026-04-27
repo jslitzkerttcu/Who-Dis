@@ -1,0 +1,50 @@
+{# Reusable collapsible enrichment section shell (Phase 6 D-08, D-09, D-14, UI-SPEC).
+
+Parameters (pass via {% with %}):
+  section_id   – unique DOM id stem (e.g. "m365-{user_id}")
+  title        – human-readable heading (e.g. "Microsoft 365")
+  icon_class   – FontAwesome icon (e.g. "fa-microsoft")
+  accent_class – Tailwind text color class for the icon (e.g. "text-ttcu-green")
+  endpoint_url – HTMX target URL (e.g. /search/api/profile/<id>/m365)
+
+Behavior: collapsed by default; one HTMX GET on first expand
+("hx-trigger=click once"); subsequent expand/collapse is DOM-only.
+#}
+<div class="mt-4 bg-white border border-gray-200 rounded-md overflow-hidden">
+  <button type="button"
+          id="{{ section_id }}-header"
+          aria-expanded="false"
+          aria-controls="{{ section_id }}-body"
+          class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 focus:outline-none focus:ring-2 {{ accent_class | replace('text-', 'focus:ring-') }}"
+          onclick="(function(b){
+            var expanded = b.getAttribute('aria-expanded') === 'true';
+            b.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+            var body = document.getElementById(b.getAttribute('aria-controls'));
+            if (body) { body.classList.toggle('hidden'); body.setAttribute('aria-busy', !expanded); }
+            var chev = b.querySelector('[data-chevron]');
+            if (chev) { chev.classList.toggle('fa-chevron-down'); chev.classList.toggle('fa-chevron-up'); }
+          })(this)">
+    <span class="flex items-center gap-2 text-lg font-semibold text-gray-900">
+      <i class="fas {{ icon_class }} {{ accent_class }}"></i>
+      {{ title }}
+    </span>
+    <i class="fas fa-chevron-down text-gray-400" data-chevron></i>
+  </button>
+  <div id="{{ section_id }}-body"
+       role="region"
+       aria-labelledby="{{ section_id }}-header"
+       class="hidden border-t border-gray-200 px-4 py-4"
+       hx-get="{{ endpoint_url }}"
+       hx-trigger="click once from:#{{ section_id }}-header"
+       hx-target="this"
+       hx-swap="innerHTML"
+       hx-indicator="#{{ section_id }}-spinner">
+    <div id="{{ section_id }}-spinner" class="htmx-indicator">
+      <div class="space-y-2">
+        <div class="h-3 bg-gray-200 rounded animate-pulse"></div>
+        <div class="h-3 bg-gray-200 rounded animate-pulse w-5/6"></div>
+        <div class="h-3 bg-gray-200 rounded animate-pulse w-4/6"></div>
+      </div>
+    </div>
+  </div>
+</div>
