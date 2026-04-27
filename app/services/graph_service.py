@@ -264,6 +264,8 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
             "employeeHireDate",
             "employeeType",
             "userType",
+            "signInActivity",  # D-01 — needs AuditLog.Read.All + Premium P1
+            "assignedLicenses",  # D-04
         ]
 
     def get_user_by_id(
@@ -324,6 +326,8 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                 "createdDateTime": user.get("createdDateTime"),
                 "lastPasswordChangeDateTime": user.get("lastPasswordChangeDateTime"),
                 "employeeHireDate": user.get("employeeHireDate"),
+                "signInActivity": user.get("signInActivity"),  # D-01
+                "assignedLicenses": user.get("assignedLicenses", []),  # D-04
                 "photo": photo_data,
             }
 
