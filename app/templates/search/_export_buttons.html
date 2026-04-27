@@ -1,0 +1,29 @@
+{# Phase 6 SRCH-01/02 — per-profile Copy + Export CSV buttons.
+
+Parameters (pass via {% with %}):
+  user_id – Graph user id used to build the export.csv route.
+
+Visual precedent: the Search button at search/index.html:21-25
+(bg-ttcu-yellow, rounded-full). Mobile stacks vertically (UI-SPEC line 136).
+#}
+<div class="mt-4 flex flex-col sm:flex-row gap-2">
+  <button type="button"
+          onclick="copyProfileToClipboard(this.closest('[data-profile-card]'))"
+          class="bg-ttcu-yellow hover:bg-yellow-500 text-gray-900
+                 px-6 py-2 rounded-full font-medium transition-all duration-150
+                 hover:scale-105 hover:shadow-lg flex items-center justify-center
+                 w-full sm:w-auto min-h-[44px] sm:min-h-0">
+    <i class="fas fa-copy mr-2"></i>
+    Copy to Clipboard
+  </button>
+  <a href="{{ url_for('search.profile_export_csv', user_id=user_id) }}"
+     class="bg-ttcu-yellow hover:bg-yellow-500 text-gray-900
+            px-6 py-2 rounded-full font-medium transition-all duration-150
+            hover:scale-105 hover:shadow-lg flex items-center justify-center
+            w-full sm:w-auto min-h-[44px] sm:min-h-0
+            no-underline"
+     download>
+    <i class="fas fa-file-csv mr-2"></i>
+    Export CSV
+  </a>
+</div>
