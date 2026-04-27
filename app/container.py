@@ -128,6 +128,7 @@ def register_services(container: ServiceContainer) -> None:
     from app.services.cache_cleanup_service import CacheCleanupService
     from app.services.genesys_cache_db import GenesysCacheDB
     from app.services.refresh_employee_profiles import EmployeeProfilesRefreshService
+    from app.services.sku_catalog_cache import SkuCatalogCache
 
     # Phase 9 D-11: EncryptionService and configuration_service singleton removed.
     # Secrets come from os.environ via portal env-var injection (D-16).
@@ -141,6 +142,7 @@ def register_services(container: ServiceContainer) -> None:
 
     # Cache service
     container.register("genesys_cache", lambda c: GenesysCacheDB())
+    container.register("sku_catalog", lambda c: SkuCatalogCache())
 
     # Search services (depend on config)
     container.register("ldap_service", lambda c: LDAPService())
