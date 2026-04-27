@@ -718,6 +718,209 @@ def get_genesys_licenses(user_id):
     return jsonify({"licenses": licenses})
 
 
+@search_bp.route("/api/profile/<user_id>/m365")
+@require_role("viewer")
+@handle_errors(json_response=True)
+def profile_m365(user_id):
+    """HTMX lazy-load: Microsoft 365 enrichment section (Phase 6 D-09, D-15).
+
+    Pulls the user via graph_service.get_user_by_id (Plan 01 added signInActivity
+    and assignedLicenses to the projection), then issues a live
+    get_authentication_methods call for MFA. SKU GUIDs are resolved via the
+    sku_catalog cache from Plan 02. Returns _m365_section.html on HX-Request,
+    JSON otherwise.
+    """
+    graph_service = current_app.container.get("graph_service")
+    sku_catalog = current_app.container.get("sku_catalog")
+
+    user = graph_service.get_user_by_id(user_id, include_photo=False) or {}
+    mfa_result = graph_service.get_authentication_methods(user_id)
+
+    data = _build_m365_section_data(user, mfa_result, sku_catalog)
+
+    audit_service = current_app.container.get("audit_logger")
+    user_email = getattr(g, "user", "unknown")
+    audit_service.log_search(
+        user_email=user_email,
+        search_query=f"profile_m365:{user_id}",
+        results_count=1,
+        services=["Graph"],
+        ip_address=request.headers.get("X-Forwarded-For", request.remote_addr),
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+    )
+
+    if request.headers.get("HX-Request"):
+        return render_template("search/_m365_section.html", data=data)
+    return jsonify(data)
+
+
+@search_bp.route("/api/profile/<user_id>/genesys")
+@require_role("viewer")
+@handle_errors(json_response=True)
+def profile_genesys(user_id):
+    """HTMX lazy-load: Genesys Cloud enrichment section (Phase 6 D-09, D-15).
+
+    Pulls queues, skills (with proficiency), and presence from genesys_service.
+    Returns _genesys_section.html on HX-Request, JSON otherwise.
+    """
+    genesys_service = current_app.container.get("genesys_service")
+    gen_user = genesys_service.get_user_by_id(user_id)
+    data = _build_genesys_section_data(gen_user)
+
+    audit_service = current_app.container.get("audit_logger")
+    user_email = getattr(g, "user", "unknown")
+    audit_service.log_search(
+        user_email=user_email,
+        search_query=f"profile_genesys:{user_id}",
+        results_count=1,
+        services=["Genesys"],
+        ip_address=request.headers.get("X-Forwarded-For", request.remote_addr),
+        user_agent=request.headers.get("User-Agent"),
+        success=gen_user is not None,
+    )
+
+    if request.headers.get("HX-Request"):
+        return render_template("search/_genesys_section.html", data=data)
+    return jsonify(data)
+
+
+def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
+    """Translate Graph user data + live MFA + SKU catalog into the dict shape
+    expected by _m365_section.html. Every read uses .get() so a missing field
+    never raises (PROF-06).
+    """
+    user_profile = user_profile or {}
+    warnings = []
+
+    # Last sign-in (D-01) — signInActivity may be absent if no Premium P1.
+    sign_in_activity = user_profile.get("signInActivity") or {}
+    last_sign_in = sign_in_activity.get("lastSignInDateTime") if isinstance(
+        sign_in_activity, dict
+    ) else None
+
+    # MFA (D-02) — handle permission-missing sentinel from Plan 01.
+    mfa_label = None
+    mfa_methods_list = []
+    if isinstance(mfa_result, dict) and mfa_result.get("error") == "permission_missing":
+        warnings.append(
+            {"field": "MFA", "permission": mfa_result.get("permission", "UserAuthenticationMethod.Read.All")}
+        )
+    elif isinstance(mfa_result, list):
+        mfa_methods_list = [_friendly_mfa_method_name(m) for m in mfa_result]
+        mfa_methods_list = [m for m in mfa_methods_list if m and m != "Unknown"]
+        if mfa_methods_list:
+            mfa_label = f"registered ({', '.join(mfa_methods_list)})"
+        else:
+            mfa_label = "not registered"
+
+    # Licenses (D-04, D-05) — resolve SKU GUIDs via sku_catalog.
+    licenses = []
+    raw_licenses = user_profile.get("assignedLicenses") or []
+    if isinstance(raw_licenses, list):
+        for lic in raw_licenses:
+            if not isinstance(lic, dict):
+                continue
+            sku_id = lic.get("skuId")
+            if not sku_id:
+                continue
+            friendly = None
+            if sku_catalog is not None:
+                try:
+                    friendly = sku_catalog.get_sku_name(sku_id)
+                except Exception as e:  # noqa: BLE001
+                    logger.debug(f"sku_catalog lookup failed for {sku_id}: {e}")
+            licenses.append(
+                {
+                    "name": friendly or sku_id,
+                    "displayName": friendly or sku_id,
+                    "skuId": sku_id,
+                }
+            )
+
+    # Manager — Graph projection returns dict; keep displayName.
+    manager_field = user_profile.get("manager")
+    if isinstance(manager_field, dict):
+        manager = manager_field.get("displayName")
+    else:
+        manager = manager_field
+
+    return {
+        "department": user_profile.get("department"),
+        "manager": manager,
+        "employee_id": user_profile.get("employeeId"),
+        "licenses": licenses,
+        "mfa": mfa_label,
+        "mfa_methods": mfa_methods_list,
+        "last_sign_in": last_sign_in,
+        "permission_warnings": warnings,
+    }
+
+
+def _friendly_mfa_method_name(method):
+    """Map Graph @odata.type values for authentication methods to short labels."""
+    if not isinstance(method, dict):
+        return "Unknown"
+    odata_type = method.get("@odata.type", "") or ""
+    mapping = {
+        "#microsoft.graph.microsoftAuthenticatorAuthenticationMethod": "Authenticator",
+        "#microsoft.graph.phoneAuthenticationMethod": "SMS",
+        "#microsoft.graph.passwordAuthenticationMethod": "Password",
+        "#microsoft.graph.fido2AuthenticationMethod": "FIDO2",
+        "#microsoft.graph.windowsHelloForBusinessAuthenticationMethod": "Windows Hello",
+        "#microsoft.graph.emailAuthenticationMethod": "Email",
+        "#microsoft.graph.softwareOathAuthenticationMethod": "Software OATH",
+        "#microsoft.graph.temporaryAccessPassAuthenticationMethod": "Temporary Access Pass",
+    }
+    if odata_type in mapping:
+        return mapping[odata_type]
+    # Fallback: derive a short tail from the @odata.type, dropping the AuthenticationMethod suffix.
+    tail = odata_type.split(".")[-1] if odata_type else ""
+    tail = tail.replace("AuthenticationMethod", "")
+    return tail or "Unknown"
+
+
+def _build_genesys_section_data(gen_user):
+    """Translate genesys_service.get_user_by_id output into the dict shape
+    expected by _genesys_section.html. Every read uses .get() so a missing
+    field never raises (PROF-06).
+    """
+    if not gen_user or not isinstance(gen_user, dict):
+        return {"queues": [], "skills": [], "presence": None, "permission_warnings": []}
+
+    queues_raw = gen_user.get("queues") or []
+    queues = []
+    for q in queues_raw:
+        if isinstance(q, dict):
+            name = q.get("name")
+            if name:
+                queues.append(name)
+        elif isinstance(q, str):
+            queues.append(q)
+
+    skills_raw = gen_user.get("skills") or []
+    skills = []
+    for s in skills_raw:
+        if not isinstance(s, dict):
+            continue
+        name = s.get("name")
+        if not name:
+            continue
+        skills.append(
+            {
+                "name": name,
+                "proficiency": s.get("proficiency", 0) or 0,
+            }
+        )
+
+    return {
+        "queues": queues,
+        "skills": skills,
+        "presence": gen_user.get("presence"),
+        "permission_warnings": [],
+    }
+
+
 @search_bp.route("/api/genesys-licenses/<user_id>/<license_id>", methods=["DELETE"])
 @require_role("admin")  # Phase 9 D-05: remapped from editor → admin (more restrictive)
 @handle_errors(json_response=True)
@@ -1195,6 +1398,30 @@ def _render_unified_profile(results):
             keystone_data, keystone_error
         )
 
+    # Phase 6 D-08/D-09: enrichment sections (M365, Genesys), collapsed by default,
+    # lazy-load on first expand via /search/api/profile/<id>/<section>.
+    enrichment_html = ""
+    graph_user_id = graph_data.get("id") if isinstance(graph_data, dict) else None
+    genesys_user_id = genesys_data.get("id") if isinstance(genesys_data, dict) else None
+    if graph_user_id:
+        enrichment_html += render_template(
+            "search/_profile_section.html",
+            section_id=f"m365-{graph_user_id}",
+            title="Microsoft 365",
+            icon_class="fa-microsoft",
+            accent_class="text-ttcu-green",
+            endpoint_url=f"/search/api/profile/{graph_user_id}/m365",
+        )
+    if genesys_user_id:
+        enrichment_html += render_template(
+            "search/_profile_section.html",
+            section_id=f"genesys-{genesys_user_id}",
+            title="Genesys Cloud",
+            icon_class="fa-headset",
+            accent_class="text-genesys-orange",
+            endpoint_url=f"/search/api/profile/{genesys_user_id}/genesys",
+        )
+
     html = f"""
     <div class="space-y-6">
         <div class="bg-white rounded-lg shadow-md p-6">
@@ -1216,6 +1443,7 @@ def _render_unified_profile(results):
                     {phone_html_items}
                 </dl>
             </div>
+            {enrichment_html}
         </div>
         {keystone_accordion_html}
     </div>

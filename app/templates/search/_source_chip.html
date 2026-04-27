@@ -1,0 +1,7 @@
+{# Source attribution chip — UI-SPEC line 110, CONTEXT D-12.
+
+Parameters:
+  source     – e.g. "Graph", "Genesys"
+  not_loaded – truthy to render the "[X, not loaded]" variant
+#}
+<span class="text-xs text-gray-500" data-source="{{ source }}{% if not_loaded %}, not loaded{% endif %}">[{{ source }}{% if not_loaded %}, not loaded{% endif %}]</span>
