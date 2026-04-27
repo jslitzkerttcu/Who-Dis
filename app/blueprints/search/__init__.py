@@ -18,8 +18,11 @@ from app.models.cache import SearchCache
 import logging
 from typing import Optional, Dict, Any
 import base64
+import csv
 import hashlib
+import io
 import json
+import re
 from urllib.parse import quote as url_quote
 from markupsafe import escape as html_escape
 from app.utils.timezone import format_timestamp
@@ -919,6 +922,137 @@ def _build_genesys_section_data(gen_user):
         "presence": gen_user.get("presence"),
         "permission_warnings": [],
     }
+
+
+def _csv_safe(value):
+    """Belt-and-suspenders CSV-injection defense (T-06-22, ASVS 5.3.4).
+
+    Excel/Calc treat cells beginning with =, +, -, @ as formulas. Prefix a
+    single quote so the cell renders literally. Empty values pass through.
+    """
+    s = "" if value is None else str(value)
+    if s and s[0] in ("=", "+", "-", "@"):
+        return "'" + s
+    return s
+
+
+@search_bp.route("/api/profile/<user_id>/export.csv")
+@require_role("viewer")
+@handle_errors(json_response=True)
+def profile_export_csv(user_id):
+    """SRCH-02: per-profile CSV export with source-attribution column.
+
+    WYSIWYG (D-12): the server reads only what graph_service has cached for
+    this user (Plan 03 used graph_service.get_user_by_id directly because
+    EmployeeProfile is keyed by upn, not Graph id — same constraint applies
+    here). MFA + Genesys data are lazy/live in the UI; in the export they
+    emit "Not loaded" rows tagged "[<Source>, not loaded]" rather than
+    triggering live API calls per D-12.
+    """
+    graph_service = current_app.container.get("graph_service")
+    sku_catalog = current_app.container.get("sku_catalog")
+
+    user = graph_service.get_user_by_id(user_id, include_photo=False) or {}
+
+    rows = []  # list[(field, value, source)]
+
+    # Default-card fields — pulled from the same Graph projection the UI uses.
+    rows.append(("Name", user.get("displayName") or "", "[Graph]"))
+    rows.append(("Title", user.get("jobTitle") or user.get("title") or "", "[Graph]"))
+    rows.append(("Department", user.get("department") or "", "[Graph]"))
+    manager = user.get("manager")
+    if isinstance(manager, dict):
+        manager_name = manager.get("displayName") or ""
+    else:
+        manager_name = manager or ""
+    rows.append(("Manager", manager_name, "[Graph]"))
+    rows.append(
+        (
+            "Email",
+            user.get("mail") or user.get("userPrincipalName") or "",
+            "[Graph]",
+        )
+    )
+    business_phones = user.get("businessPhones") or []
+    business_phone = business_phones[0] if business_phones else ""
+    rows.append(("Phone", user.get("mobilePhone") or business_phone or "", "[Graph]"))
+    rows.append(("Employee ID", user.get("employeeId") or "", "[Graph]"))
+
+    # M365 enriched fields readable from the Graph projection (D-07 24h cache).
+    sign_in_activity = user.get("signInActivity") or {}
+    last_sign_in = (
+        sign_in_activity.get("lastSignInDateTime")
+        if isinstance(sign_in_activity, dict)
+        else None
+    )
+    if last_sign_in:
+        rows.append(("Last sign-in", last_sign_in, "[Graph]"))
+    else:
+        rows.append(("Last sign-in", "Not loaded", "[Graph, not loaded]"))
+
+    licenses = user.get("assignedLicenses")
+    if licenses:
+        license_names = []
+        for lic in licenses:
+            if not isinstance(lic, dict):
+                continue
+            sku_id = lic.get("skuId")
+            if not sku_id:
+                continue
+            try:
+                friendly = sku_catalog.get_sku_name(sku_id) if sku_catalog else None
+            except Exception:
+                friendly = None
+            license_names.append(friendly or sku_id)
+        rows.append(
+            (
+                "Licenses",
+                "; ".join(filter(None, license_names)) or "(none)",
+                "[Graph]",
+            )
+        )
+    else:
+        rows.append(("Licenses", "Not loaded", "[Graph, not loaded]"))
+
+    # MFA — D-02 says lazy / live. WYSIWYG export never has it cached.
+    rows.append(("MFA", "Not loaded", "[Graph, not loaded]"))
+
+    # Genesys — also lazy. WYSIWYG export emits "Not loaded".
+    rows.append(("Genesys queues", "Not loaded", "[Genesys, not loaded]"))
+    rows.append(("Genesys skills", "Not loaded", "[Genesys, not loaded]"))
+    rows.append(("Genesys presence", "Not loaded", "[Genesys, not loaded]"))
+
+    # Build CSV body with CSV-injection defense (T-06-22).
+    buf = io.StringIO()
+    writer = csv.writer(buf, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(["Field", "Value", "Source"])
+    for field, value, source in rows:
+        writer.writerow([_csv_safe(field), _csv_safe(value), _csv_safe(source)])
+
+    # Sanitize username for filename (UI-SPEC line 117, T-06-17 mitigation).
+    seed_source = user.get("userPrincipalName") or user.get("mail") or user_id
+    username_seed = (seed_source or "").split("@")[0]
+    username = re.sub(r"[^A-Za-z0-9_.-]", "_", username_seed) or "user"
+    yyyymmdd = datetime.now(timezone.utc).strftime("%Y%m%d")
+    filename = f"whodis-{username}-{yyyymmdd}.csv"
+
+    # Audit per D-15.
+    audit_service = current_app.container.get("audit_logger")
+    user_email = getattr(g, "user", "unknown")
+    audit_service.log_search(
+        user_email=user_email,
+        search_query=f"profile_export:{user_id}",
+        results_count=len(rows),
+        services=["Graph", "Genesys"],
+        ip_address=request.headers.get("X-Forwarded-For", request.remote_addr),
+        user_agent=request.headers.get("User-Agent"),
+        success=True,
+    )
+
+    resp = make_response(buf.getvalue())
+    resp.headers["Content-Type"] = "text/csv; charset=utf-8"
+    resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
 
 
 @search_bp.route("/api/genesys-licenses/<user_id>/<license_id>", methods=["DELETE"])
