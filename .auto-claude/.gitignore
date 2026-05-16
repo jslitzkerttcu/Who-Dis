@@ -1,8 +1,0 @@
-# Exclude sensitive environment files (GitHub push protection requires this)
-.env
-
-# Exclude any credentials or secrets
-*.key
-*.pem
-*.crt
-secrets/
