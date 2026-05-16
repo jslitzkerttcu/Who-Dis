@@ -500,13 +500,25 @@ class ResultMerger(BaseConfigurableService):
     def _combine_multiple_results(
         self, ldap_data: Optional[Dict[str, Any]], graph_data: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Combine multiple results from both LDAP and Graph."""
+        """Combine multiple results from both LDAP and Graph into a unified list."""
+        ldap_results = ldap_data.get("results", []) if ldap_data else []
+        graph_results = graph_data.get("results", []) if graph_data else []
+
+        combined = []
+        seen_emails: set = set()
+
+        for user in ldap_results + graph_results:
+            email = (user.get("mail") or user.get("email") or "").lower()
+            if email and email in seen_emails:
+                continue
+            if email:
+                seen_emails.add(email)
+            combined.append(user)
+
         return {
             "multiple_results": True,
-            "ldap_results": ldap_data.get("results", []) if ldap_data else [],
-            "graph_results": graph_data.get("results", []) if graph_data else [],
-            "total": (ldap_data.get("total", 0) if ldap_data else 0)
-            + (graph_data.get("total", 0) if graph_data else 0),
+            "results": combined,
+            "total": len(combined),
         }
 
     def _handle_single_source(

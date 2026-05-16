@@ -3067,6 +3067,14 @@ def search_specific():
         search_term, genesys_user_id, ldap_user_dn, graph_user_id
     )
 
+    # When only Genesys ID was provided, use the resolved email to narrow LDAP/Graph
+    if genesys_user_id and not ldap_user_dn and not graph_user_id:
+        genesys_email = (genesys_result.get("result") or {}).get("email")
+        if genesys_email:
+            ldap_result, _, graph_result = orchestrator.execute_concurrent_search(
+                genesys_email
+            )
+
     # Merge results
     azure_ad_result, azure_ad_error, azure_ad_multiple = merger.merge_azure_ad_results(
         ldap_result, genesys_result, graph_result
