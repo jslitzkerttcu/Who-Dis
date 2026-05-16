@@ -1571,27 +1571,24 @@ def _render_unified_profile(results):
             keystone_data, keystone_error
         )
 
-    # Phase 6 D-08/D-09: enrichment sections (M365, Genesys), collapsed by default,
-    # lazy-load on first expand via /search/api/profile/<id>/<section>.
-    enrichment_html = ""
+    # Enrichment accordion sections — rendered outside the main card
     graph_user_id = graph_data.get("id") if isinstance(graph_data, dict) else None
     genesys_user_id = genesys_data.get("id") if isinstance(genesys_data, dict) else None
+    enrichment_accordion_html = ""
     if graph_user_id:
-        enrichment_html += render_template(
-            "search/_profile_section.html",
+        enrichment_accordion_html += _render_enrichment_accordion(
             section_id=f"m365-{graph_user_id}",
             title="Microsoft 365",
             icon_class="fa-microsoft",
-            accent_class="text-ttcu-green",
+            bg_class="bg-ttcu-green",
             endpoint_url=f"/search/api/profile/{graph_user_id}/m365",
         )
     if genesys_user_id:
-        enrichment_html += render_template(
-            "search/_profile_section.html",
+        enrichment_accordion_html += _render_enrichment_accordion(
             section_id=f"genesys-{genesys_user_id}",
             title="Genesys Cloud",
             icon_class="fa-headset",
-            accent_class="text-genesys-orange",
+            bg_class="bg-genesys-orange",
             endpoint_url=f"/search/api/profile/{genesys_user_id}/genesys",
         )
 
@@ -1619,7 +1616,7 @@ def _render_unified_profile(results):
     )
 
     html = f"""
-    <div class="space-y-6" data-profile-card>
+    <div class="space-y-4" data-profile-card>
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center">
                 {photo_element}
@@ -1639,13 +1636,60 @@ def _render_unified_profile(results):
                     {phone_html_items}
                 </dl>
             </div>
-            {enrichment_html}
             {export_buttons_html}
         </div>
+        {enrichment_accordion_html}
         {keystone_accordion_html}
     </div>
     """
     return html
+
+
+def _render_enrichment_accordion(
+    section_id: str, title: str, icon_class: str, bg_class: str, endpoint_url: str
+) -> str:
+    """Render an enrichment section as a standalone accordion card with lazy-load via HTMX."""
+    return f"""
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <button
+            type="button"
+            id="{section_id}-header"
+            aria-expanded="false"
+            aria-controls="{section_id}-body"
+            class="w-full flex items-center justify-between p-4 {bg_class} text-white hover:opacity-90 transition-opacity duration-200"
+            onclick="(function(b){{
+                var expanded = b.getAttribute('aria-expanded') === 'true';
+                b.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                var body = document.getElementById(b.getAttribute('aria-controls'));
+                if (body) {{ body.classList.toggle('hidden'); }}
+                var chev = b.querySelector('[data-chevron]');
+                if (chev) {{ chev.classList.toggle('rotate-180'); }}
+            }})(this)">
+            <div class="flex items-center">
+                <i class="fas {icon_class} mr-3"></i>
+                <span class="text-lg font-semibold">{title}</span>
+            </div>
+            <i class="fas fa-chevron-down transform transition-transform duration-200" data-chevron></i>
+        </button>
+        <div id="{section_id}-body"
+             role="region"
+             aria-labelledby="{section_id}-header"
+             class="hidden p-6"
+             hx-get="{endpoint_url}"
+             hx-trigger="click once from:#{section_id}-header"
+             hx-target="this"
+             hx-swap="innerHTML"
+             hx-indicator="#{section_id}-spinner">
+            <div id="{section_id}-spinner" class="htmx-indicator">
+                <div class="space-y-2">
+                    <div class="h-3 bg-gray-200 rounded animate-pulse"></div>
+                    <div class="h-3 bg-gray-200 rounded animate-pulse w-5/6"></div>
+                    <div class="h-3 bg-gray-200 rounded animate-pulse w-4/6"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
 
 
 def _render_keystone_accordion(keystone_data, keystone_error=None):
