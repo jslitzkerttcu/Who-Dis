@@ -30,9 +30,23 @@ class GenesysCacheDB(BaseCacheService):
     def region(self):
         return self._get_config("region", "mypurecloud.com")
 
+    _region_api_mapping = {
+        "usw2": "api.usw2.pure.cloud",
+        "cac1": "api.cac1.pure.cloud",
+        "euw2": "api.euw2.pure.cloud",
+        "euc2": "api.euc2.pure.cloud",
+        "aps1": "api.aps1.pure.cloud",
+        "apne2": "api.apne2.pure.cloud",
+        "apne3": "api.apne3.pure.cloud",
+        "sae1": "api.sae1.pure.cloud",
+        "mec1": "api.mec1.pure.cloud",
+        "use2": "api.use2.us-gov-pure.cloud",
+    }
+
     @property
     def base_url(self):
-        return f"https://api.{self.region}"
+        api_domain = self._region_api_mapping.get(self.region, f"api.{self.region}")
+        return f"https://{api_domain}"
 
     @property
     def cache_timeout(self):
