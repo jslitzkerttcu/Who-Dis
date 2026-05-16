@@ -1308,7 +1308,7 @@ def _render_multiple_results(results, search_term):
     html += '<h3 class="text-2xl font-semibold">Multiple Results Found</h3>'
 
     # Azure AD multiple results
-    if results.get("azureAD_multiple") and results.get("azureAD", {}).get("results"):
+    if results.get("azureAD_multiple") and (results.get("azureAD") or {}).get("results"):
         html += '<div class="bg-white rounded-lg shadow-md p-6">'
         html += '<h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">'
         html += '<span class="w-3 h-3 bg-ttcu-green rounded-full mr-2"></span>'
@@ -1347,7 +1347,7 @@ def _render_multiple_results(results, search_term):
         html += "</div></div>"
 
     # Genesys multiple results
-    if results.get("genesys_multiple") and results.get("genesys", {}).get("results"):
+    if results.get("genesys_multiple") and (results.get("genesys") or {}).get("results"):
         html += '<div class="bg-white rounded-lg shadow-md p-6">'
         html += '<h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">'
         html += '<span class="w-3 h-3 bg-genesys-orange rounded-full mr-2"></span>'
@@ -1381,9 +1381,9 @@ def _render_multiple_results(results, search_term):
 def _render_unified_profile(results):
     """Render unified user profile in single-column card layout."""
     # Get data from all three sources correctly
-    ldap_data = results.get("azureAD", {})
-    graph_data = results.get("graph", {})
-    genesys_data = results.get("genesys", {})
+    ldap_data = results.get("azureAD") or {}
+    graph_data = results.get("graph") or {}
+    genesys_data = results.get("genesys") or {}
 
     # Get user data with fallbacks using LDAP attributes
     name = ldap_data.get("displayName", "Unknown User")
