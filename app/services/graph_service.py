@@ -7,8 +7,6 @@ import base64
 import requests
 from app.services.base import BaseAPITokenService
 
-# Legacy GraphPhoto model removed - photos now stored in employee_profiles
-from app.database import get_db
 from app.interfaces.search_service import ISearchService
 from app.interfaces.token_service import ITokenService
 
@@ -131,21 +129,20 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
             logger.error(f"Error testing Graph connection: {str(e)}")
             return False
 
-    def _photo_exists_in_cache(self, user_id: str) -> bool:
-        """Check if user photo exists in cache and is fresh."""
+    def _get_photo_from_employee_profiles(self, upn: str) -> Optional[str]:
+        """Get cached photo from employee_profiles table as base64 data URL."""
         try:
-            from flask import current_app
+            from app.models.employee_profiles import EmployeeProfiles
 
-            if current_app:
-                with get_db() as conn:
-                    cached_photo = conn.execute(
-                        "SELECT photo_data FROM graph_photos WHERE user_id = %s AND updated_at > NOW() - INTERVAL '24 hours'",
-                        (user_id,),
-                    ).first()
-                    return cached_photo is not None
-        except Exception:
-            pass
-        return False
+            profile = EmployeeProfiles.get_by_upn(upn)
+            if profile and profile.photo_data:
+                photo_bytes = bytes(profile.photo_data) if isinstance(profile.photo_data, memoryview) else profile.photo_data
+                photo_b64 = base64.b64encode(photo_bytes).decode("utf-8")
+                content_type = profile.photo_content_type or "image/jpeg"
+                return f"data:{content_type};base64,{photo_b64}"
+        except Exception as e:
+            logger.debug(f"Error fetching photo from employee_profiles for {upn}: {str(e)}")
+        return None
 
     def search_user(
         self, search_term: str, include_photo: bool = True
@@ -304,15 +301,15 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
     ) -> Dict[str, Any]:
         """Process raw Graph API user data into our format."""
         try:
-            # Get user photo if requested and not cached
             photo_data = None
             user_id = user.get("id")
-            if include_photo and user_id and not self._photo_exists_in_cache(user_id):
-                user_principal_name = user.get("userPrincipalName") or ""
+            user_principal_name = user.get("userPrincipalName") or ""
+
+            if include_photo and user_principal_name:
+                photo_data = self._get_photo_from_employee_profiles(user_principal_name)
+
+            if include_photo and not photo_data and user_id:
                 photo_data = self.get_user_photo(user_id, user_principal_name)
-            elif include_photo:
-                # Legacy photo caching removed - photos now managed by employee_profiles service
-                pass
 
             # Build result
             result = {
