@@ -5,6 +5,7 @@ callback (see app/auth/oidc.py). All Easy-Auth / Azure App Service header
 reading and the legacy dev-bypass env-var are deleted — Keycloak is the only
 auth path (D-04). See WD-AUTH-08 and the Phase 9 audit trail for removed code.
 """
+
 import logging
 from typing import Optional
 

@@ -544,7 +544,10 @@ def _render_users_table(users):
         created_date = format_timestamp(user.created_at, "%Y-%m-%d")
 
         # Role colors
-        role_colors = {"admin": "purple", "viewer": "gray"}  # Phase 9 D-05: editor removed
+        role_colors = {
+            "admin": "purple",
+            "viewer": "gray",
+        }  # Phase 9 D-05: editor removed
         role_color = role_colors.get(user.role, "gray")
 
         html += _render_user_row(

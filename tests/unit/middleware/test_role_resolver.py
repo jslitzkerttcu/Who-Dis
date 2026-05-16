@@ -1,4 +1,5 @@
 """Boundary tests for RoleResolver (Plan 02-06 gap closure round 2)."""
+
 import pytest
 from flask import Flask
 
@@ -14,6 +15,7 @@ def _ctx(roles=None):
     ctx = app.test_request_context()
     ctx.push()
     from flask import session
+
     if roles is not None:
         session["user"] = {"email": "x@x.com", "roles": roles}
     return ctx

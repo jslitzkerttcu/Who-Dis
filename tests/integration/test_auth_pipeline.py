@@ -5,6 +5,7 @@ OIDC-callback flow. The fixtures (authenticated_client, admin_client) abstract
 the header-injection detail; only the test bodies that assert on header-specific
 behavior need to change.
 """
+
 import logging
 import pytest
 
@@ -36,7 +37,9 @@ def test_missing_header_redirects_or_denies(client, db_session):
     )
 
 
-def test_insufficient_role_returns_401_with_nope_template(authenticated_client, db_session):
+def test_insufficient_role_returns_401_with_nope_template(
+    authenticated_client, db_session
+):
     """authenticated_client is provisioned as viewer but doesn't yet exist as a
     DB row when this test starts — the role_resolver will fail to grant any role,
     so even / (search root, requires viewer) ends up denying. We assert against
@@ -75,21 +78,21 @@ def test_request_id_present_in_log_records(admin_client, caplog):
             # Emit a deterministic log line from a known logger so caplog
             # has at least one record to inspect.
             from app.middleware.request_id import logger as rid_logger
+
             admin_client.get("/admin/")
             rid_logger.info("test marker after request")
 
         # request_id should be set on at least one record produced inside a
         # request context (sentinel "-" means no context — those don't count).
         records_with_id = [
-            r for r in caplog.records
+            r
+            for r in caplog.records
             if hasattr(r, "request_id") and r.request_id and r.request_id != "-"
         ]
         # If no in-request log lines were captured at INFO level, accept
         # the sentinel as proof the filter is wired (OPS-02 contract met).
         if not records_with_id:
-            sentinel_records = [
-                r for r in caplog.records if hasattr(r, "request_id")
-            ]
+            sentinel_records = [r for r in caplog.records if hasattr(r, "request_id")]
             assert len(sentinel_records) > 0, (
                 f"RequestIdFilter not wired; got {len(caplog.records)} records, "
                 f"none with request_id attribute"

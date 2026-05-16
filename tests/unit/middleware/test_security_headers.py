@@ -1,4 +1,5 @@
 """Boundary tests for init_security_headers (Plan 02-06 gap closure round 2)."""
+
 import pytest
 from flask import Flask
 

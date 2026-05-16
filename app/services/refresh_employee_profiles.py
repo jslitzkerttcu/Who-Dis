@@ -621,9 +621,7 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
             except RuntimeError:
                 pass  # No app context (CLI mode) — skip SKU refresh
             except Exception as e:
-                logger.error(
-                    f"SKU catalog refresh failed: {str(e)}", exc_info=True
-                )
+                logger.error(f"SKU catalog refresh failed: {str(e)}", exc_info=True)
 
             end_time = datetime.now(timezone.utc)
             duration = (end_time - start_time).total_seconds()

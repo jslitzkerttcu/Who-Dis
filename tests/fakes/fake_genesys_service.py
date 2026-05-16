@@ -1,4 +1,5 @@
 """Fake Genesys service. Supports the orchestrator's too_many_results degraded path."""
+
 from typing import Any, Dict, List, Optional
 from app.interfaces.search_service import ISearchService
 from app.interfaces.token_service import ITokenService
@@ -42,7 +43,8 @@ class FakeGenesysService(ISearchService, ITokenService):
             }
         term = (search_term or "").lower()
         matches = [
-            u for u in self._users
+            u
+            for u in self._users
             if term in u.get("email", "").lower() or term in u.get("name", "").lower()
         ]
         if not matches:

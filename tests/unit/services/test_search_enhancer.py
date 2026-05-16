@@ -6,6 +6,7 @@ The module imports a singleton ``employee_profiles_service`` from
 ``app.services.refresh_employee_profiles``; tests patch it at that
 boundary so no DB / warehouse traffic is required.
 """
+
 import pytest
 
 from app.services.search_enhancer import SearchEnhancer

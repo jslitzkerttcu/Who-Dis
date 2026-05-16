@@ -4,6 +4,7 @@ DATABASE_URL is sourced from the process env (injected by the SandCastle deploy
 engine into the container). The Flask app's SQLAlchemy metadata is used as the
 target so `alembic revision --autogenerate` diffs against the live model.
 """
+
 import os
 from logging.config import fileConfig
 

@@ -11,6 +11,7 @@ Pre-existing bug surfaced by these tests (xfail-strict per Plan 02-PATTERNS.md):
   documented in deferred-items.md for ApiToken.is_expired and
   simple_config.config_set/get.
 """
+
 import pytest
 
 from app.database import db
@@ -81,11 +82,15 @@ def test_create_mapping_duplicate_raises(svc, db_session):
     db.session.commit()
 
     svc.create_mapping(
-        job_code="ENG-3", role_name="Admin", system_name="ad_groups",
+        job_code="ENG-3",
+        role_name="Admin",
+        system_name="ad_groups",
     )
     with pytest.raises(ValueError, match="already exists"):
         svc.create_mapping(
-            job_code="ENG-3", role_name="Admin", system_name="ad_groups",
+            job_code="ENG-3",
+            role_name="Admin",
+            system_name="ad_groups",
         )
 
 
@@ -217,7 +222,9 @@ def test_get_statistics_counts_by_mapping_type(svc, db_session):
 def test_export_mappings_csv_round_trip(svc, db_session):
     jc = JobCodeFactory(job_code="CSV-1", job_title="CSV Tester")
     sr = SystemRoleFactory(role_name="csv-role", system_name="ad_groups")
-    JobRoleMappingFactory(job_code=jc, system_role=sr, mapping_type="optional", priority=2)
+    JobRoleMappingFactory(
+        job_code=jc, system_role=sr, mapping_type="optional", priority=2
+    )
     db.session.commit()
 
     csv_text = svc.export_mappings_csv()

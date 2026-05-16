@@ -1,4 +1,5 @@
 """Boundary tests for handle_errors decorator (Plan 02-06 gap closure round 2)."""
+
 import pytest
 from flask import Flask
 
@@ -113,7 +114,6 @@ def test_handle_errors_continues_when_audit_log_raises(mocker):
     app = _fresh_app()
 
     # Patch the audit service to raise during error logging
-    import app.middleware.errors as errors_mod
     fake_audit = mocker.MagicMock()
     fake_audit.log_error.side_effect = RuntimeError("audit dead")
     mocker.patch(

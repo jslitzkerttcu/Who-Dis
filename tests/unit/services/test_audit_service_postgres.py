@@ -4,8 +4,8 @@ Pure DB-driven tests against the testcontainers Postgres. Asserts on
 AuditLog rows after each public log_*/get_* call. ErrorLog rows for
 log_error path. No HTTP mocks needed.
 """
+
 import pytest
-from datetime import datetime, timedelta, timezone
 
 from app.models.audit import AuditLog
 from app.models.error import ErrorLog

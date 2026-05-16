@@ -11,9 +11,9 @@ live DB after the Plan 06 post-cutover verification (per
 `scripts/cutover/README.md`); until then it remains for forensics but is not
 read by the running app except for the debug toggle.
 """
+
 import logging
 import os
-from typing import Optional
 
 from sqlalchemy import text
 

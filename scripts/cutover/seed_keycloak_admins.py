@@ -20,6 +20,7 @@ Required env:
     KC_ADMIN_USER            — Keycloak admin console user
     KC_ADMIN_PASS            — Keycloak admin console password
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,7 +66,9 @@ def get_client_uuid(kc_base: str, realm: str, client_id: str, headers: dict) -> 
     return clients[0]["id"]
 
 
-def get_role_rep(kc_base: str, realm: str, client_uuid: str, role_name: str, headers: dict) -> dict:
+def get_role_rep(
+    kc_base: str, realm: str, client_uuid: str, role_name: str, headers: dict
+) -> dict:
     """Fetch the role representation object needed for role-mapping POST body."""
     resp = requests.get(
         f"{kc_base}/admin/realms/{realm}/clients/{client_uuid}/roles/{role_name}",
@@ -139,7 +142,9 @@ def harvest_admin_emails(live_dsn: str, include_editors: bool) -> List[str]:
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     parser = argparse.ArgumentParser(
         description="Pre-seed Who-Dis legacy admins as Keycloak who-dis admin role."
     )

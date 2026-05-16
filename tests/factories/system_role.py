@@ -4,6 +4,7 @@ Required columns: role_name, system_name, role_type. The model enforces a unique
 constraint over (role_name, system_name, role_type) — the sequence on role_name
 keeps generated rows distinct.
 """
+
 import factory
 from factory.alchemy import SQLAlchemyModelFactory
 from app.database import db

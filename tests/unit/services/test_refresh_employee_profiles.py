@@ -6,6 +6,7 @@ Graph API traffic occurs. Stays away from the heavy async ``refresh_all_profiles
 orchestrator (asyncio.gather + httpx.AsyncClient + Semaphore — too much
 fixture surface for a coverage gap-closure plan).
 """
+
 import pytest
 
 from app.database import db
@@ -18,15 +19,17 @@ pytestmark = pytest.mark.unit
 
 def _make_svc():
     svc = EmployeeProfilesRefreshService()
-    svc._config_cache.update({
-        "data_warehouse.server": "test-sql.example.com",
-        "data_warehouse.database": "TestDB",
-        "data_warehouse.client_id": "fake-client",
-        "data_warehouse.client_secret": "fake-secret",
-        "data_warehouse.connection_timeout": 30,
-        "data_warehouse.query_timeout": 60,
-        "data_warehouse.cache_refresh_hours": 6.0,
-    })
+    svc._config_cache.update(
+        {
+            "data_warehouse.server": "test-sql.example.com",
+            "data_warehouse.database": "TestDB",
+            "data_warehouse.client_id": "fake-client",
+            "data_warehouse.client_secret": "fake-secret",
+            "data_warehouse.connection_timeout": 30,
+            "data_warehouse.query_timeout": 60,
+            "data_warehouse.cache_refresh_hours": 6.0,
+        }
+    )
     return svc
 
 
@@ -76,7 +79,9 @@ def test_test_connection_returns_false_when_credentials_missing(svc, mocker):
 
 def test_test_connection_happy_path_with_mocked_connect(svc, mocker):
     if ref_mod.pyodbc is None:
-        pytest.skip("pyodbc unavailable in this env; happy path requires the module present")
+        pytest.skip(
+            "pyodbc unavailable in this env; happy path requires the module present"
+        )
     # test_connection() calls self._clear_config_cache() at the top, wiping our
     # pre-populated svc._config_cache. Patch it out so the mocked credentials survive.
     mocker.patch.object(svc, "_clear_config_cache")

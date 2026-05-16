@@ -715,7 +715,9 @@ def get_genesys_licenses(user_id):
     genesys_service = current_app.container.get("genesys_service")
     licenses = genesys_service.get_user_licenses(user_id)
 
-    can_edit = hasattr(g, "role") and g.role in ("admin",)  # Phase 9 D-05: editor tier removed
+    can_edit = hasattr(g, "role") and g.role in (
+        "admin",
+    )  # Phase 9 D-05: editor tier removed
 
     if request.headers.get("HX-Request"):
         return _render_genesys_licenses(licenses, user_id, can_edit)
@@ -799,16 +801,23 @@ def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
 
     # Last sign-in (D-01) — signInActivity may be absent if no Premium P1.
     sign_in_activity = user_profile.get("signInActivity") or {}
-    last_sign_in = sign_in_activity.get("lastSignInDateTime") if isinstance(
-        sign_in_activity, dict
-    ) else None
+    last_sign_in = (
+        sign_in_activity.get("lastSignInDateTime")
+        if isinstance(sign_in_activity, dict)
+        else None
+    )
 
     # MFA (D-02) — handle permission-missing sentinel from Plan 01.
     mfa_label = None
     mfa_methods_list = []
     if isinstance(mfa_result, dict) and mfa_result.get("error") == "permission_missing":
         warnings.append(
-            {"field": "MFA", "permission": mfa_result.get("permission", "UserAuthenticationMethod.Read.All")}
+            {
+                "field": "MFA",
+                "permission": mfa_result.get(
+                    "permission", "UserAuthenticationMethod.Read.All"
+                ),
+            }
         )
     elif isinstance(mfa_result, list):
         mfa_methods_list = [_friendly_mfa_method_name(m) for m in mfa_result]
@@ -1083,7 +1092,9 @@ def remove_genesys_license(user_id, license_id):
 
     # Return refreshed license list
     licenses = genesys_service.get_user_licenses(user_id)
-    can_edit = hasattr(g, "role") and g.role in ("admin",)  # Phase 9 D-05: editor tier removed
+    can_edit = hasattr(g, "role") and g.role in (
+        "admin",
+    )  # Phase 9 D-05: editor tier removed
 
     if request.headers.get("HX-Request"):
         return _render_genesys_licenses(licenses, user_id, can_edit)
@@ -1308,7 +1319,9 @@ def _render_multiple_results(results, search_term):
     html += '<h3 class="text-2xl font-semibold">Multiple Results Found</h3>'
 
     # Azure AD multiple results
-    if results.get("azureAD_multiple") and (results.get("azureAD") or {}).get("results"):
+    if results.get("azureAD_multiple") and (results.get("azureAD") or {}).get(
+        "results"
+    ):
         html += '<div class="bg-white rounded-lg shadow-md p-6">'
         html += '<h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">'
         html += '<span class="w-3 h-3 bg-ttcu-green rounded-full mr-2"></span>'
@@ -1328,7 +1341,7 @@ def _render_multiple_results(results, search_term):
 
             html += f'''
             <div class="border border-gray-200 rounded-lg p-4 hover:border-ttcu-green cursor-pointer"
-                 hx-post="{url_for('search.search_specific')}"
+                 hx-post="{url_for("search.search_specific")}"
                  hx-vals='{{"search_term": "{search_term}", "graph_user_id": "{user.get("id", "")}", "ldap_user_dn": "{user.get("distinguishedName", "")}"}}'
                  hx-target="#searchResults"
                  hx-swap="innerHTML">
@@ -1347,7 +1360,9 @@ def _render_multiple_results(results, search_term):
         html += "</div></div>"
 
     # Genesys multiple results
-    if results.get("genesys_multiple") and (results.get("genesys") or {}).get("results"):
+    if results.get("genesys_multiple") and (results.get("genesys") or {}).get(
+        "results"
+    ):
         html += '<div class="bg-white rounded-lg shadow-md p-6">'
         html += '<h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">'
         html += '<span class="w-3 h-3 bg-genesys-orange rounded-full mr-2"></span>'
@@ -1357,7 +1372,7 @@ def _render_multiple_results(results, search_term):
         for user in results["genesys"]["results"]:
             html += f'''
             <div class="border border-gray-200 rounded-lg p-4 hover:border-genesys-orange cursor-pointer"
-                 hx-post="{url_for('search.search_specific')}"
+                 hx-post="{url_for("search.search_specific")}"
                  hx-vals='{{"search_term": "{search_term}", "genesys_user_id": "{user.get("id", "")}"}}'
                  hx-target="#searchResults"
                  hx-swap="innerHTML">
@@ -2537,7 +2552,9 @@ def _render_notes_empty(email):
     from flask import g
 
     # Check if user can add notes (editor or admin)
-    can_edit = hasattr(g, "role") and g.role in ["admin"]  # Phase 9 D-05: editor tier removed
+    can_edit = hasattr(g, "role") and g.role in [
+        "admin"
+    ]  # Phase 9 D-05: editor tier removed
 
     html = '<div class="space-y-2">'
     html += '<p class="text-sm text-gray-500">No notes yet</p>'
@@ -2561,7 +2578,9 @@ def _render_notes_list(notes, email):
     from flask import g
 
     # Check if user can add notes (editor or admin)
-    can_edit = hasattr(g, "role") and g.role in ["admin"]  # Phase 9 D-05: editor tier removed
+    can_edit = hasattr(g, "role") and g.role in [
+        "admin"
+    ]  # Phase 9 D-05: editor tier removed
 
     html = '<div class="space-y-2">'
 
@@ -2587,7 +2606,9 @@ def _render_single_note(note, email):
     from flask import g
 
     # Check if user can edit notes (editor or admin)
-    can_edit = hasattr(g, "role") and g.role in ["admin"]  # Phase 9 D-05: editor tier removed
+    can_edit = hasattr(g, "role") and g.role in [
+        "admin"
+    ]  # Phase 9 D-05: editor tier removed
 
     # Format dates
     created_date = (

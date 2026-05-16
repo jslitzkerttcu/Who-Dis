@@ -3,6 +3,7 @@
 Default expires_at = now+1h; `expiring=True` trait sets expires_at within the
 token-refresh service's 10-minute threshold (token_refresh_service.py:92-102).
 """
+
 from datetime import datetime, timedelta, timezone
 import factory
 from factory.alchemy import SQLAlchemyModelFactory
@@ -18,7 +19,9 @@ class ApiTokenFactory(SQLAlchemyModelFactory):
 
     service_name = factory.Sequence(lambda n: f"service-{n}")
     access_token = factory.Sequence(lambda n: f"fake-token-{n}")
-    expires_at = factory.LazyFunction(lambda: datetime.now(timezone.utc) + timedelta(hours=1))
+    expires_at = factory.LazyFunction(
+        lambda: datetime.now(timezone.utc) + timedelta(hours=1)
+    )
 
     class Params:
         # Trait: token within the 10-minute refresh threshold

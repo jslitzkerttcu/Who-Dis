@@ -9,6 +9,7 @@ The JobRoleMapping model exposes ORM relationships `job_code` and
 SystemRole.role_mappings), so factory_boy's SubFactory + relationship
 assignment resolves the FK ids on flush.
 """
+
 import factory
 from factory.alchemy import SQLAlchemyModelFactory
 from app.database import db

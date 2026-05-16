@@ -6,6 +6,7 @@ Path: POST /search → @require_role('viewer') → SearchOrchestrator.execute_co
 Search route is POST /search (URL prefix /search → effective /search/search) with
 form param `query`. Verified against app/blueprints/search/__init__.py:793.
 """
+
 import pytest
 
 pytestmark = pytest.mark.integration
@@ -39,18 +40,30 @@ def _post_search(client, term):
 def test_search_returns_merged_result_from_all_three_sources(
     viewer_client, fake_ldap, fake_graph, fake_genesys
 ):
-    fake_ldap.add_user({
-        "sAMAccountName": "jdoe", "mail": "jdoe@x.com",
-        "displayName": "J Doe", "memberOf": [],
-    })
-    fake_graph.add_user({
-        "userPrincipalName": "jdoe@x.com", "id": "g-1",
-        "assignedLicenses": [], "signInActivity": {},
-    })
-    fake_genesys.add_user({
-        "id": "gn-1", "email": "jdoe@x.com",
-        "routingStatus": "AVAILABLE", "name": "J Doe",
-    })
+    fake_ldap.add_user(
+        {
+            "sAMAccountName": "jdoe",
+            "mail": "jdoe@x.com",
+            "displayName": "J Doe",
+            "memberOf": [],
+        }
+    )
+    fake_graph.add_user(
+        {
+            "userPrincipalName": "jdoe@x.com",
+            "id": "g-1",
+            "assignedLicenses": [],
+            "signInActivity": {},
+        }
+    )
+    fake_genesys.add_user(
+        {
+            "id": "gn-1",
+            "email": "jdoe@x.com",
+            "routingStatus": "AVAILABLE",
+            "name": "J Doe",
+        }
+    )
 
     response = _post_search(viewer_client, "jdoe")
     assert response.status_code == 200
@@ -61,7 +74,9 @@ def test_search_returns_merged_result_from_all_three_sources(
     )
 
 
-def test_search_no_results_returns_empty_state(viewer_client, fake_ldap, fake_graph, fake_genesys):
+def test_search_no_results_returns_empty_state(
+    viewer_client, fake_ldap, fake_graph, fake_genesys
+):
     response = _post_search(viewer_client, "nobody-exists-xyz")
     assert response.status_code == 200
     # Empty result should still render (even if just an empty card grid)
@@ -76,11 +91,17 @@ def test_search_no_results_returns_empty_state(viewer_client, fake_ldap, fake_gr
     "hardening phase will fix.",
     strict=True,
 )
-def test_search_only_ldap_match_renders(viewer_client, fake_ldap, fake_graph, fake_genesys):
-    fake_ldap.add_user({
-        "sAMAccountName": "ldaponly", "mail": "ldaponly@x.com",
-        "displayName": "LDAP Only", "memberOf": [],
-    })
+def test_search_only_ldap_match_renders(
+    viewer_client, fake_ldap, fake_graph, fake_genesys
+):
+    fake_ldap.add_user(
+        {
+            "sAMAccountName": "ldaponly",
+            "mail": "ldaponly@x.com",
+            "displayName": "LDAP Only",
+            "memberOf": [],
+        }
+    )
     response = _post_search(viewer_client, "ldaponly")
     assert response.status_code == 200
 
@@ -90,10 +111,14 @@ def test_search_only_ldap_match_renders(viewer_client, fake_ldap, fake_graph, fa
     strict=True,
 )
 def test_search_only_genesys_match(viewer_client, fake_ldap, fake_graph, fake_genesys):
-    fake_genesys.add_user({
-        "id": "gn-2", "email": "genonly@x.com",
-        "routingStatus": "AVAILABLE", "name": "Genesys Only",
-    })
+    fake_genesys.add_user(
+        {
+            "id": "gn-2",
+            "email": "genonly@x.com",
+            "routingStatus": "AVAILABLE",
+            "name": "Genesys Only",
+        }
+    )
     response = _post_search(viewer_client, "genonly")
     assert response.status_code == 200
 
@@ -103,25 +128,40 @@ def test_search_only_genesys_match(viewer_client, fake_ldap, fake_graph, fake_ge
     strict=True,
 )
 def test_search_only_graph_match(viewer_client, fake_ldap, fake_graph, fake_genesys):
-    fake_graph.add_user({
-        "userPrincipalName": "graphonly@x.com", "id": "g-2",
-        "displayName": "Graph Only", "assignedLicenses": [], "signInActivity": {},
-    })
+    fake_graph.add_user(
+        {
+            "userPrincipalName": "graphonly@x.com",
+            "id": "g-2",
+            "displayName": "Graph Only",
+            "assignedLicenses": [],
+            "signInActivity": {},
+        }
+    )
     response = _post_search(viewer_client, "graphonly")
     assert response.status_code == 200
 
 
-def test_search_multiple_ldap_results_renders(viewer_client, fake_ldap, fake_graph, fake_genesys):
+def test_search_multiple_ldap_results_renders(
+    viewer_client, fake_ldap, fake_graph, fake_genesys
+):
     """Multiple LDAP hits should render without crashing — the disambiguation
     template is exercised (azureAD_multiple branch in the search route)."""
-    fake_ldap.add_user({
-        "sAMAccountName": "jdoe1", "mail": "jdoe1@x.com",
-        "displayName": "J Doe 1", "memberOf": [],
-    })
-    fake_ldap.add_user({
-        "sAMAccountName": "jdoe2", "mail": "jdoe2@x.com",
-        "displayName": "J Doe 2", "memberOf": [],
-    })
+    fake_ldap.add_user(
+        {
+            "sAMAccountName": "jdoe1",
+            "mail": "jdoe1@x.com",
+            "displayName": "J Doe 1",
+            "memberOf": [],
+        }
+    )
+    fake_ldap.add_user(
+        {
+            "sAMAccountName": "jdoe2",
+            "mail": "jdoe2@x.com",
+            "displayName": "J Doe 2",
+            "memberOf": [],
+        }
+    )
     response = _post_search(viewer_client, "jdoe")
     assert response.status_code == 200
 
@@ -143,22 +183,35 @@ def test_search_genesys_too_many_results_does_not_break_render(
     container_reset.register("genesys_service", lambda c: too_many)
     container_reset.reset()
 
-    fake_ldap.add_user({
-        "sAMAccountName": "jdoe", "mail": "jdoe@x.com",
-        "displayName": "J Doe", "memberOf": [],
-    })
+    fake_ldap.add_user(
+        {
+            "sAMAccountName": "jdoe",
+            "mail": "jdoe@x.com",
+            "displayName": "J Doe",
+            "memberOf": [],
+        }
+    )
     response = _post_search(viewer_client, "jdoe")
     assert response.status_code == 200
 
 
-def test_search_unauthenticated_blocked(client, db_session, fake_ldap, fake_graph, fake_genesys):
+def test_search_unauthenticated_blocked(
+    client, db_session, fake_ldap, fake_graph, fake_genesys
+):
     """No principal header → @require_role('viewer') denies the request."""
-    response = client.post("/search/search", data={"query": "x"}, follow_redirects=False)
+    response = client.post(
+        "/search/search", data={"query": "x"}, follow_redirects=False
+    )
     assert response.status_code in (301, 302, 401, 403)
 
 
-def test_search_empty_term_returns_prompt(viewer_client, fake_ldap, fake_graph, fake_genesys):
+def test_search_empty_term_returns_prompt(
+    viewer_client, fake_ldap, fake_graph, fake_genesys
+):
     """Empty term short-circuits before orchestrator dispatch — see search/__init__.py:801-802."""
     response = viewer_client.post("/search/search", data={"query": ""})
     assert response.status_code == 200
-    assert b"search term" in response.data.lower() or b"please enter" in response.data.lower()
+    assert (
+        b"search term" in response.data.lower()
+        or b"please enter" in response.data.lower()
+    )

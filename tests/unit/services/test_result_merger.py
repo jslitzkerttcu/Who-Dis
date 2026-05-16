@@ -12,6 +12,7 @@ Plus several pure helpers (_combine_errors, _combine_multiple_results,
 _merge_basic_info, _find_matching_genesys_user). These are exercised
 without DB / HTTP — pure dict-in / dict-out tests.
 """
+
 import pytest
 
 from app.services.result_merger import ResultMerger
@@ -108,7 +109,13 @@ def test_merge_azure_ad_results_both_single_returns_merged(merger):
     azure_ad, error, multiple = merger.merge_azure_ad_results(
         _wrap(result={"sAMAccountName": "jdoe", "mail": "jdoe@x.com"}),
         _wrap(),
-        _wrap(result={"userPrincipalName": "jdoe@x.com", "displayName": "J Doe", "id": "g1"}),
+        _wrap(
+            result={
+                "userPrincipalName": "jdoe@x.com",
+                "displayName": "J Doe",
+                "id": "g1",
+            }
+        ),
     )
     assert error is None
     assert multiple is False
@@ -167,7 +174,11 @@ def test_merge_azure_ad_results_ldap_multiple_returns_multiple(merger):
     """When LDAP returned multiple results and Graph empty, surface the LDAP wrapper."""
     azure_ad, _, multiple = merger.merge_azure_ad_results(
         _wrap(
-            result={"multiple_results": True, "results": [{"sAMAccountName": "j1"}], "total": 5},
+            result={
+                "multiple_results": True,
+                "results": [{"sAMAccountName": "j1"}],
+                "total": 5,
+            },
             multiple=True,
         ),
         _wrap(),
@@ -181,7 +192,11 @@ def test_merge_azure_ad_results_ldap_multiple_returns_multiple(merger):
 def test_merge_azure_ad_results_both_multiple_combined(merger):
     azure_ad, _, multiple = merger.merge_azure_ad_results(
         _wrap(
-            result={"multiple_results": True, "results": [{"sAMAccountName": "l"}], "total": 3},
+            result={
+                "multiple_results": True,
+                "results": [{"sAMAccountName": "l"}],
+                "total": 3,
+            },
             multiple=True,
         ),
         _wrap(),

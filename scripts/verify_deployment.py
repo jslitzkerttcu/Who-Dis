@@ -438,9 +438,7 @@ class SandcastleVerifier:
             self.checks_passed += 1
             return True
         except socket.gaierror as e:
-            self.errors.append(
-                f"[FAIL] DNS {SANDCASTLE_HOST} does not resolve: {e}"
-            )
+            self.errors.append(f"[FAIL] DNS {SANDCASTLE_HOST} does not resolve: {e}")
             return False
 
     def run_all_checks(self) -> bool:
@@ -489,7 +487,9 @@ def main():
     """Main verification function."""
     parser = argparse.ArgumentParser(description="Verify WhoDis deployment")
     parser.add_argument(
-        "--skip-photos", action="store_true", help="Skip photo loading tests (local mode)"
+        "--skip-photos",
+        action="store_true",
+        help="Skip photo loading tests (local mode)",
     )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument(
@@ -507,7 +507,9 @@ def main():
     if args.sandcastle:
         verifier = SandcastleVerifier(verbose=args.verbose)
     else:
-        verifier = DeploymentVerifier(verbose=args.verbose, skip_photos=args.skip_photos)
+        verifier = DeploymentVerifier(
+            verbose=args.verbose, skip_photos=args.skip_photos
+        )
 
     success = verifier.run_all_checks()
     sys.exit(0 if success else 1)

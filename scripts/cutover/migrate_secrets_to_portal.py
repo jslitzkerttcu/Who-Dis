@@ -17,6 +17,7 @@ Required env:
     PORTAL_TOKEN             — admin OIDC bearer token for portal API
     WHODIS_APP_ID            — UUID of the who-dis app from POST /api/apps response
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,7 +44,7 @@ logger = logging.getLogger("migrate_secrets_to_portal")
 KEY_MAP: Dict[str, str] = {
     # LDAP / Active Directory
     "ldap.server": "LDAP_SERVER",
-    "ldap.host": "LDAP_SERVER",          # alias — some rows use "host" key
+    "ldap.host": "LDAP_SERVER",  # alias — some rows use "host" key
     "ldap.bind_dn": "LDAP_BIND_DN",
     "ldap.bind_password": "LDAP_BIND_PASSWORD",
     "ldap.base_dn": "LDAP_BASE_DN",
@@ -89,7 +90,7 @@ INTENTIONALLY_SKIPPED: set = {
     "flask.host",
     "flask.port",
     "flask.debug",
-    "flask.secret_key",   # Replaced by env SECRET_KEY per .env.sandcastle.example
+    "flask.secret_key",  # Replaced by env SECRET_KEY per .env.sandcastle.example
 }
 
 
@@ -105,7 +106,9 @@ def _decrypt_legacy_value(fernet_key: bytes, ciphertext: str) -> str:
     return f.decrypt(ciphertext.encode("utf-8")).decode("utf-8")
 
 
-def harvest_secrets(live_dsn: str, fernet_key: bytes) -> tuple[Dict[str, str], List[str]]:
+def harvest_secrets(
+    live_dsn: str, fernet_key: bytes
+) -> tuple[Dict[str, str], List[str]]:
     """Read+decrypt the legacy `configuration` rows.
 
     Returns a (mapped, unmapped) tuple:
@@ -169,7 +172,9 @@ def harvest_secrets(live_dsn: str, fernet_key: bytes) -> tuple[Dict[str, str], L
     return mapped, unmapped
 
 
-def fetch_existing_portal_vars(portal_base: str, token: str, app_id: str) -> Dict[str, str]:
+def fetch_existing_portal_vars(
+    portal_base: str, token: str, app_id: str
+) -> Dict[str, str]:
     """GET current env vars for the app. Used for diff (Pitfall 6 idempotency)."""
     resp = requests.get(
         f"{portal_base}/api/apps/{app_id}/env-vars",
@@ -184,7 +189,9 @@ def fetch_existing_portal_vars(portal_base: str, token: str, app_id: str) -> Dic
     return {item["key"]: item.get("value", "") for item in items}
 
 
-def post_new_vars(portal_base: str, token: str, app_id: str, new_vars: List[Dict[str, str]]) -> None:
+def post_new_vars(
+    portal_base: str, token: str, app_id: str, new_vars: List[Dict[str, str]]
+) -> None:
     if not new_vars:
         logger.info("No new vars to push (already up to date).")
         return
@@ -203,7 +210,9 @@ def post_new_vars(portal_base: str, token: str, app_id: str, new_vars: List[Dict
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     parser = argparse.ArgumentParser(
         description="Migrate Who-Dis encrypted-config secrets to the portal env-var store."
     )
@@ -263,9 +272,7 @@ def main() -> int:
         new_vars = [{"key": k, "value": v} for k, v in decrypted.items()]
     else:
         new_vars = [
-            {"key": k, "value": v}
-            for k, v in decrypted.items()
-            if k not in existing
+            {"key": k, "value": v} for k, v in decrypted.items() if k not in existing
         ]
     skipped = sorted(set(decrypted) - {v["key"] for v in new_vars})
     logger.info(

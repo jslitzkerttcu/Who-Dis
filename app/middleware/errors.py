@@ -31,7 +31,9 @@ def handle_errors(json_response=False):
                     from flask import session as _session
 
                     # Phase 9 D-04: identity from OIDC session, not Easy-Auth header
-                    user_email = (_session.get("user") or {}).get("email") or request.remote_user
+                    user_email = (_session.get("user") or {}).get(
+                        "email"
+                    ) or request.remote_user
                     user_role = getattr(request, "user_role", None)
                     user_ip = request.headers.get(
                         "X-Forwarded-For", request.remote_addr

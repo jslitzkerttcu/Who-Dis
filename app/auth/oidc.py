@@ -9,6 +9,7 @@ Routes:
 - GET /auth/authorize    — OIDC callback; exchanges code, populates session
 - GET /auth/logout       — RP-initiated logout (WD-AUTH-07)
 """
+
 import logging
 import os
 from typing import Optional
@@ -35,7 +36,9 @@ def init_oauth(app) -> None:
 
     issuer = os.environ["KEYCLOAK_ISSUER"]
     client_id = os.environ["KEYCLOAK_CLIENT_ID"]
-    client_secret = os.environ["KEYCLOAK_CLIENT_SECRET"]  # confidential client (Plan 01)
+    client_secret = os.environ[
+        "KEYCLOAK_CLIENT_SECRET"
+    ]  # confidential client (Plan 01)
 
     oauth.register(
         name="keycloak",
@@ -66,7 +69,9 @@ def login():
     next_url = request.args.get("next")
     if _is_safe_next_url(next_url):
         session["post_login_redirect"] = next_url
-    redirect_uri = url_for("auth.authorize", _external=True)  # https:// via ProxyFix (Plan 02)
+    redirect_uri = url_for(
+        "auth.authorize", _external=True
+    )  # https:// via ProxyFix (Plan 02)
     return oauth.keycloak.authorize_redirect(redirect_uri)
 
 
@@ -90,11 +95,7 @@ def authorize():
 
     # Pitfall 3 mitigation — store ONLY minimal claims (cookie size limit).
     client_id = os.environ["KEYCLOAK_CLIENT_ID"]
-    roles = (
-        claims.get("resource_access", {})
-              .get(client_id, {})
-              .get("roles", [])
-    )
+    roles = claims.get("resource_access", {}).get(client_id, {}).get("roles", [])
     session["user"] = {
         "email": email,
         "sub": userinfo.get("sub") or claims.get("sub"),
@@ -106,6 +107,7 @@ def authorize():
     # WD-AUTH-06 — first-time SSO provisions a local DB record (preserves audit FK).
     try:
         from app.middleware.user_provisioner import UserProvisioner
+
         name = session["user"]["name"]
         role = "admin" if "admin" in list(roles) else "viewer"
         UserProvisioner().get_or_create_user(email=email, role=role)
@@ -128,10 +130,12 @@ def logout():
         post_logout = request.host_url
         if end_session:
             client_id = os.environ["KEYCLOAK_CLIENT_ID"]
-            query = urlencode({
-                "post_logout_redirect_uri": post_logout,
-                "client_id": client_id,
-            })
+            query = urlencode(
+                {
+                    "post_logout_redirect_uri": post_logout,
+                    "client_id": client_id,
+                }
+            )
             return redirect(f"{end_session}?{query}")
     except Exception as exc:  # noqa: BLE001 — fall back to local redirect if metadata unavailable
         logger.warning("Could not load Keycloak metadata for logout: %s", exc)

@@ -5,6 +5,7 @@ so no real Genesys traffic is generated. Covers service_name/token_service_name
 properties, search_user happy/empty paths, token refresh paths, and
 ApiToken-row round-trip on token fetch.
 """
+
 import pytest
 
 from app.services.genesys_service import GenesysCloudService
@@ -14,12 +15,14 @@ pytestmark = pytest.mark.unit
 
 def _make_genesys_service():
     svc = GenesysCloudService()
-    svc._config_cache.update({
-        "genesys.client_id": "fake-client-id",
-        "genesys.client_secret": "fake-client-secret",
-        "genesys.region": "mypurecloud.com",
-        "genesys.api_timeout": 15,
-    })
+    svc._config_cache.update(
+        {
+            "genesys.client_id": "fake-client-id",
+            "genesys.client_secret": "fake-client-secret",
+            "genesys.region": "mypurecloud.com",
+            "genesys.api_timeout": 15,
+        }
+    )
     return svc
 
 
@@ -46,19 +49,22 @@ def test_search_user_happy_path(mocker, db_session, app):
     # Stub the cached-token path so _make_request only fires once for the search.
     mocker.patch.object(svc, "get_access_token", return_value="cached-token")
 
-    search_response = _mock_response(mocker, {
-        "results": [
-            {
-                "id": "gn-1",
-                "name": "J Doe",
-                "email": "jdoe@x.com",
-                "username": "jdoe",
-                "skills": [],
-                "groups": [],
-                "locations": [],
-            }
-        ]
-    })
+    search_response = _mock_response(
+        mocker,
+        {
+            "results": [
+                {
+                    "id": "gn-1",
+                    "name": "J Doe",
+                    "email": "jdoe@x.com",
+                    "username": "jdoe",
+                    "skills": [],
+                    "groups": [],
+                    "locations": [],
+                }
+            ]
+        },
+    )
 
     mocker.patch("app.services.base.requests.request", return_value=search_response)
 
@@ -89,7 +95,9 @@ def test_refresh_token_when_expired_writes_apitoken_row(mocker, db_session, app)
     # Pre-condition: no genesys token in DB
     assert ApiToken.query.filter_by(service_name="genesys").first() is None
 
-    token_response = _mock_response(mocker, {"access_token": "new-token", "expires_in": 3600})
+    token_response = _mock_response(
+        mocker, {"access_token": "new-token", "expires_in": 3600}
+    )
     mocker.patch("app.services.base.requests.request", return_value=token_response)
 
     ok = svc.refresh_token_if_needed()
@@ -125,7 +133,9 @@ def test_token_storage_round_trip(mocker, db_session, app):
 
     svc = _make_genesys_service()
 
-    token_response = _mock_response(mocker, {"access_token": "fresh-tok", "expires_in": 1800})
+    token_response = _mock_response(
+        mocker, {"access_token": "fresh-tok", "expires_in": 1800}
+    )
     mocker.patch("app.services.base.requests.request", return_value=token_response)
 
     fetched = svc._fetch_new_token()
@@ -139,9 +149,11 @@ def test_token_storage_round_trip(mocker, db_session, app):
 def test_test_connection_failure_when_credentials_missing(mocker):
     """test_connection returns False when client_id/secret are not configured."""
     svc = GenesysCloudService()
-    svc._config_cache.update({
-        "genesys.client_id": None,
-        "genesys.client_secret": None,
-    })
+    svc._config_cache.update(
+        {
+            "genesys.client_id": None,
+            "genesys.client_secret": None,
+        }
+    )
 
     assert svc.test_connection() is False

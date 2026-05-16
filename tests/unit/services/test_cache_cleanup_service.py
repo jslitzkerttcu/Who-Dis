@@ -1,4 +1,5 @@
 """Boundary tests for CacheCleanupService (Plan 02-06 gap closure round 2)."""
+
 from datetime import datetime, timedelta
 
 import pytest

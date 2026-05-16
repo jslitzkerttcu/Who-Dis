@@ -10,11 +10,11 @@ D-03: per-test isolation via nested SAVEPOINT rollback (SQLAlchemy 2.0 public AP
 D-04: container-level fake services injected via app.container.register() override.
 D-06: app.config['TESTING'] is set BEFORE create_app() finishes its background-thread blocks.
 """
+
 import os
 import subprocess
 import pytest
 from pathlib import Path
-from sqlalchemy import event
 from testcontainers.postgres import PostgresContainer
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -44,6 +44,7 @@ def _set_testing_env():
     mp = pytest.MonkeyPatch()
     mp.setenv("TESTING", "1")
     from cryptography.fernet import Fernet
+
     if "WHODIS_ENCRYPTION_KEY" not in os.environ:
         mp.setenv("WHODIS_ENCRYPTION_KEY", Fernet.generate_key().decode())
     # Phase 9 OIDC (app/auth/oidc.py:init_oauth) reads these at app boot. Real values
@@ -91,10 +92,13 @@ def app(database_url, _set_testing_env):
         print(f"[conftest] alembic upgrade head stderr: {alembic_result.stderr}")
 
     from app import create_app
+
     flask_app = create_app()
     flask_app.config["TESTING"] = True
     flask_app.config["RATELIMIT_ENABLED"] = False  # Phase 1 D-08
-    flask_app.config["WTF_CSRF_ENABLED"] = False    # Avoid CSRF noise in test client POSTs
+    flask_app.config["WTF_CSRF_ENABLED"] = (
+        False  # Avoid CSRF noise in test client POSTs
+    )
 
     with flask_app.app_context():
         # Phase 9 init_db runs db.create_all() at line 90 of app/__init__.py — BEFORE
@@ -102,6 +106,7 @@ def app(database_url, _set_testing_env):
         # that point and no tables get created. Re-run create_all() here in the test
         # context after create_app() has finished so all models are present.
         from app.database import db
+
         db.create_all()
         yield flask_app
     mp.undo()
@@ -131,7 +136,9 @@ def db_session(app):
     # TRUNCATE all user tables (preserve schema); keep internal pg_* alone.
     with db.engine.begin() as conn:
         from sqlalchemy import text
-        conn.execute(text("""
+
+        conn.execute(
+            text("""
             DO $$
             DECLARE r RECORD;
             BEGIN
@@ -139,7 +146,8 @@ def db_session(app):
                 EXECUTE 'TRUNCATE TABLE public.' || quote_ident(r.tablename) || ' RESTART IDENTITY CASCADE';
               END LOOP;
             END $$;
-        """))
+        """)
+        )
     # Drop identity-map references to TRUNCATEd rows. Without this, factory_boy
     # SubFactory calls in subsequent tests crash inside SA's instance_dict() lookup
     # when they encounter stale objects. close() also releases the connection so
@@ -167,6 +175,7 @@ def container_reset(app):
 @pytest.fixture
 def fake_ldap(container_reset):
     from tests.fakes.fake_ldap_service import FakeLDAPService
+
     instance = FakeLDAPService()
     container_reset.register("ldap_service", lambda c: instance)
     container_reset.reset()
@@ -176,6 +185,7 @@ def fake_ldap(container_reset):
 @pytest.fixture
 def fake_graph(container_reset):
     from tests.fakes.fake_graph_service import FakeGraphService
+
     instance = FakeGraphService()
     container_reset.register("graph_service", lambda c: instance)
     container_reset.reset()
@@ -185,6 +195,7 @@ def fake_graph(container_reset):
 @pytest.fixture
 def fake_genesys(container_reset):
     from tests.fakes.fake_genesys_service import FakeGenesysService
+
     instance = FakeGenesysService()
     container_reset.register("genesys_service", lambda c: instance)
     container_reset.reset()

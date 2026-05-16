@@ -124,6 +124,7 @@ def create_app():
     db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "Not configured")
     if db_uri != "Not configured":
         from urllib.parse import urlparse
+
         parsed = urlparse(db_uri)
         host_part = parsed.hostname or "?"
         if parsed.port:
@@ -165,7 +166,10 @@ def create_app():
     # Phase 9 D-13 carve-out: read the debug-mode toggle from DB (non-secret flag).
     # All secrets now come from os.environ via portal env-var injection (D-11, D-16).
     try:
-        from app.services.configuration_service import get_debug_mode, get_flask_config_from_env
+        from app.services.configuration_service import (
+            get_debug_mode,
+            get_flask_config_from_env,
+        )
 
         flask_cfg = get_flask_config_from_env()
         app.config["FLASK_HOST"] = flask_cfg["FLASK_HOST"]
@@ -202,9 +206,7 @@ def create_app():
                 genesys_service = None
                 if not (app.config.get("TESTING") or os.environ.get("TESTING")):
                     for service in token_services:
-                        service_name = getattr(
-                            service, "token_service_name", "unknown"
-                        )
+                        service_name = getattr(service, "token_service_name", "unknown")
                         try:
                             if service.refresh_token_if_needed():
                                 app.logger.info(f"{service_name} token is valid")
@@ -238,7 +240,9 @@ def create_app():
 
                 # Initialize Genesys cache using the validated service
                 # D-06: skip Genesys cache warmup under TESTING (avoids real HTTP calls).
-                if genesys_service and not (app.config.get("TESTING") or os.environ.get("TESTING")):
+                if genesys_service and not (
+                    app.config.get("TESTING") or os.environ.get("TESTING")
+                ):
                     try:
                         from app.services.genesys_cache_db import genesys_cache_db
 
@@ -308,6 +312,7 @@ def create_app():
 
     # Phase 9 — Authlib OIDC (D-01..D-04, WD-AUTH-01..07)
     from app.auth import init_oauth, auth_bp
+
     init_oauth(app)
     app.register_blueprint(auth_bp)
 
@@ -320,7 +325,10 @@ def create_app():
             from app.utils.ip_utils import format_ip_info, get_all_ips
 
             from flask import session as _session
-            user_email = (_session.get("user") or {}).get("email") or request.remote_user
+
+            user_email = (_session.get("user") or {}).get(
+                "email"
+            ) or request.remote_user
             user_role = getattr(request, "user_role", None)
 
             audit_service.log_error(

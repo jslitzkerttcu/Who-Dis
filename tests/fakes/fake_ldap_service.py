@@ -3,6 +3,7 @@
 Implements ISearchService directly without inheriting from any production base service
 class — keeps real HTTP/timeout logic out of the test path (per code_context).
 """
+
 from typing import Any, Dict, List, Optional
 from app.interfaces.search_service import ISearchService
 
@@ -21,7 +22,8 @@ class FakeLDAPService(ISearchService):
     def search_user(self, search_term: str) -> Optional[Dict[str, Any]]:
         term = (search_term or "").lower()
         matches = [
-            u for u in self._users
+            u
+            for u in self._users
             if term in u.get("sAMAccountName", "").lower()
             or term in u.get("mail", "").lower()
             or term in u.get("displayName", "").lower()

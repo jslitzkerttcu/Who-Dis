@@ -5,6 +5,7 @@ Authlib OIDC callback (app/auth/oidc.py). Header-based auth has been deleted.
 These fixtures populate the session directly via `client.session_transaction()`
 to simulate a completed OIDC callback — the public fixture API is unchanged.
 """
+
 import pytest
 
 
@@ -33,6 +34,7 @@ def authenticated_client(client, db_session):
 def admin_client(client, db_session):
     """Same as authenticated_client but pre-seeds an admin user so @require_role('admin') passes."""
     from tests.factories.user import UserFactory
+
     UserFactory(email="test-admin@example.com", role="admin")
     _login(client, "test-admin@example.com", roles=["admin"])
     return client

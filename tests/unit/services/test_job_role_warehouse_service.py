@@ -4,9 +4,9 @@ Mock pyodbc at ``app.services.job_role_warehouse_service.pyodbc`` (module-level
 try/except import). Use ``svc._config_cache`` overrides for warehouse credentials
 per Plan 02-PATTERNS.md (Configuration Access section).
 """
+
 import pytest
 
-from app.database import db
 from app.models.job_role_compliance import JobCode, SystemRole
 from app.services import job_role_warehouse_service as wh_mod
 from app.services.job_role_warehouse_service import JobRoleWarehouseService
@@ -17,14 +17,16 @@ pytestmark = pytest.mark.unit
 @pytest.fixture
 def configured_svc(app, db_session):
     svc = JobRoleWarehouseService()
-    svc._config_cache.update({
-        "data_warehouse.server": "test-sql.example.com",
-        "data_warehouse.database": "TestDB",
-        "data_warehouse.client_id": "fake-client",
-        "data_warehouse.client_secret": "fake-secret",
-        "data_warehouse.connection_timeout": 30,
-        "data_warehouse.query_timeout": 60,
-    })
+    svc._config_cache.update(
+        {
+            "data_warehouse.server": "test-sql.example.com",
+            "data_warehouse.database": "TestDB",
+            "data_warehouse.client_id": "fake-client",
+            "data_warehouse.client_secret": "fake-secret",
+            "data_warehouse.connection_timeout": 30,
+            "data_warehouse.query_timeout": 60,
+        }
+    )
     return svc
 
 
@@ -160,8 +162,12 @@ def test_sync_system_roles_aliases_keystone(configured_svc, mocker, db_session):
 
 
 def test_sync_all_compliance_data_orchestrates_subcalls(configured_svc, mocker):
-    m1 = mocker.patch.object(configured_svc, "sync_job_codes", return_value={"created": 0, "updated": 0})
-    m2 = mocker.patch.object(configured_svc, "sync_keystone_roles", return_value={"created": 0, "updated": 0})
+    m1 = mocker.patch.object(
+        configured_svc, "sync_job_codes", return_value={"created": 0, "updated": 0}
+    )
+    m2 = mocker.patch.object(
+        configured_svc, "sync_keystone_roles", return_value={"created": 0, "updated": 0}
+    )
     m3 = mocker.patch.object(
         configured_svc,
         "sync_employee_keystone_assignments",
@@ -176,8 +182,12 @@ def test_sync_all_compliance_data_orchestrates_subcalls(configured_svc, mocker):
     assert "duration_seconds" in result
 
 
-def test_sync_all_compliance_data_records_error_on_subcall_failure(configured_svc, mocker):
-    mocker.patch.object(configured_svc, "sync_job_codes", side_effect=RuntimeError("boom"))
+def test_sync_all_compliance_data_records_error_on_subcall_failure(
+    configured_svc, mocker
+):
+    mocker.patch.object(
+        configured_svc, "sync_job_codes", side_effect=RuntimeError("boom")
+    )
     result = configured_svc.sync_all_compliance_data()
     assert result["status"] == "error"
     assert "boom" in result["error"]

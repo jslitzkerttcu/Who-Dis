@@ -5,6 +5,7 @@ so no real LDAP traffic is generated. Covers service_name property,
 test_connection success/failure, search_user happy/empty/multiple paths,
 and config-cache behavior.
 """
+
 import pytest
 
 from app.services.ldap_service import LDAPService
@@ -16,17 +17,19 @@ def _make_ldap_service():
     """Return a real LDAPService with config cache pre-populated to avoid hitting
     the simple_config table (which is empty under TESTING)."""
     svc = LDAPService()
-    svc._config_cache.update({
-        "ldap.host": "ldap://fake",
-        "ldap.port": 389,
-        "ldap.use_ssl": False,
-        "ldap.bind_dn": "CN=fake,DC=x",
-        "ldap.bind_password": "secret",
-        "ldap.base_dn": "DC=x",
-        "ldap.user_search_base": "OU=Users,DC=x",
-        "ldap.connect_timeout": 5,
-        "ldap.operation_timeout": 10,
-    })
+    svc._config_cache.update(
+        {
+            "ldap.host": "ldap://fake",
+            "ldap.port": 389,
+            "ldap.use_ssl": False,
+            "ldap.bind_dn": "CN=fake,DC=x",
+            "ldap.bind_password": "secret",
+            "ldap.base_dn": "DC=x",
+            "ldap.user_search_base": "OU=Users,DC=x",
+            "ldap.connect_timeout": 5,
+            "ldap.operation_timeout": 10,
+        }
+    )
     return svc
 
 
@@ -76,11 +79,25 @@ def _make_entry(mocker, **attrs):
         attr_obj.__bool__ = lambda self, val=v: bool(val)
         setattr(entry, k, attr_obj)
     # Default missing attrs to falsy
-    for k in ("memberOf", "userAccountControl", "lockoutTime", "telephoneNumber",
-              "extensionAttribute4", "pager", "manager", "thumbnailPhoto",
-              "pwdLastSet", "accountExpires", "msDS-UserPasswordExpiryTimeComputed",
-              "ExclaimerMobile", "department", "title", "employeeID", "ipPhone",
-              "userPrincipalName"):
+    for k in (
+        "memberOf",
+        "userAccountControl",
+        "lockoutTime",
+        "telephoneNumber",
+        "extensionAttribute4",
+        "pager",
+        "manager",
+        "thumbnailPhoto",
+        "pwdLastSet",
+        "accountExpires",
+        "msDS-UserPasswordExpiryTimeComputed",
+        "ExclaimerMobile",
+        "department",
+        "title",
+        "employeeID",
+        "ipPhone",
+        "userPrincipalName",
+    ):
         if k not in attrs:
             blank = mocker.MagicMock()
             blank.value = None
@@ -136,8 +153,20 @@ def test_search_user_multiple_results(mocker):
     svc = _make_ldap_service()
 
     entries = [
-        _make_entry(mocker, dn="CN=jdoe1,DC=x", sAMAccountName="jdoe1", mail="a@x.com", displayName="J1"),
-        _make_entry(mocker, dn="CN=jdoe2,DC=x", sAMAccountName="jdoe2", mail="b@x.com", displayName="J2"),
+        _make_entry(
+            mocker,
+            dn="CN=jdoe1,DC=x",
+            sAMAccountName="jdoe1",
+            mail="a@x.com",
+            displayName="J1",
+        ),
+        _make_entry(
+            mocker,
+            dn="CN=jdoe2,DC=x",
+            sAMAccountName="jdoe2",
+            mail="b@x.com",
+            displayName="J2",
+        ),
     ]
 
     mock_conn = mocker.MagicMock()

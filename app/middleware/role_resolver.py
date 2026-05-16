@@ -10,6 +10,7 @@ The pre-existing editor tier is intentionally absent. Plan 05's role-seeding
 script promotes existing users.role IN ('admin', 'editor') to Keycloak admin.
 Existing routes guarded by @require_role("editor") are remapped in Task 3.
 """
+
 import logging
 from typing import List, Optional, Tuple
 

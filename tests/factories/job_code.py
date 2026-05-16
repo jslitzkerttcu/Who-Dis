@@ -2,6 +2,7 @@
 
 Required columns: job_code (unique), job_title.
 """
+
 import factory
 from factory.alchemy import SQLAlchemyModelFactory
 from app.database import db

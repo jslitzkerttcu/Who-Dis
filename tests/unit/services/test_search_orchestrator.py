@@ -4,6 +4,7 @@ Exercises the concurrent-merge, multiple_results, too_many_results, timeout, and
 DN-second-pass code paths in app/services/search_orchestrator.py without making
 real network calls — fakes are container-injected per the conftest fixtures.
 """
+
 import time
 import pytest
 
@@ -25,7 +26,12 @@ def test_concurrent_search_all_three_return_results(
     request_context, fake_ldap, fake_graph, fake_genesys, app
 ):
     fake_ldap.add_user(
-        {"sAMAccountName": "jdoe", "mail": "jdoe@x.com", "displayName": "J Doe", "memberOf": []}
+        {
+            "sAMAccountName": "jdoe",
+            "mail": "jdoe@x.com",
+            "displayName": "J Doe",
+            "memberOf": [],
+        }
     )
     fake_graph.add_user(
         {
@@ -35,7 +41,9 @@ def test_concurrent_search_all_three_return_results(
             "signInActivity": {},
         }
     )
-    fake_genesys.add_user({"id": "gn-1", "email": "jdoe@x.com", "routingStatus": "AVAILABLE"})
+    fake_genesys.add_user(
+        {"id": "gn-1", "email": "jdoe@x.com", "routingStatus": "AVAILABLE"}
+    )
 
     orch = _build_orchestrator(app)
     ldap_r, gen_r, graph_r = orch.execute_concurrent_search(search_term="jdoe")
@@ -61,8 +69,22 @@ def test_concurrent_search_no_results(
 def test_ldap_multiple_results_path(
     request_context, fake_ldap, fake_graph, fake_genesys, app
 ):
-    fake_ldap.add_user({"sAMAccountName": "jdoe1", "mail": "jdoe1@x.com", "displayName": "J Doe1", "memberOf": []})
-    fake_ldap.add_user({"sAMAccountName": "jdoe2", "mail": "jdoe2@x.com", "displayName": "J Doe2", "memberOf": []})
+    fake_ldap.add_user(
+        {
+            "sAMAccountName": "jdoe1",
+            "mail": "jdoe1@x.com",
+            "displayName": "J Doe1",
+            "memberOf": [],
+        }
+    )
+    fake_ldap.add_user(
+        {
+            "sAMAccountName": "jdoe2",
+            "mail": "jdoe2@x.com",
+            "displayName": "J Doe2",
+            "memberOf": [],
+        }
+    )
 
     orch = _build_orchestrator(app)
     ldap_r, _, _ = orch.execute_concurrent_search(search_term="jdoe")
@@ -72,7 +94,9 @@ def test_ldap_multiple_results_path(
     assert ldap_r["result"]["total"] == 2
 
 
-def test_genesys_too_many_results_path(request_context, fake_ldap, fake_graph, container_reset, app):
+def test_genesys_too_many_results_path(
+    request_context, fake_ldap, fake_graph, container_reset, app
+):
     """FakeGenesys with too_many=True surfaces the orchestrator's degraded path
     (search_orchestrator.py:238-242). The error message gets normalized into
     genesys_result['error'] (a string), and result stays None."""
@@ -127,18 +151,27 @@ def _seed_timeout_config(db_session, key, seconds=0):
     svc._cache[key] = str(seconds)
 
 
-def test_ldap_timeout(db_session, container_reset, request_context, fake_graph, fake_genesys, app, mocker):
+def test_ldap_timeout(
+    db_session, container_reset, request_context, fake_graph, fake_genesys, app, mocker
+):
     container_reset.register("ldap_service", lambda c: _SleepyLDAP(sleep_for=1.0))
     container_reset.reset()
 
     orch = _build_orchestrator(app)
     # Patch the timeout property directly — simple_config's set/get table-name mismatch
     # makes DB-roundtrip seeding unreliable; tested via direct attribute override.
-    mocker.patch.object(SearchOrchestrator, "ldap_timeout", new_callable=mocker.PropertyMock, return_value=0)
+    mocker.patch.object(
+        SearchOrchestrator,
+        "ldap_timeout",
+        new_callable=mocker.PropertyMock,
+        return_value=0,
+    )
     ldap_r, _, _ = orch.execute_concurrent_search(search_term="x")
 
     assert ldap_r["error"] is not None
-    assert "timed out" in ldap_r["error"].lower() or "timeout" in ldap_r["error"].lower()
+    assert (
+        "timed out" in ldap_r["error"].lower() or "timeout" in ldap_r["error"].lower()
+    )
 
 
 class _SleepyGraph:
@@ -171,15 +204,24 @@ class _SleepyGraph:
         return None
 
 
-def test_graph_timeout(db_session, container_reset, request_context, fake_ldap, fake_genesys, app, mocker):
+def test_graph_timeout(
+    db_session, container_reset, request_context, fake_ldap, fake_genesys, app, mocker
+):
     container_reset.register("graph_service", lambda c: _SleepyGraph(sleep_for=1.0))
     container_reset.reset()
 
     orch = _build_orchestrator(app)
-    mocker.patch.object(SearchOrchestrator, "graph_timeout", new_callable=mocker.PropertyMock, return_value=0)
+    mocker.patch.object(
+        SearchOrchestrator,
+        "graph_timeout",
+        new_callable=mocker.PropertyMock,
+        return_value=0,
+    )
     _, _, graph_r = orch.execute_concurrent_search(search_term="x")
     assert graph_r["error"] is not None
-    assert "timed out" in graph_r["error"].lower() or "timeout" in graph_r["error"].lower()
+    assert (
+        "timed out" in graph_r["error"].lower() or "timeout" in graph_r["error"].lower()
+    )
 
 
 class _SleepyGenesys:
@@ -212,12 +254,19 @@ class _SleepyGenesys:
         return None
 
 
-def test_genesys_timeout(db_session, container_reset, request_context, fake_ldap, fake_graph, app, mocker):
+def test_genesys_timeout(
+    db_session, container_reset, request_context, fake_ldap, fake_graph, app, mocker
+):
     container_reset.register("genesys_service", lambda c: _SleepyGenesys(sleep_for=1.0))
     container_reset.reset()
 
     orch = _build_orchestrator(app)
-    mocker.patch.object(SearchOrchestrator, "genesys_timeout", new_callable=mocker.PropertyMock, return_value=0)
+    mocker.patch.object(
+        SearchOrchestrator,
+        "genesys_timeout",
+        new_callable=mocker.PropertyMock,
+        return_value=0,
+    )
     _, gen_r, _ = orch.execute_concurrent_search(search_term="x")
     assert gen_r["error"] is not None
     assert "timed out" in gen_r["error"].lower() or "timeout" in gen_r["error"].lower()
@@ -225,13 +274,15 @@ def test_genesys_timeout(db_session, container_reset, request_context, fake_ldap
 
 def test_dn_second_pass(request_context, fake_ldap, fake_graph, fake_genesys, app):
     """Orchestrator's get_user_by_dn second-pass branch (search_orchestrator.py:139-143)."""
-    fake_ldap.add_user({
-        "sAMAccountName": "jdoe",
-        "mail": "jdoe@x.com",
-        "displayName": "J Doe",
-        "memberOf": [],
-        "distinguishedName": "CN=jdoe,DC=x,DC=com",
-    })
+    fake_ldap.add_user(
+        {
+            "sAMAccountName": "jdoe",
+            "mail": "jdoe@x.com",
+            "displayName": "J Doe",
+            "memberOf": [],
+            "distinguishedName": "CN=jdoe,DC=x,DC=com",
+        }
+    )
 
     orch = _build_orchestrator(app)
     ldap_r, _, _ = orch.execute_concurrent_search(
@@ -241,7 +292,9 @@ def test_dn_second_pass(request_context, fake_ldap, fake_graph, fake_genesys, ap
     assert ldap_r["result"]["sAMAccountName"] == "jdoe"
 
 
-def test_orchestrator_uses_request_context(request_context, fake_ldap, fake_graph, fake_genesys, app):
+def test_orchestrator_uses_request_context(
+    request_context, fake_ldap, fake_graph, fake_genesys, app
+):
     """Sanity check: orchestrator's copy_current_request_context wrappers don't crash
     when invoked inside a test_request_context (provided by request_context fixture)."""
     orch = _build_orchestrator(app)

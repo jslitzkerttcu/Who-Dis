@@ -8,6 +8,7 @@ The test exercises the real middleware chain: an OIDC-authenticated client
 (populated via the shared admin_client fixture) hits /admin/api/cache/clear,
 and we assert the resulting audit_log row carries the OIDC email.
 """
+
 import pytest
 
 pytestmark = pytest.mark.integration

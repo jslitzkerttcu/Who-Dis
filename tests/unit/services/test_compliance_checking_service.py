@@ -4,6 +4,7 @@
 tests + DB-driven tests against the testcontainers Postgres. Pure helpers are the
 cheap wins (no DB); the run/check methods exercise the full ORM round-trip.
 """
+
 from datetime import datetime, timezone, timedelta
 
 import pytest
@@ -32,39 +33,65 @@ def svc(app, db_session):
 
 
 def test_determine_violation_severity_compliant_returns_low(svc):
-    assert svc._determine_violation_severity("required", "compliant", priority=5) == "low"
+    assert (
+        svc._determine_violation_severity("required", "compliant", priority=5) == "low"
+    )
 
 
 def test_determine_violation_severity_prohibited_priority_3_returns_critical(svc):
-    assert svc._determine_violation_severity("required", "has_prohibited", priority=3) == "critical"
+    assert (
+        svc._determine_violation_severity("required", "has_prohibited", priority=3)
+        == "critical"
+    )
 
 
 def test_determine_violation_severity_prohibited_priority_1_returns_high(svc):
-    assert svc._determine_violation_severity("required", "has_prohibited", priority=1) == "high"
+    assert (
+        svc._determine_violation_severity("required", "has_prohibited", priority=1)
+        == "high"
+    )
 
 
 def test_determine_violation_severity_missing_required_priority_5_returns_critical(svc):
-    assert svc._determine_violation_severity("required", "missing_required", priority=5) == "critical"
+    assert (
+        svc._determine_violation_severity("required", "missing_required", priority=5)
+        == "critical"
+    )
 
 
 def test_determine_violation_severity_missing_required_priority_3_returns_high(svc):
-    assert svc._determine_violation_severity("required", "missing_required", priority=3) == "high"
+    assert (
+        svc._determine_violation_severity("required", "missing_required", priority=3)
+        == "high"
+    )
 
 
 def test_determine_violation_severity_missing_required_priority_1_returns_medium(svc):
-    assert svc._determine_violation_severity("required", "missing_required", priority=1) == "medium"
+    assert (
+        svc._determine_violation_severity("required", "missing_required", priority=1)
+        == "medium"
+    )
 
 
 def test_determine_violation_severity_unexpected_role_priority_3_returns_medium(svc):
-    assert svc._determine_violation_severity("unexpected", "unexpected_role", priority=3) == "medium"
+    assert (
+        svc._determine_violation_severity("unexpected", "unexpected_role", priority=3)
+        == "medium"
+    )
 
 
 def test_determine_violation_severity_unexpected_role_low_priority(svc):
-    assert svc._determine_violation_severity("unexpected", "unexpected_role", priority=1) == "low"
+    assert (
+        svc._determine_violation_severity("unexpected", "unexpected_role", priority=1)
+        == "low"
+    )
 
 
 def test_determine_violation_severity_unknown_status_returns_medium(svc):
-    assert svc._determine_violation_severity("required", "unknown_status", priority=1) == "medium"
+    assert (
+        svc._determine_violation_severity("required", "unknown_status", priority=1)
+        == "medium"
+    )
 
 
 def test_determine_remediation_action_compliant(svc):
@@ -110,10 +137,16 @@ def test_check_employee_compliance_no_mappings_returns_empty(svc, db_session):
     assert checks == []
 
 
-def test_check_employee_compliance_missing_required_role_creates_violation(svc, db_session):
+def test_check_employee_compliance_missing_required_role_creates_violation(
+    svc, db_session
+):
     jc = JobCodeFactory(job_code="ENG-MR")
-    sr = SystemRoleFactory(role_name="Admin", system_name="ad_groups", role_type="security_group")
-    JobRoleMappingFactory(job_code=jc, system_role=sr, mapping_type="required", priority=3)
+    sr = SystemRoleFactory(
+        role_name="Admin", system_name="ad_groups", role_type="security_group"
+    )
+    JobRoleMappingFactory(
+        job_code=jc, system_role=sr, mapping_type="required", priority=3
+    )
     db.session.commit()
 
     _seed_employee("alice@test.local", "ENG-MR")
@@ -130,8 +163,12 @@ def test_check_employee_compliance_missing_required_role_creates_violation(svc, 
 
 def test_check_employee_compliance_compliant_when_assignment_present(svc, db_session):
     jc = JobCodeFactory(job_code="ENG-OK")
-    sr = SystemRoleFactory(role_name="Reader", system_name="ad_groups", role_type="security_group")
-    JobRoleMappingFactory(job_code=jc, system_role=sr, mapping_type="required", priority=1)
+    sr = SystemRoleFactory(
+        role_name="Reader", system_name="ad_groups", role_type="security_group"
+    )
+    JobRoleMappingFactory(
+        job_code=jc, system_role=sr, mapping_type="required", priority=1
+    )
     db.session.commit()
 
     _seed_employee("bob@test.local", "ENG-OK")
@@ -150,8 +187,12 @@ def test_check_employee_compliance_compliant_when_assignment_present(svc, db_ses
 
 def test_check_employee_compliance_unexpected_role_flagged(svc, db_session):
     jc = JobCodeFactory(job_code="ENG-UR")
-    sr_expected = SystemRoleFactory(role_name="Expected", system_name="ad_groups", role_type="security_group")
-    JobRoleMappingFactory(job_code=jc, system_role=sr_expected, mapping_type="required", priority=1)
+    sr_expected = SystemRoleFactory(
+        role_name="Expected", system_name="ad_groups", role_type="security_group"
+    )
+    JobRoleMappingFactory(
+        job_code=jc, system_role=sr_expected, mapping_type="required", priority=1
+    )
     db.session.commit()
 
     _seed_employee("eve@test.local", "ENG-UR")
@@ -241,7 +282,9 @@ def test_cleanup_old_compliance_data_deletes_old_rows(svc, db_session):
     db.session.commit()
 
     # Recent run
-    recent_run = ComplianceCheckRun(run_id="r-recent", started_by="test", status="completed")
+    recent_run = ComplianceCheckRun(
+        run_id="r-recent", started_by="test", status="completed"
+    )
     recent_run.save()
     recent_run.completed_at = datetime.now(timezone.utc)
     db.session.commit()

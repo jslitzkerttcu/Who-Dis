@@ -12,6 +12,7 @@ boundary GenesysCloudService tests use. msal is imported at the
 graph_service module top as ``ConfidentialClientApplication``; we
 patch it at ``app.services.graph_service.ConfidentialClientApplication``.
 """
+
 import base64
 
 import pytest
@@ -30,12 +31,14 @@ def _make_graph_service(mocker):
         return_value=mocker.MagicMock(name="msal_app"),
     )
     svc = GraphService()
-    svc._config_cache.update({
-        "graph.client_id": "fake-id",
-        "graph.client_secret": "fake-secret",
-        "graph.tenant_id": "fake-tenant",
-        "graph.api_timeout": 15,
-    })
+    svc._config_cache.update(
+        {
+            "graph.client_id": "fake-id",
+            "graph.client_secret": "fake-secret",
+            "graph.tenant_id": "fake-tenant",
+            "graph.api_timeout": 15,
+        }
+    )
     # _fetch_new_token calls _load_config which pulls from _config_cache and
     # assigns the patched ConfidentialClientApplication to self.app. Trigger
     # it now so svc.app is the MagicMock for direct stubbing in tests.
@@ -51,6 +54,7 @@ def _mock_response(mocker, status_code=200, json_data=None, content=b""):
     resp.raise_for_status = mocker.MagicMock()
     if status_code >= 400:
         from requests import HTTPError
+
         resp.raise_for_status.side_effect = HTTPError(response=resp)
     return resp
 
@@ -111,8 +115,18 @@ def test_search_user_multiple_results_returned_via_filter(mocker, app):
     mocker.patch.object(svc, "get_access_token", return_value="cached")
     list_payload = {
         "value": [
-            {"id": "g1", "userPrincipalName": "jdoe1@x.com", "displayName": "J1", "businessPhones": []},
-            {"id": "g2", "userPrincipalName": "jdoe2@x.com", "displayName": "J2", "businessPhones": []},
+            {
+                "id": "g1",
+                "userPrincipalName": "jdoe1@x.com",
+                "displayName": "J1",
+                "businessPhones": [],
+            },
+            {
+                "id": "g2",
+                "userPrincipalName": "jdoe2@x.com",
+                "displayName": "J2",
+                "businessPhones": [],
+            },
         ]
     }
     mocker.patch(
@@ -145,6 +159,7 @@ def test_search_user_propagates_timeout_error(mocker, app):
     Exception handler instead. Per Gemini PR #27 review.
     """
     import requests
+
     svc = _make_graph_service(mocker)
     mocker.patch.object(svc, "get_access_token", return_value="cached")
     mocker.patch(
@@ -176,6 +191,7 @@ def test_fetch_new_token_happy_path_stores_token(mocker, app, db_session):
     assert token == "fresh-token"
 
     from app.models.api_token import ApiToken
+
     row = ApiToken.query.filter_by(service_name="microsoft_graph").first()
     assert row is not None
     assert row.access_token == "fresh-token"
@@ -262,7 +278,11 @@ def test_test_connection_happy_path(mocker, app, db_session):
         "tenant_id": "fake-tenant",
         "api_timeout": 15,
     }
-    mocker.patch.object(svc, "_get_config", side_effect=lambda key, default=None: creds.get(key, default))
+    mocker.patch.object(
+        svc,
+        "_get_config",
+        side_effect=lambda key, default=None: creds.get(key, default),
+    )
     svc.app.acquire_token_silent.return_value = None
     svc.app.acquire_token_for_client.return_value = {
         "access_token": "fresh",

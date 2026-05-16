@@ -2,6 +2,7 @@
 
 Emails are lowercase to satisfy User.get_by_email() contract (it does .lower().strip() before lookup).
 """
+
 import factory
 from factory.alchemy import SQLAlchemyModelFactory
 from app.database import db

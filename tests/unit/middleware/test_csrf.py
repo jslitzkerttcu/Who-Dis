@@ -8,6 +8,7 @@ Each test that registers a route uses a *fresh* Flask app to avoid
 view-name collisions with the session-scoped ``app`` fixture from
 tests/conftest.py.
 """
+
 import time
 
 import pytest
@@ -92,6 +93,7 @@ def test_validate_token_expired_returns_false():
         # Use a real signature so signature check passes; expiration check fails first
         import hashlib
         import hmac
+
         secret = app.config["SECRET_KEY"].encode()
         message = f"{old_timestamp}:random".encode()
         sig = hmac.new(secret, message, hashlib.sha256).hexdigest()

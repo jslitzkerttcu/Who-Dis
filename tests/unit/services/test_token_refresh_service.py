@@ -5,6 +5,7 @@ prevents auto-start during tests. These tests call the public sync methods
 directly — never invoke ``_run`` (the thread loop) which would block on
 ``time.sleep(self.check_interval)``.
 """
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -18,7 +19,9 @@ pytestmark = pytest.mark.unit
 class _FakeTokenService(ITokenService):
     """Minimal ITokenService that satisfies the interface and records calls."""
 
-    def __init__(self, name: str, refresh_returns: bool = True, refresh_raises: bool = False):
+    def __init__(
+        self, name: str, refresh_returns: bool = True, refresh_raises: bool = False
+    ):
         self._name = name
         self._refresh_returns = refresh_returns
         self._refresh_raises = refresh_raises
@@ -155,7 +158,9 @@ def test_refresh_using_container_skips_when_token_still_fresh(app, mocker, db_se
     assert fake.refresh_calls == 0
 
 
-def test_refresh_using_container_one_service_failure_does_not_stop_others(app, mocker, db_session):
+def test_refresh_using_container_one_service_failure_does_not_stop_others(
+    app, mocker, db_session
+):
     """If one service raises during refresh, the orchestrator catches and
     continues with the next service."""
     svc = TokenRefreshService(app=app)

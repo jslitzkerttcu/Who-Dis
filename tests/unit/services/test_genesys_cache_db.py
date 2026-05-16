@@ -6,11 +6,11 @@ generated. ApiToken.is_expired is a method-not-property bug per
 deferred-items.md; tests that need to bypass the cached-token path patch
 ``ApiToken.get_token`` directly.
 """
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.database import db
 from app.models.api_token import ApiToken
 from app.models.external_service import ExternalServiceData
 from app.services.genesys_cache_db import GenesysCacheDB
@@ -20,13 +20,15 @@ pytestmark = pytest.mark.unit
 
 def _make_svc():
     svc = GenesysCacheDB()
-    svc._config_cache.update({
-        "genesys.client_id": "fake-id",
-        "genesys.client_secret": "fake-secret",
-        "genesys.region": "mypurecloud.com",
-        "genesys.cache_timeout": 30,
-        "genesys.cache_refresh_period": 21600,  # 6h
-    })
+    svc._config_cache.update(
+        {
+            "genesys.client_id": "fake-id",
+            "genesys.client_secret": "fake-secret",
+            "genesys.region": "mypurecloud.com",
+            "genesys.cache_timeout": 30,
+            "genesys.cache_refresh_period": 21600,  # 6h
+        }
+    )
     return svc
 
 
@@ -133,9 +135,12 @@ def test_refresh_skills_writes_rows(svc, db_session, mocker):
         return_value=_mock_response(mocker, json_payload=payload),
     )
     assert svc._refresh_skills("tok") == 1
-    assert ExternalServiceData.query.filter_by(
-        service_name="genesys", data_type="skill"
-    ).count() == 1
+    assert (
+        ExternalServiceData.query.filter_by(
+            service_name="genesys", data_type="skill"
+        ).count()
+        == 1
+    )
 
 
 def test_refresh_locations_writes_rows_with_address(svc, db_session, mocker):
@@ -223,7 +228,9 @@ def test_refresh_all_caches_returns_zero_results_when_no_token(svc, mocker):
     assert result == {"groups": 0, "skills": 0, "locations": 0}
 
 
-def test_refresh_all_caches_uses_provided_genesys_service_token(svc, db_session, mocker):
+def test_refresh_all_caches_uses_provided_genesys_service_token(
+    svc, db_session, mocker
+):
     fake_genesys = mocker.MagicMock()
     fake_genesys.get_access_token.return_value = "provided-token"
     payload = {"entities": [], "pageCount": 1}
