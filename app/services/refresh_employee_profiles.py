@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from contextlib import nullcontext
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
@@ -449,7 +450,7 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
         return mock_jpeg_header + mock_data + mock_jpeg_footer
 
     async def _process_employee_async(
-        self, employee_data: Dict[str, Any], client: Any, app: Any = None
+        self, employee_data: Dict[str, Any], client: Any
     ) -> bool:
         """
         Process a single employee record asynchronously.
@@ -457,7 +458,6 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
         Args:
             employee_data: Employee record from Azure SQL
             client: httpx AsyncClient instance
-            app: Flask app instance for pushing context in async tasks
 
         Returns:
             True if successful, False if failed
@@ -493,13 +493,7 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
                 "raw_data": raw_data,  # Store complete original record
             }
 
-            # asyncio tasks don't inherit Flask's thread-local app context;
-            # push it explicitly for the DB write.
-            if app is not None:
-                with app.app_context():
-                    EmployeeProfiles.create_or_update_profile(upn, profile_data)
-            else:
-                EmployeeProfiles.create_or_update_profile(upn, profile_data)
+            EmployeeProfiles.create_or_update_profile(upn, profile_data)
             logger.info(f"Successfully processed employee profile: {upn}")
             return True
 
@@ -534,13 +528,15 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
         timeout = httpx.Timeout(connect=10.0, read=15.0, write=10.0, pool=30.0)
 
         async with httpx.AsyncClient(timeout=timeout) as client:
-            # Process all employees concurrently with semaphore limiting
-            tasks = [
-                self._process_employee_async(employee_data, client, app=app)
-                for employee_data in employee_records
-            ]
+            # Push Flask app context so DB operations work in async tasks —
+            # asyncio.run() doesn't propagate Flask's contextvars.
+            with app.app_context() if app else nullcontext():
+                tasks = [
+                    self._process_employee_async(employee_data, client)
+                    for employee_data in employee_records
+                ]
 
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+                results = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Count results
             for result in results:
