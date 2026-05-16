@@ -14,22 +14,45 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
     def __init__(self):
         super().__init__(config_prefix="genesys", token_service_name="genesys")
         # Region auth mapping for Genesys Cloud regions
+        # Supports both full domain keys (usw2.pure.cloud) and short aliases (usw2)
         self._region_auth_mapping = {
             "mypurecloud.com": "login.mypurecloud.com",
             "use2.us-gov-pure.cloud": "login.use2.us-gov-pure.cloud",
             "usw2.pure.cloud": "login.usw2.pure.cloud",
+            "usw2": "login.usw2.pure.cloud",
             "cac1.pure.cloud": "login.cac1.pure.cloud",
+            "cac1": "login.cac1.pure.cloud",
             "mypurecloud.ie": "login.mypurecloud.ie",
             "euw2.pure.cloud": "login.euw2.pure.cloud",
+            "euw2": "login.euw2.pure.cloud",
             "mypurecloud.de": "login.mypurecloud.de",
             "euc2.pure.cloud": "login.euc2.pure.cloud",
+            "euc2": "login.euc2.pure.cloud",
             "aps1.pure.cloud": "login.aps1.pure.cloud",
+            "aps1": "login.aps1.pure.cloud",
             "mypurecloud.jp": "login.mypurecloud.jp",
             "apne2.pure.cloud": "login.apne2.pure.cloud",
+            "apne2": "login.apne2.pure.cloud",
             "apne3.pure.cloud": "login.apne3.pure.cloud",
+            "apne3": "login.apne3.pure.cloud",
             "mypurecloud.com.au": "login.mypurecloud.com.au",
             "sae1.pure.cloud": "login.sae1.pure.cloud",
+            "sae1": "login.sae1.pure.cloud",
             "mec1.pure.cloud": "login.mec1.pure.cloud",
+            "mec1": "login.mec1.pure.cloud",
+        }
+        # Short-form region to API domain mapping
+        self._region_api_mapping = {
+            "usw2": "api.usw2.pure.cloud",
+            "cac1": "api.cac1.pure.cloud",
+            "euw2": "api.euw2.pure.cloud",
+            "euc2": "api.euc2.pure.cloud",
+            "aps1": "api.aps1.pure.cloud",
+            "apne2": "api.apne2.pure.cloud",
+            "apne3": "api.apne3.pure.cloud",
+            "sae1": "api.sae1.pure.cloud",
+            "mec1": "api.mec1.pure.cloud",
+            "use2": "api.use2.us-gov-pure.cloud",
         }
 
     @property
@@ -46,7 +69,8 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
 
     @property
     def base_url(self):
-        return f"https://api.{self.region}"
+        api_domain = self._region_api_mapping.get(self.region, f"api.{self.region}")
+        return f"https://{api_domain}"
 
     @property
     def token_url(self):
