@@ -736,13 +736,35 @@ def profile_m365(user_id):
     sku_catalog cache from Plan 02. Returns _m365_section.html on HX-Request,
     JSON otherwise.
     """
+    from concurrent.futures import ThreadPoolExecutor
+    from flask import copy_current_request_context
+
     graph_service = current_app.container.get("graph_service")
     sku_catalog = current_app.container.get("sku_catalog")
 
-    user = graph_service.get_user_by_id(user_id, include_photo=False) or {}
-    mfa_result = graph_service.get_authentication_methods(user_id)
-    sign_in_logs = graph_service.get_sign_in_logs(user_id, top=10)
-    devices = graph_service.get_user_devices(user_id)
+    # Parallelize all 4 Graph API calls
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        f_user = executor.submit(
+            copy_current_request_context(graph_service.get_user_by_id),
+            user_id, False,
+        )
+        f_mfa = executor.submit(
+            copy_current_request_context(graph_service.get_authentication_methods),
+            user_id,
+        )
+        f_logs = executor.submit(
+            copy_current_request_context(graph_service.get_sign_in_logs),
+            user_id, 10,
+        )
+        f_devices = executor.submit(
+            copy_current_request_context(graph_service.get_user_devices),
+            user_id,
+        )
+
+        user = f_user.result(timeout=10) or {}
+        mfa_result = f_mfa.result(timeout=10)
+        sign_in_logs = f_logs.result(timeout=10)
+        devices = f_devices.result(timeout=10)
 
     data = _build_m365_section_data(user, mfa_result, sku_catalog)
     data["sign_in_logs"] = _build_sign_in_logs_data(sign_in_logs)
