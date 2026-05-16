@@ -1572,7 +1572,7 @@ def _render_unified_profile(results):
         )
 
     # Enrichment accordion sections — rendered outside the main card
-    graph_user_id = graph_data.get("id") if isinstance(graph_data, dict) else None
+    graph_user_id = ldap_data.get("graphId") or (graph_data.get("id") if isinstance(graph_data, dict) else None)
     genesys_user_id = genesys_data.get("id") if isinstance(genesys_data, dict) else None
     enrichment_accordion_html = ""
     if graph_user_id:
@@ -1829,35 +1829,33 @@ def _render_keystone_accordion(keystone_data, keystone_error=None):
 
     return f"""
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
-        <button 
-            class="w-full flex items-center justify-between p-4 bg-gray-800 text-white hover:bg-gray-700 transition-colors duration-200"
-            onclick="toggleKeystoneAccordion(this)"
-            type="button">
+        <button
+            type="button"
+            id="keystone-header"
+            aria-expanded="false"
+            aria-controls="keystone-body"
+            class="w-full flex items-center justify-between p-4 bg-indigo-900 text-white hover:opacity-90 transition-opacity duration-200"
+            onclick="(function(b){{
+                var expanded = b.getAttribute('aria-expanded') === 'true';
+                b.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                var body = document.getElementById(b.getAttribute('aria-controls'));
+                if (body) {{ body.classList.toggle('hidden'); }}
+                var chev = b.querySelector('[data-chevron]');
+                if (chev) {{ chev.classList.toggle('rotate-180'); }}
+            }})(this)">
             <div class="flex items-center">
                 <i class="fas fa-database mr-3"></i>
                 <span class="text-lg font-semibold">Keystone Data Warehouse</span>
             </div>
-            <i class="fas fa-chevron-down transform transition-transform duration-200" id="keystone-chevron"></i>
+            <i class="fas fa-chevron-down transform transition-transform duration-200" data-chevron></i>
         </button>
-        <div id="keystone-content" class="hidden p-6">
+        <div id="keystone-body"
+             role="region"
+             aria-labelledby="keystone-header"
+             class="hidden p-6">
             {content_html}
         </div>
     </div>
-    
-    <script>
-    function toggleKeystoneAccordion(button) {{
-        const content = document.getElementById('keystone-content');
-        const chevron = document.getElementById('keystone-chevron');
-        
-        if (content.classList.contains('hidden')) {{
-            content.classList.remove('hidden');
-            chevron.classList.add('rotate-180');
-        }} else {{
-            content.classList.add('hidden');
-            chevron.classList.remove('rotate-180');
-        }}
-    }}
-    </script>
     """
 
 
