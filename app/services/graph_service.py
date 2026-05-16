@@ -202,7 +202,9 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                 filter_query = (
                     f"startswith(userPrincipalName,'{search_query}') or "
                     f"startswith(displayName,'{search_query}') or "
-                    f"startswith(mail,'{search_query}')"
+                    f"startswith(mail,'{search_query}') or "
+                    f"startswith(surname,'{search_query}') or "
+                    f"startswith(givenName,'{search_query}')"
                 )
 
                 select_fields = self._get_select_fields()
