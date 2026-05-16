@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-16T07:00:00.000Z",
+  "phase": null,
+  "phase_name": "production-bugfix-session",
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "Mark phases 3-6 complete in ROADMAP + STATE", "status": "done", "commit": "a48f71a"},
+    {"id": 2, "name": "Remove obsolete .auto-claude directory", "status": "done", "commit": "884cf4c"},
+    {"id": 3, "name": "Patch Dependabot vulns (Authlib 1.7.2, pytest 9.0.3)", "status": "done", "commit": "20a0bcc"},
+    {"id": 4, "name": "Fix HTMX click on multiple-result selection cards", "status": "done", "commit": "d48ca84"},
+    {"id": 5, "name": "Fix None crash in _render_unified_profile", "status": "done", "commit": "d03cefa"},
+    {"id": 6, "name": "Add ODBC Driver 18 to Dockerfile", "status": "done", "commit": "95c99cd"},
+    {"id": 7, "name": "Fix app context in CLI + SKU catalog guard", "status": "done", "commit": "2ebf955"},
+    {"id": 8, "name": "Fix async app context for employee profile refresh", "status": "done", "commit": "d0192ee"},
+    {"id": 9, "name": "Grant AuditLog.Read.All to Azure AD app registration", "status": "done", "commit": null}
+  ],
+  "remaining_tasks": [
+    {"id": 10, "name": "Verify employee profile sync completes after deploy", "status": "not_started"},
+    {"id": 11, "name": "Fix Genesys OAuth DNS (login.usw2 -> login.usw2.pure.cloud)", "status": "not_started"},
+    {"id": 12, "name": "Verify profile photos load after sync", "status": "not_started"}
+  ],
+  "blockers": [
+    {"description": "Genesys OAuth DNS: container can't resolve login.usw2 — needs FQDN fix to login.usw2.pure.cloud", "type": "external", "workaround": "Prompt prepared for SandCastle agent"},
+    {"description": "Employee profile sync not yet verified end-to-end after Dockerfile + app context fixes", "type": "external", "workaround": "Next deploy will test both fixes together"}
+  ],
+  "human_actions_pending": [
+    {"action": "Deploy latest main to SandCastle (Dockerfile + refresh fixes)", "context": "ODBC drivers and app context fix need container rebuild", "blocking": true},
+    {"action": "Fix Genesys DNS in container config", "context": "login.usw2 needs to be login.usw2.pure.cloud", "blocking": false},
+    {"action": "Run refresh_employee_profiles.py refresh after deploy", "context": "Verify 415 employees sync successfully", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Employee profiles come from Azure SQL warehouse, not Graph", "rationale": "Keystone DW is canonical source; Graph used for auth/enrichment only", "phase": null},
+    {"decision": "Add ODBC to Who-Dis image rather than external sync", "rationale": "Simplest path — matches Crystal Ball pattern, enables background refresh", "phase": null},
+    {"decision": "Wrap async gather in app_context rather than per-task push", "rationale": "Cleaner — one context covers all 415 tasks", "phase": null}
+  ],
+  "uncommitted_files": [],
+  "next_action": "Deploy to SandCastle, verify employee profile sync runs (415 records), then /gsd:discuss-phase 7 for Compliance Polish",
+  "context_notes": "Production bug-fix session. App is live at whodis.sandcastle.ttcu.com. Phases 1-6 verified complete. Next planned work is Phase 7 (Compliance Polish). Three operational items remain: deploy new image, fix Genesys DNS, verify profile sync."
+}
