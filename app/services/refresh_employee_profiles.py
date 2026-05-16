@@ -449,7 +449,7 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
         return mock_jpeg_header + mock_data + mock_jpeg_footer
 
     async def _process_employee_async(
-        self, employee_data: Dict[str, Any], client: Any
+        self, employee_data: Dict[str, Any], client: Any, app: Any = None
     ) -> bool:
         """
         Process a single employee record asynchronously.
@@ -457,6 +457,7 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
         Args:
             employee_data: Employee record from Azure SQL
             client: httpx AsyncClient instance
+            app: Flask app instance for pushing context in async tasks
 
         Returns:
             True if successful, False if failed
@@ -492,8 +493,13 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
                 "raw_data": raw_data,  # Store complete original record
             }
 
-            # Upsert to database
-            EmployeeProfiles.create_or_update_profile(upn, profile_data)
+            # asyncio tasks don't inherit Flask's thread-local app context;
+            # push it explicitly for the DB write.
+            if app is not None:
+                with app.app_context():
+                    EmployeeProfiles.create_or_update_profile(upn, profile_data)
+            else:
+                EmployeeProfiles.create_or_update_profile(upn, profile_data)
             logger.info(f"Successfully processed employee profile: {upn}")
             return True
 
@@ -502,13 +508,14 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
             return False
 
     async def _refresh_profiles_async(
-        self, employee_records: List[Dict[str, Any]]
+        self, employee_records: List[Dict[str, Any]], app: Any = None
     ) -> Dict[str, Any]:
         """
         Refresh all employee profiles asynchronously.
 
         Args:
             employee_records: List of employee records from Azure SQL
+            app: Flask app instance for pushing context in async tasks
 
         Returns:
             Dictionary with processing statistics
@@ -529,7 +536,7 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
         async with httpx.AsyncClient(timeout=timeout) as client:
             # Process all employees concurrently with semaphore limiting
             tasks = [
-                self._process_employee_async(employee_data, client)
+                self._process_employee_async(employee_data, client, app=app)
                 for employee_data in employee_records
             ]
 
@@ -581,6 +588,12 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
                 logger.warning("No employee records found, nothing to process")
                 return {"success": 0, "failed": 0, "total": 0}
 
+            # Capture app for async context propagation
+            try:
+                app = current_app._get_current_object()
+            except RuntimeError:
+                app = None
+
             # Step 2: Process records asynchronously
             # Detect whether we are inside a running event loop. asyncio.run()
             # cannot be called from within one, so we fall back to sync
@@ -592,7 +605,9 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
                 return self._refresh_profiles_sync(employee_records)
             except RuntimeError:
                 # No running loop in current thread — safe to call asyncio.run()
-                return asyncio.run(self._refresh_profiles_async(employee_records))
+                return asyncio.run(
+                    self._refresh_profiles_async(employee_records, app=app)
+                )
 
         except Exception as e:
             logger.error(f"Error during employee profiles refresh: {str(e)}")
