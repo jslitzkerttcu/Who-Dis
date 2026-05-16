@@ -237,7 +237,7 @@ class LDAPService(BaseSearchService, ISearchService):
                         for entry in conn.entries[:10]:  # Limit to 10 results
                             try:
                                 user_data = {
-                                    "dn": str(entry.entry_dn),
+                                    "distinguishedName": str(entry.entry_dn),
                                     "displayName": str(entry.displayName)
                                     if hasattr(entry, "displayName")
                                     and entry.displayName
