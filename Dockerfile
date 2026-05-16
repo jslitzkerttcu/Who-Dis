@@ -6,15 +6,17 @@ RUN groupadd -r app && useradd -r -g app -u 10001 app
 
 WORKDIR /app
 
-# Runtime tools only — apt resolves the rest as transitive deps:
-#   - curl pulls in libldap2 + libsasl2-2 (used by HEALTHCHECK)
-#   - postgresql-client pulls in libpq5 (used by entrypoint schema guard)
-# ldap3 is pure Python (no OpenLDAP C dep) and psycopg2-binary ships its
-# own libpq, so neither needs an explicit apt entry. Per Gemini PR #28
-# review — keeps the image resilient to upstream package renames
-# (libldap-2.5-0 -> libldap2 churn on bookworm -> trixie).
+# Runtime tools + ODBC Driver 18 for Azure SQL (Keystone data warehouse via pyodbc)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl postgresql-client \
+      curl postgresql-client unixodbc-dev gnupg2 \
+    && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+       | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
+       > /etc/apt/sources.list.d/mssql-release.list \
+    && apt-get update \
+    && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+    && apt-get purge -y gnupg2 \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Production deps only (WD-CONT-03 — no dev/test deps; image < 500 MB target)
