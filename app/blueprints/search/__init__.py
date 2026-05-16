@@ -1314,82 +1314,105 @@ def _render_no_results():
 
 
 def _render_multiple_results(results, search_term):
-    """Render multiple results selection UI."""
+    """Render unified multiple results selection UI, correlating across sources by email."""
+    ad_results = []
+    genesys_results = []
+
+    if results.get("azureAD_multiple") and (results.get("azureAD") or {}).get("results"):
+        ad_results = results["azureAD"]["results"]
+    if results.get("genesys_multiple") and (results.get("genesys") or {}).get("results"):
+        genesys_results = results["genesys"]["results"]
+
+    # Build unified person list by correlating on email
+    persons: list = []
+    genesys_by_email: Dict[str, Dict[str, Any]] = {}
+    for g_user in genesys_results:
+        email = (g_user.get("email") or "").lower()
+        if email:
+            genesys_by_email[email] = g_user
+
+    seen_emails: set = set()
+
+    # Start with AD results, attach matching Genesys data
+    for ad_user in ad_results:
+        email = (ad_user.get("mail") or "").lower()
+        matched_genesys = genesys_by_email.pop(email, None) if email else None
+        persons.append({"ad": ad_user, "genesys": matched_genesys})
+        if email:
+            seen_emails.add(email)
+
+    # Add any unmatched Genesys-only results
+    for g_user in genesys_results:
+        email = (g_user.get("email") or "").lower()
+        if email not in seen_emails:
+            persons.append({"ad": None, "genesys": g_user})
+            seen_emails.add(email)
+
     html = '<div class="space-y-6">'
-    html += '<h3 class="text-2xl font-semibold">Multiple Results Found</h3>'
+    html += f'<h3 class="text-2xl font-semibold">Multiple Results Found ({len(persons)})</h3>'
+    html += '<div class="space-y-3">'
 
-    # Azure AD multiple results
-    if results.get("azureAD_multiple") and (results.get("azureAD") or {}).get(
-        "results"
-    ):
-        html += '<div class="bg-white rounded-lg shadow-md p-6">'
-        html += '<h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">'
-        html += '<span class="w-3 h-3 bg-ttcu-green rounded-full mr-2"></span>'
-        html += "Azure AD Results</h4>"
-        html += '<div class="space-y-3">'
+    for person in persons:
+        ad = person["ad"]
+        genesys = person["genesys"]
 
-        for user in results["azureAD"]["results"]:
-            # Account status badges
-            enabled = user.get("enabled", True)
-            locked = user.get("locked", False)
+        # Determine display fields from best available source
+        display_name = (ad.get("displayName") if ad else None) or (genesys.get("name") if genesys else None) or "Unknown"
+        email = (ad.get("mail") if ad else None) or (genesys.get("email") if genesys else None) or ""
+        title = (ad.get("jobTitle") or ad.get("title") if ad else None) or (genesys.get("title") if genesys else None) or ""
+        department = (ad.get("department") if ad else None) or (genesys.get("department") if genesys else None) or ""
 
-            status_badges = ""
-            if not enabled:
+        # Build hx-vals with all available IDs
+        hx_vals_dict = {"search_term": search_term}
+        if ad:
+            if ad.get("id"):
+                hx_vals_dict["graph_user_id"] = ad["id"]
+            if ad.get("distinguishedName"):
+                hx_vals_dict["ldap_user_dn"] = ad["distinguishedName"]
+        if genesys and genesys.get("id"):
+            hx_vals_dict["genesys_user_id"] = genesys["id"]
+
+        hx_vals = json.dumps(hx_vals_dict).replace("'", "&#39;")
+
+        # Source badges
+        source_badges = ""
+        if ad:
+            source_badges += '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-1">AD</span>'
+        if genesys:
+            source_badges += '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Genesys</span>'
+
+        # Account status badges (from AD)
+        status_badges = ""
+        if ad:
+            if not ad.get("enabled", True):
                 status_badges += '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-1"><i class="fas fa-times-circle mr-1"></i>Disabled</span>'
-            if locked:
+            if ad.get("locked", False):
                 status_badges += '<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><i class="fas fa-lock mr-1"></i>Locked</span>'
 
-            html += f'''
-            <div class="border border-gray-200 rounded-lg p-4 hover:border-ttcu-green cursor-pointer"
-                 hx-post="{url_for("search.search_specific")}"
-                 hx-vals='{{"search_term": "{search_term}", "graph_user_id": "{user.get("id", "")}", "ldap_user_dn": "{user.get("distinguishedName", "")}"}}'
-                 hx-target="#searchResults"
-                 hx-swap="innerHTML">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <h5 class="font-medium text-gray-900">{user.get("displayName", "Unknown")}</h5>
-                        <p class="text-sm text-gray-600">{user.get("mail", "")}</p>
-                        <p class="text-sm text-gray-500">{user.get("jobTitle", "")} - {user.get("department", "")}</p>
-                        {f'<div class="mt-1">{status_badges}</div>' if status_badges else ""}
+        subtitle = f"{title} - {department}" if title and department else title or department
+
+        html += f'''
+        <div class="border border-gray-200 rounded-lg p-4 hover:border-ttcu-green hover:shadow-sm transition-all cursor-pointer"
+             hx-post="{url_for("search.search_specific")}"
+             hx-vals='{hx_vals}'
+             hx-target="#searchResults"
+             hx-swap="innerHTML">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <h5 class="font-medium text-gray-900">{display_name}</h5>
+                        <div>{source_badges}</div>
                     </div>
-                    <i class="fas fa-chevron-right text-gray-400"></i>
+                    <p class="text-sm text-gray-600">{email}</p>
+                    {f'<p class="text-sm text-gray-500">{subtitle}</p>' if subtitle else ""}
+                    {f'<div class="mt-1">{status_badges}</div>' if status_badges else ""}
                 </div>
+                <i class="fas fa-chevron-right text-gray-400 mt-1"></i>
             </div>
-            '''
+        </div>
+        '''
 
-        html += "</div></div>"
-
-    # Genesys multiple results
-    if results.get("genesys_multiple") and (results.get("genesys") or {}).get(
-        "results"
-    ):
-        html += '<div class="bg-white rounded-lg shadow-md p-6">'
-        html += '<h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">'
-        html += '<span class="w-3 h-3 bg-genesys-orange rounded-full mr-2"></span>'
-        html += "Genesys Cloud Results</h4>"
-        html += '<div class="space-y-3">'
-
-        for user in results["genesys"]["results"]:
-            html += f'''
-            <div class="border border-gray-200 rounded-lg p-4 hover:border-genesys-orange cursor-pointer"
-                 hx-post="{url_for("search.search_specific")}"
-                 hx-vals='{{"search_term": "{search_term}", "genesys_user_id": "{user.get("id", "")}"}}'
-                 hx-target="#searchResults"
-                 hx-swap="innerHTML">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <h5 class="font-medium text-gray-900">{user.get("name", "Unknown")}</h5>
-                        <p class="text-sm text-gray-600">{user.get("email", "")}</p>
-                        <p class="text-sm text-gray-500">{user.get("username", "")}</p>
-                    </div>
-                    <i class="fas fa-chevron-right text-gray-400"></i>
-                </div>
-            </div>
-            '''
-
-        html += "</div></div>"
-
-    html += "</div>"
+    html += "</div></div>"
     return html
 
 
