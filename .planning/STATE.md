@@ -3,39 +3,40 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 06 executed — programmatic verification PASS, 5 human smokes pending
-last_updated: "2026-04-27T02:30:00.000Z"
+stopped_at: Phases 1-6 complete and verified — ready for Phase 7 (Compliance Polish)
+last_updated: "2026-05-16T00:00:00.000Z"
 progress:
   total_phases: 11
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 25
   completed_plans: 25
-  percent: 100
+  percent: 55
 ---
 
 # Project State: WhoDis v3.0
 
 **Project:** WhoDis v3.0 — IT Operations Platform
 **Initialized:** 2026-04-24
-**Last Updated:** 2026-04-24
+**Last Updated:** 2026-05-16
 
 ## Project Reference
 
 **Core Value:** IT staff can find everything about any employee and act on it from a single interface — no switching between AD, Azure portal, Genesys admin, or M365 admin center.
 
-**Current Focus:** Phase 06 — enriched-profiles-search-export
+**Current Focus:** Phase 07 — compliance-polish
 
 ## Current Position
 
-Phase: 06 (enriched-profiles-search-export) — VERIFIED (programmatic), human_needed smokes pending
-Plan: 1 of 4
+Phase: 07 (compliance-polish) — NOT STARTED
 **Phase 1:** Foundation ✓
 **Phase 2:** Test Suite ✓ (gate green)
-**Phase 3:** SandCastle Containerization & Deployment ✓ (verified passed 27/27, secured 14/14 threats, PR #31)
-**Phase 9:** SandCastle Onboarding ✓ (PR #25 — containerization, Authlib OIDC, Alembic, encrypted-config retirement)
-**Status:** Executing Phase 06
-**Next:** Phase 4 — Keycloak OIDC authentication (CONTEXT.md already present; run `/gsd-plan-phase 4`).
-**Progress:** [██████████] Phase 2 100%
+**Phase 3:** SandCastle Containerization & Deployment ✓ (verified; PR #31)
+**Phase 4:** Keycloak OIDC Authentication ✓ (verified; PR #25)
+**Phase 5:** Database Migration & Alembic ✓ (verified; delivered via PR #25)
+**Phase 6:** Enriched Profiles & Search Export ✓ (verified; 5 human smokes pending)
+**Status:** Ready for Phase 07
+**Next:** Phase 7 — Compliance Polish (bulk checks with progress, export, warehouse sync visibility)
+**Progress:** [███████████████░░░░░░░░░░░░░░░] 55% (6/11 phases)
 
 ## Accumulated Context
 
@@ -72,15 +73,15 @@ Plan: 1 of 4
 
 ## Session Continuity
 
-**Last session:** 2026-04-27T01:27:07.838Z
-**Next action:** Run `/gsd-progress` to triage Phase 3 scope vs what Phase 9 already delivered
-**Stopped at:** Phase 06 UI-SPEC approved
+**Last session:** 2026-05-16
+**Next action:** `/gsd:discuss-phase 7` — begin Compliance Polish phase
+**Stopped at:** Phases 1-6 verified complete; progress table and state updated
 **Blockers:** None
 **Follow-ups (carry into later phases):**
 
-- Phase 3 (SandCastle Containerization): Swap Flask-Limiter storage from in-memory to Redis (per WD-NET-01, WD-CONT-02) — formerly backlog 999.1, now folded into Phase 3 success criterion
-- Phase 4 (Keycloak OIDC Authentication): OIDC library choice deferred to planning. Recommendation noted: `authlib` (most active, best Flask integration). Final selection during `/gsd-plan-phase 4`.
 - SEC-01 status: Accepted as partial. Salt rotated and gitignored; git history not rewritten. Both repos are private — risk acknowledged.
+- Phase 3 Redis swap: COMPLETE (Plan 03-01)
+- Phase 4 Authlib OIDC: COMPLETE (delivered via PR #25)
 
 ---
 *State initialized: 2026-04-24*

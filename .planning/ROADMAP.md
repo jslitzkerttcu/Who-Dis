@@ -26,10 +26,10 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 
 - [x] **Phase 1: Foundation** - Clean up tech debt, harden security, add operational primitives (COMPLETE)
 - [x] **Phase 2: Test Suite** - Establish automated testing infrastructure before write operations (gate green at 60.12%; verified)
-- [ ] **Phase 3: SandCastle Containerization & Deployment** - Containerize, gunicorn, Traefik, env-var config, structured logs, portal registration
-- [ ] **Phase 4: Keycloak OIDC Authentication** - Replace Azure AD header auth with Keycloak OIDC; preserve role decorators
-- [ ] **Phase 5: Database Migration & Alembic** - Move schema to Alembic, switch to DATABASE_URL, document data-migration path
-- [ ] **Phase 6: Enriched Profiles & Search Export** - Surface full Graph/Genesys data on profile cards with export
+- [x] **Phase 3: SandCastle Containerization & Deployment** - Containerize, gunicorn, Traefik, env-var config, structured logs, portal registration (verified; PR #31)
+- [x] **Phase 4: Keycloak OIDC Authentication** - Replace Azure AD header auth with Keycloak OIDC; preserve role decorators (verified; PR #25)
+- [x] **Phase 5: Database Migration & Alembic** - Move schema to Alembic, switch to DATABASE_URL, document data-migration path (verified; delivered via PR #25)
+- [x] **Phase 6: Enriched Profiles & Search Export** - Surface full Graph/Genesys data on profile cards with export (verified; 5 human smokes pending)
 - [ ] **Phase 7: Compliance Polish** - Bulk checks with progress, export, and warehouse sync visibility
 - [ ] **Phase 8: Reporting** - License, security posture, and Genesys reports with scheduling
 - [ ] **Phase 9: Write Operations** - AD account actions and license management from the UI
@@ -220,10 +220,10 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 |-------|----------------|--------|-----------|
 | 1. Foundation | 9/9 | Complete | 2026-04-25 |
 | 2. Test Suite | 4/4 | Complete | 2026-04-25 |
-| 3. SandCastle Containerization & Deployment | 0/3 | In progress | - |
-| 4. Keycloak OIDC Authentication | 0/? | Not started | - |
-| 5. Database Migration & Alembic | 0/? | Not started | - |
-| 6. Enriched Profiles & Search Export | 0/? | Not started | - |
+| 3. SandCastle Containerization & Deployment | 4/4 | Complete | 2026-04-27 |
+| 4. Keycloak OIDC Authentication | 2/2 | Complete | 2026-04-27 |
+| 5. Database Migration & Alembic | 0/0 | Complete (PR #25) | 2026-04-27 |
+| 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
 | 7. Compliance Polish | 0/? | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. Write Operations | 0/? | Not started | - |
@@ -238,3 +238,4 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 *Roadmap defined: 2026-04-24*
 *Last updated: 2026-04-24 — SandCastle integration insertion + re-prioritization (3 new phases inserted at positions 3-5; original Phases 3-8 renumbered to 6-11)*
 *Revised: 2026-04-26 — Phase 3 plans finalized (3 gap-closure plans: 03-01 Redis, 03-02 DATABASE_URL, 03-03 README+ops)*
+*Revised: 2026-05-16 — Progress table updated: Phases 3-6 marked complete (verified against codebase)*
