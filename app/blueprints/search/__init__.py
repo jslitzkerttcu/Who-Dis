@@ -6,6 +6,7 @@ from flask import (
     make_response,
     current_app,
     g,
+    url_for,
 )
 from flask_limiter.util import get_remote_address
 from app import limiter
@@ -1327,7 +1328,7 @@ def _render_multiple_results(results, search_term):
 
             html += f'''
             <div class="border border-gray-200 rounded-lg p-4 hover:border-ttcu-green cursor-pointer"
-                 hx-post="{{ url_for('search.search_specific') }}"
+                 hx-post="{url_for('search.search_specific')}"
                  hx-vals='{{"search_term": "{search_term}", "graph_user_id": "{user.get("id", "")}", "ldap_user_dn": "{user.get("distinguishedName", "")}"}}'
                  hx-target="#searchResults"
                  hx-swap="innerHTML">
@@ -1356,7 +1357,7 @@ def _render_multiple_results(results, search_term):
         for user in results["genesys"]["results"]:
             html += f'''
             <div class="border border-gray-200 rounded-lg p-4 hover:border-genesys-orange cursor-pointer"
-                 hx-post="{{ url_for('search.search_specific') }}"
+                 hx-post="{url_for('search.search_specific')}"
                  hx-vals='{{"search_term": "{search_term}", "genesys_user_id": "{user.get("id", "")}"}}'
                  hx-target="#searchResults"
                  hx-swap="innerHTML">
