@@ -603,10 +603,12 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
             # 24h schedule — no new thread, no new TTL layer. Wrapped in
             # try/except so a SKU-cache failure cannot crash the parent job.
             try:
-                if current_app is not None:
+                if current_app and hasattr(current_app, "container"):
                     sku_catalog = current_app.container.get("sku_catalog")
                     if sku_catalog.needs_refresh():
                         sku_catalog.refresh()
+            except RuntimeError:
+                pass  # No app context (CLI mode) — skip SKU refresh
             except Exception as e:
                 logger.error(
                     f"SKU catalog refresh failed: {str(e)}", exc_info=True
@@ -881,50 +883,57 @@ def main():
 
     logger.info("Employee Profiles Refresh Service - CLI Mode")
 
-    if len(sys.argv) > 1:
-        command = sys.argv[1].lower()
+    from app import create_app
 
-        if command == "refresh":
-            logger.info("Starting employee profiles refresh...")
-            result = employee_profiles_service.refresh_all_profiles()
-            print(f"Refresh completed: {result}")
+    app = create_app()
 
-        elif command == "stats":
-            logger.info("Getting employee profiles statistics...")
-            stats = employee_profiles_service.get_refresh_stats()
-            print("Employee Profiles Statistics:")
-            for key, value in stats.items():
-                print(f"  {key}: {value}")
+    with app.app_context():
+        if len(sys.argv) > 1:
+            command = sys.argv[1].lower()
 
-        elif command == "migrate":
-            logger.info("Migrating legacy data...")
-            result = employee_profiles_service.migrate_legacy_data()
-            print(f"Migration completed: {result}")
+            if command == "refresh":
+                logger.info("Starting employee profiles refresh...")
+                result = employee_profiles_service.refresh_all_profiles()
+                print(f"Refresh completed: {result}")
 
-        elif command == "profile" and len(sys.argv) > 2:
-            upn = sys.argv[2]
-            logger.info(f"Getting profile for {upn}...")
-            profile = employee_profiles_service.get_employee_profile(upn)
-            if profile:
-                print(f"Profile for {upn}:")
-                for key, value in profile.items():
+            elif command == "stats":
+                logger.info("Getting employee profiles statistics...")
+                stats = employee_profiles_service.get_refresh_stats()
+                print("Employee Profiles Statistics:")
+                for key, value in stats.items():
                     print(f"  {key}: {value}")
-            else:
-                print(f"No profile found for {upn}")
 
+            elif command == "migrate":
+                logger.info("Migrating legacy data...")
+                result = employee_profiles_service.migrate_legacy_data()
+                print(f"Migration completed: {result}")
+
+            elif command == "profile" and len(sys.argv) > 2:
+                upn = sys.argv[2]
+                logger.info(f"Getting profile for {upn}...")
+                profile = employee_profiles_service.get_employee_profile(upn)
+                if profile:
+                    print(f"Profile for {upn}:")
+                    for key, value in profile.items():
+                        print(f"  {key}: {value}")
+                else:
+                    print(f"No profile found for {upn}")
+
+            else:
+                print(
+                    "Usage: python refresh_employee_profiles.py [refresh|stats|migrate|profile <upn>]"
+                )
+                sys.exit(1)
         else:
             print(
                 "Usage: python refresh_employee_profiles.py [refresh|stats|migrate|profile <upn>]"
             )
-            sys.exit(1)
-    else:
-        print(
-            "Usage: python refresh_employee_profiles.py [refresh|stats|migrate|profile <upn>]"
-        )
-        print("  refresh - Refresh all employee profiles from Azure SQL and Graph API")
-        print("  stats   - Show current employee profiles statistics")
-        print("  migrate - Migrate data from legacy tables to employee_profiles")
-        print("  profile <upn> - Show specific employee profile")
+            print(
+                "  refresh - Refresh all employee profiles from Azure SQL and Graph API"
+            )
+            print("  stats   - Show current employee profiles statistics")
+            print("  migrate - Migrate data from legacy tables to employee_profiles")
+            print("  profile <upn> - Show specific employee profile")
 
 
 if __name__ == "__main__":
