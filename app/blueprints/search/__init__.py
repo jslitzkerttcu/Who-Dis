@@ -741,8 +741,12 @@ def profile_m365(user_id):
 
     user = graph_service.get_user_by_id(user_id, include_photo=False) or {}
     mfa_result = graph_service.get_authentication_methods(user_id)
+    sign_in_logs = graph_service.get_sign_in_logs(user_id, top=10)
+    devices = graph_service.get_user_devices(user_id)
 
     data = _build_m365_section_data(user, mfa_result, sku_catalog)
+    data["sign_in_logs"] = _build_sign_in_logs_data(sign_in_logs)
+    data["devices"] = _build_devices_data(devices)
 
     audit_service = current_app.container.get("audit_logger")
     user_email = getattr(g, "user", "unknown")
@@ -801,15 +805,15 @@ def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
 
     # Last sign-in (D-01) — signInActivity may be absent if no Premium P1.
     sign_in_activity = user_profile.get("signInActivity") or {}
-    last_sign_in = (
+    last_sign_in_raw = (
         sign_in_activity.get("lastSignInDateTime")
         if isinstance(sign_in_activity, dict)
         else None
     )
+    last_sign_in = _format_graph_datetime(last_sign_in_raw) if last_sign_in_raw else None
 
     # MFA (D-02) — handle permission-missing sentinel from Plan 01.
-    mfa_label = None
-    mfa_methods_list = []
+    mfa_methods_detail = []
     if isinstance(mfa_result, dict) and mfa_result.get("error") == "permission_missing":
         warnings.append(
             {
@@ -820,12 +824,34 @@ def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
             }
         )
     elif isinstance(mfa_result, list):
-        mfa_methods_list = [_friendly_mfa_method_name(m) for m in mfa_result]
-        mfa_methods_list = [m for m in mfa_methods_list if m and m != "Unknown"]
-        if mfa_methods_list:
-            mfa_label = f"registered ({', '.join(mfa_methods_list)})"
-        else:
-            mfa_label = "not registered"
+        seen_types: set = set()
+        for method in mfa_result:
+            if not isinstance(method, dict):
+                continue
+            friendly = _friendly_mfa_method_name(method)
+            if not friendly or friendly == "Unknown" or friendly == "Password":
+                continue
+            odata_type = method.get("@odata.type", "")
+            # Deduplicate by type (e.g. multiple Authenticator registrations)
+            if odata_type in seen_types:
+                continue
+            seen_types.add(odata_type)
+            detail: Dict[str, Any] = {"type": friendly}
+            # For phone methods, include the phone number
+            if "phone" in odata_type.lower():
+                phone_number = method.get("phoneNumber")
+                phone_type = method.get("phoneType", "")
+                if phone_number:
+                    detail["phone"] = phone_number
+                    detail["phoneType"] = phone_type
+            mfa_methods_detail.append(detail)
+
+    mfa_label = None
+    if mfa_methods_detail:
+        type_names = [m["type"] for m in mfa_methods_detail]
+        mfa_label = f"registered ({', '.join(type_names)})"
+    elif isinstance(mfa_result, list):
+        mfa_label = "not registered"
 
     # Licenses (D-04, D-05) — resolve SKU GUIDs via sku_catalog.
     licenses = []
@@ -851,23 +877,52 @@ def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
                 }
             )
 
-    # Manager — Graph projection returns dict; keep displayName.
+    # Manager — Graph $expand=manager returns nested dict with displayName, mail, jobTitle.
     manager_field = user_profile.get("manager")
+    manager = None
+    manager_email = None
     if isinstance(manager_field, dict):
         manager = manager_field.get("displayName")
-    else:
+        manager_email = manager_field.get("mail")
+    elif isinstance(manager_field, str) and manager_field:
         manager = manager_field
 
     return {
         "department": user_profile.get("department"),
         "manager": manager,
+        "manager_email": manager_email,
         "employee_id": user_profile.get("employeeId"),
         "licenses": licenses,
         "mfa": mfa_label,
-        "mfa_methods": mfa_methods_list,
+        "mfa_methods": mfa_methods_detail,
         "last_sign_in": last_sign_in,
         "permission_warnings": warnings,
+        "graph_user_id": user_profile.get("id"),
     }
+
+
+def _format_graph_datetime(dt_str: str) -> str:
+    """Format a Graph API datetime string into a human-readable format."""
+    try:
+        from datetime import datetime as dt_class, timezone
+
+        if dt_str.endswith("Z"):
+            dt_str = dt_str[:-1] + "+00:00"
+        parsed = dt_class.fromisoformat(dt_str)
+        now = dt_class.now(timezone.utc)
+        delta = now - parsed
+        if delta.days == 0:
+            hours = delta.seconds // 3600
+            if hours == 0:
+                return f"{delta.seconds // 60}m ago"
+            return f"{hours}h ago"
+        elif delta.days == 1:
+            return f"Yesterday at {parsed.strftime('%I:%M %p')}"
+        elif delta.days < 7:
+            return f"{delta.days}d ago ({parsed.strftime('%b %d, %I:%M %p')})"
+        return parsed.strftime("%b %d, %Y at %I:%M %p")
+    except (ValueError, TypeError):
+        return dt_str
 
 
 def _friendly_mfa_method_name(method):
@@ -891,6 +946,63 @@ def _friendly_mfa_method_name(method):
     tail = odata_type.split(".")[-1] if odata_type else ""
     tail = tail.replace("AuthenticationMethod", "")
     return tail or "Unknown"
+
+
+def _build_sign_in_logs_data(sign_in_logs) -> list:
+    """Format sign-in logs for template display."""
+    if not sign_in_logs or not isinstance(sign_in_logs, list):
+        return []
+    # Permission-missing sentinel
+    if isinstance(sign_in_logs, dict) and sign_in_logs.get("error"):
+        return []
+    result = []
+    for log in sign_in_logs[:10]:
+        if not isinstance(log, dict):
+            continue
+        result.append(
+            {
+                "time": _format_graph_datetime(log.get("createdDateTime", "")),
+                "app": log.get("appDisplayName", "Unknown"),
+                "ip": log.get("ipAddress", "N/A"),
+                "location": ", ".join(
+                    filter(None, [log.get("city"), log.get("state"), log.get("country")])
+                )
+                or "N/A",
+                "status": "Success" if log.get("errorCode", 0) == 0 else log.get("failureReason", "Failed"),
+                "success": log.get("errorCode", 0) == 0,
+                "browser": log.get("browser", ""),
+                "os": log.get("operatingSystem", ""),
+                "interactive": log.get("isInteractive", True),
+            }
+        )
+    return result
+
+
+def _build_devices_data(devices) -> list:
+    """Format device list for template display."""
+    if not devices or not isinstance(devices, list):
+        return []
+    if isinstance(devices, dict) and devices.get("error"):
+        return []
+    result = []
+    for device in devices:
+        if not isinstance(device, dict):
+            continue
+        last_sign_in = device.get("lastSignIn")
+        result.append(
+            {
+                "name": device.get("displayName", "Unknown Device"),
+                "os": device.get("operatingSystem", ""),
+                "osVersion": device.get("osVersion", ""),
+                "model": device.get("model", ""),
+                "manufacturer": device.get("manufacturer", ""),
+                "trustType": device.get("trustType", ""),
+                "isManaged": device.get("isManaged"),
+                "isCompliant": device.get("isCompliant"),
+                "lastSignIn": _format_graph_datetime(last_sign_in) if last_sign_in else "N/A",
+            }
+        )
+    return result
 
 
 def _build_genesys_section_data(gen_user):

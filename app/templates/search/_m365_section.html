@@ -4,17 +4,19 @@ Expected `data` shape (built by _build_m365_section_data in search/__init__.py):
   {
     "department": str|None,
     "manager": str|None,
+    "manager_email": str|None,
     "employee_id": str|None,
     "licenses": [{"name": str, "displayName": str, "skuId": str}],
     "mfa": str|None,
-    "mfa_methods": [str],
+    "mfa_methods": [{"type": str, "phone": str|None, "phoneType": str|None}],
     "last_sign_in": str|None,
+    "sign_in_logs": [{"time": str, "app": str, "ip": str, "location": str, "status": str, "success": bool}],
+    "devices": [{"name": str, "os": str, "model": str, "isManaged": bool|None, "isCompliant": bool|None, "lastSignIn": str}],
     "permission_warnings": [{"field": str, "permission": str}],
-    "stale_hours": int|None,
+    "graph_user_id": str|None,
   }
 
-All field reads use `.get()` so a missing key never raises (PROF-06). Empty
-state copy renders only when there is no data AND no warnings.
+All field reads use `.get()` so a missing key never raises (PROF-06).
 #}
 {% set warnings = data.get('permission_warnings', []) %}
 {% set has_data = (
@@ -36,20 +38,20 @@ state copy renders only when there is no data AND no warnings.
   {% endfor %}
 
   <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-    {# Department #}
-    <div>
-      <dt class="text-xs font-semibold text-gray-600">Department</dt>
-      <dd class="mt-1 text-sm text-gray-900 flex items-center gap-2">
-        <span data-copy-field="Department">{{ data.get('department') or '—' }}</span>
-        {% with source='Graph' %}{% include "search/_source_chip.html" %}{% endwith %}
-      </dd>
-    </div>
-
     {# Manager #}
     <div>
       <dt class="text-xs font-semibold text-gray-600">Manager</dt>
       <dd class="mt-1 text-sm text-gray-900 flex items-center gap-2">
-        <span data-copy-field="Manager">{{ data.get('manager') or '—' }}</span>
+        <span data-copy-field="Manager">
+          {% if data.get('manager') %}
+            {{ data.get('manager') }}
+            {% if data.get('manager_email') %}
+              <span class="text-xs text-gray-500">({{ data.get('manager_email') }})</span>
+            {% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </span>
         {% with source='Graph' %}{% include "search/_source_chip.html" %}{% endwith %}
       </dd>
     </div>
@@ -63,21 +65,35 @@ state copy renders only when there is no data AND no warnings.
       </dd>
     </div>
 
-    {# MFA #}
+    {# Last sign-in #}
     <div>
-      <dt class="text-xs font-semibold text-gray-600">MFA Status</dt>
+      <dt class="text-xs font-semibold text-gray-600">Last Sign-In</dt>
       <dd class="mt-1 text-sm text-gray-900 flex items-center gap-2">
-        <span data-copy-field="MFA">{{ data.get('mfa') or 'not registered' }}</span>
+        <span data-copy-field="Last sign-in">{{ data.get('last_sign_in') or '—' }}</span>
         {% with source='Graph' %}{% include "search/_source_chip.html" %}{% endwith %}
       </dd>
     </div>
 
-    {# Last sign-in #}
-    <div class="sm:col-span-2">
-      <dt class="text-xs font-semibold text-gray-600">Last sign-in</dt>
-      <dd class="mt-1 text-sm text-gray-900 flex items-center gap-2">
-        <span data-copy-field="Last sign-in">{{ data.get('last_sign_in') or '—' }}</span>
-        {% with source='Graph' %}{% include "search/_source_chip.html" %}{% endwith %}
+    {# MFA Status #}
+    <div>
+      <dt class="text-xs font-semibold text-gray-600">MFA Status</dt>
+      <dd class="mt-1 text-sm text-gray-900">
+        {% if data.get('mfa_methods') %}
+          <div class="flex flex-wrap gap-1.5">
+            {% for m in data.get('mfa_methods', []) %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <i class="fas fa-shield-alt mr-1"></i>{{ m.get('type') }}
+                {% if m.get('phone') %}
+                  <span class="ml-1 text-green-600">({{ m.get('phone') }})</span>
+                {% endif %}
+              </span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            <i class="fas fa-exclamation-triangle mr-1"></i>Not registered
+          </span>
+        {% endif %}
       </dd>
     </div>
 
@@ -88,7 +104,8 @@ state copy renders only when there is no data AND no warnings.
         {% if data.get('licenses') %}
           <span data-copy-field="Licenses" class="flex flex-wrap gap-2">
             {% for lic in data.get('licenses', []) %}
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                    title="{{ lic.get('skuId') }}">
                 {{ lic.get('displayName') or lic.get('name') or lic.get('skuId') }}
               </span>
             {% endfor %}
@@ -100,6 +117,98 @@ state copy renders only when there is no data AND no warnings.
       </dd>
     </div>
   </dl>
+
+  {# Sign-In History sub-accordion #}
+  {% if data.get('sign_in_logs') %}
+  <div class="mt-4 border border-gray-200 rounded-md overflow-hidden">
+    <button type="button"
+            onclick="(function(b){
+              var body = b.nextElementSibling;
+              body.classList.toggle('hidden');
+              var chev = b.querySelector('[data-chevron]');
+              if (chev) { chev.classList.toggle('rotate-180'); }
+            })(this)"
+            class="w-full flex items-center justify-between px-3 py-2 text-left bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700">
+      <span><i class="fas fa-history mr-2 text-gray-500"></i>Sign-In History ({{ data.get('sign_in_logs')|length }})</span>
+      <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200" data-chevron></i>
+    </button>
+    <div class="hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium text-gray-500">Time</th>
+              <th class="px-3 py-2 text-left font-medium text-gray-500">Application</th>
+              <th class="px-3 py-2 text-left font-medium text-gray-500">IP</th>
+              <th class="px-3 py-2 text-left font-medium text-gray-500">Location</th>
+              <th class="px-3 py-2 text-left font-medium text-gray-500">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for log in data.get('sign_in_logs', []) %}
+            <tr class="{{ 'bg-white' if log.get('success') else 'bg-red-50' }}">
+              <td class="px-3 py-1.5 whitespace-nowrap text-gray-700">{{ log.get('time') }}</td>
+              <td class="px-3 py-1.5 text-gray-900">{{ log.get('app') }}</td>
+              <td class="px-3 py-1.5 text-gray-600 font-mono">{{ log.get('ip') }}</td>
+              <td class="px-3 py-1.5 text-gray-600">{{ log.get('location') }}</td>
+              <td class="px-3 py-1.5">
+                {% if log.get('success') %}
+                  <span class="text-green-700"><i class="fas fa-check-circle mr-1"></i>Success</span>
+                {% else %}
+                  <span class="text-red-700"><i class="fas fa-times-circle mr-1"></i>{{ log.get('status') }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Devices sub-accordion #}
+  {% if data.get('devices') %}
+  <div class="mt-3 border border-gray-200 rounded-md overflow-hidden">
+    <button type="button"
+            onclick="(function(b){
+              var body = b.nextElementSibling;
+              body.classList.toggle('hidden');
+              var chev = b.querySelector('[data-chevron]');
+              if (chev) { chev.classList.toggle('rotate-180'); }
+            })(this)"
+            class="w-full flex items-center justify-between px-3 py-2 text-left bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700">
+      <span><i class="fas fa-laptop mr-2 text-gray-500"></i>Devices ({{ data.get('devices')|length }})</span>
+      <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200" data-chevron></i>
+    </button>
+    <div class="hidden">
+      <div class="divide-y divide-gray-100">
+        {% for device in data.get('devices', []) %}
+        <div class="px-3 py-2 flex items-center justify-between">
+          <div>
+            <div class="text-sm font-medium text-gray-900">{{ device.get('name') }}</div>
+            <div class="text-xs text-gray-500">
+              {{ device.get('os') }}{% if device.get('osVersion') %} {{ device.get('osVersion') }}{% endif %}
+              {% if device.get('model') %} &mdash; {{ device.get('manufacturer') }} {{ device.get('model') }}{% endif %}
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            {% if device.get('isCompliant') %}
+              <span class="text-green-700" title="Compliant"><i class="fas fa-shield-alt"></i></span>
+            {% elif device.get('isCompliant') == false %}
+              <span class="text-red-600" title="Non-compliant"><i class="fas fa-exclamation-triangle"></i></span>
+            {% endif %}
+            {% if device.get('isManaged') %}
+              <span class="text-blue-700" title="Managed"><i class="fas fa-cog"></i></span>
+            {% endif %}
+            <span class="text-gray-400">{{ device.get('lastSignIn') }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   {% if data.get('stale_hours') is not none and data.get('stale_hours') > 20 %}
     <div class="mt-3 text-xs text-amber-600">

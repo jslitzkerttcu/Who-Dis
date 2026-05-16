@@ -287,7 +287,12 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
 
         try:
             user_url = f"{self.graph_base_url}/users/{user_id}"
-            response = self._make_request("GET", user_url, token)
+            select_fields = self._get_select_fields()
+            params = {
+                "$select": ",".join(select_fields),
+                "$expand": "manager($select=id,displayName,mail,jobTitle)",
+            }
+            response = self._make_request("GET", user_url, token, params=params)
             user = self._handle_response(response)
             return self._process_user_data(user, include_photo)
 
@@ -575,6 +580,60 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
 
         except Exception as e:
             logger.error(f"Error fetching sign-in logs for user {user_id}: {str(e)}")
+            return None
+
+    def get_user_devices(
+        self, user_id: str
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Get devices registered/owned by a user from Graph.
+
+        Requires Directory.Read.All permission on the app registration.
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Graph API access token for user devices")
+            return None
+
+        try:
+            url = f"{self.graph_base_url}/users/{user_id}/ownedDevices"
+            params = {
+                "$select": (
+                    "id,displayName,operatingSystem,operatingSystemVersion,"
+                    "trustType,isManaged,isCompliant,approximateLastSignInDateTime,"
+                    "deviceId,model,manufacturer"
+                ),
+            }
+            response = self._make_request("GET", url, token, params=params)
+            data = self._handle_response(response)
+
+            if not data or "value" not in data:
+                return []
+
+            devices = []
+            for device in data["value"]:
+                devices.append(
+                    {
+                        "displayName": device.get("displayName", "Unknown Device"),
+                        "operatingSystem": device.get("operatingSystem", ""),
+                        "osVersion": device.get("operatingSystemVersion", ""),
+                        "trustType": device.get("trustType", ""),
+                        "isManaged": device.get("isManaged"),
+                        "isCompliant": device.get("isCompliant"),
+                        "lastSignIn": device.get("approximateLastSignInDateTime"),
+                        "model": device.get("model", ""),
+                        "manufacturer": device.get("manufacturer", ""),
+                    }
+                )
+
+            return devices
+
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("Directory.Read.All")
+            logger.error(f"Error fetching devices for user {user_id}: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching devices for user {user_id}: {str(e)}")
             return None
 
 
