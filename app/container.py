@@ -179,6 +179,11 @@ def register_services(container: ServiceContainer) -> None:
 
     container.register("job_manager", lambda c: JobManagerService())
 
+    # Report sync service (Phase 8: license + security data aggregation)
+    from app.services.report_sync_service import ReportSyncService
+
+    container.register("report_sync_service", lambda c: ReportSyncService())
+
     # SEC-03: Flask-Limiter instance (initialized in app/__init__.py against
     # the Flask app) — exposed via the container so blueprints/services can
     # retrieve it without importing the app module directly.

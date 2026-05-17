@@ -40,6 +40,26 @@ JOB_REGISTRY = [
         "method": "POST",
         "dependencies": [],
     },
+    {
+        "name": "report_license_sync",
+        "display_name": "License Report Sync",
+        "description": "Sync license utilization data from Graph API",
+        "endpoint": "/api/v2/admin/jobs/report_license_sync",
+        "default_cron": "0 4 * * *",
+        "timeout_seconds": 600,
+        "method": "POST",
+        "dependencies": [],
+    },
+    {
+        "name": "report_security_sync",
+        "display_name": "Security Report Sync",
+        "description": "Sync MFA and sign-in failure data from Graph API",
+        "endpoint": "/api/v2/admin/jobs/report_security_sync",
+        "default_cron": "0 * * * *",
+        "timeout_seconds": 300,
+        "method": "POST",
+        "dependencies": [],
+    },
 ]
 
 _JOBS_BY_NAME: Dict[str, Dict[str, Any]] = {job["name"]: job for job in JOB_REGISTRY}
@@ -63,9 +83,23 @@ def _run_warehouse_sync(run_id: str) -> None:
     service.sync_all_compliance_data()
 
 
+def _run_report_license_sync(run_id: str) -> None:
+    """Runner function for license report sync job."""
+    service = current_app.container.get("report_sync_service")
+    service.sync_license_data()
+
+
+def _run_report_security_sync(run_id: str) -> None:
+    """Runner function for security report sync job."""
+    service = current_app.container.get("report_sync_service")
+    service.sync_security_data()
+
+
 _JOB_RUNNERS = {
     "compliance_check": _run_compliance_check,
     "warehouse_sync": _run_warehouse_sync,
+    "report_license_sync": _run_report_license_sync,
+    "report_security_sync": _run_report_security_sync,
 }
 
 

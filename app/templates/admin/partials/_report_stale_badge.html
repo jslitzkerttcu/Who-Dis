@@ -1,0 +1,26 @@
+{# Reusable stale-cache indicator partial.
+   Expects: cache_entry (ReportCache instance or None), report_type (string).
+#}
+{% if cache_entry %}
+    {% if not cache_entry.is_stale %}
+    <div class="flex items-center text-sm">
+        <i class="fas fa-clock text-green-500 mr-2"></i>
+        <span class="text-gray-500">Updated <time title="{{ cache_entry.generated_at }}">{{ cache_entry.age_display }}</time></span>
+    </div>
+    {% else %}
+    <div class="flex items-center text-sm">
+        <i class="fas fa-clock text-yellow-500 mr-2"></i>
+        <span class="text-yellow-600 font-semibold">Data is {{ cache_entry.age_display }} old</span>
+        <button class="ml-2 text-blue-600 hover:text-blue-800 text-sm font-semibold"
+                hx-post="/api/v2/admin/jobs/report_{{ report_type }}_sync/trigger"
+                hx-swap="outerHTML">
+            Refresh Data
+        </button>
+    </div>
+    {% endif %}
+{% else %}
+    <div class="flex items-center text-sm">
+        <i class="fas fa-clock text-gray-400 mr-2"></i>
+        <span class="text-gray-500">No data synced yet</span>
+    </div>
+{% endif %}

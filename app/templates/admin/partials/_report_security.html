@@ -1,0 +1,213 @@
+{# Security Posture tab partial.
+   Expects: mfa_totals (ReportCache or None), mfa_users_without (ReportCache or None),
+            signin_entries (list), signin_pagination (dict), signin_source (str),
+            active_window (str), from_date (str), to_date (str).
+#}
+
+{% if mfa_totals and mfa_totals.data %}
+<!-- Status Bar -->
+<div class="flex items-center justify-between mb-6">
+    {% with cache_entry=mfa_totals, report_type="security" %}
+        {% include "admin/partials/_report_stale_badge.html" %}
+    {% endwith %}
+    <a href="{{ url_for('admin.api_reports_export_security') }}"
+       class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-normal rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+        <i class="fas fa-download mr-2"></i>
+        Export CSV
+    </a>
+</div>
+
+<!-- KPI Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- MFA Adoption -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">MFA Adoption</span>
+            <i class="fas fa-lock text-green-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ mfa_totals.data.mfa_pct|default(0) }}%</div>
+        <div class="text-sm text-gray-500 mt-1">Of active users</div>
+    </div>
+
+    <!-- Users Without MFA -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 {% if (mfa_totals.data.total_users|default(0) - mfa_totals.data.mfa_registered|default(0)) > 0 %}border-l-4 border-l-red-400{% endif %}">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">Users Without MFA</span>
+            <i class="fas fa-user-xmark text-red-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ (mfa_totals.data.total_users|default(0) - mfa_totals.data.mfa_registered|default(0)) }}</div>
+        <div class="text-sm text-gray-500 mt-1">Requires attention</div>
+    </div>
+
+    <!-- Failed Sign-ins (24h) -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">Failed Sign-ins (24h)</span>
+            <i class="fas fa-triangle-exclamation text-yellow-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ signin_entries|length if active_window == '24h' else '---' }}</div>
+        <div class="text-sm text-gray-500 mt-1">Last 24 hours</div>
+    </div>
+</div>
+
+<!-- Users Without MFA Table -->
+{% if mfa_users_without and mfa_users_without.data %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">Users Without MFA</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">Display Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">Email</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for user in mfa_users_without.data %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.userDisplayName }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.userPrincipalName }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Date Range Filter Bar -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+    <div class="flex flex-wrap items-center gap-3">
+        <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">Time Range:</span>
+        <button class="px-3 py-2 text-sm rounded-md {% if active_window == '24h' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}"
+                hx-get="{{ url_for('admin.api_reports_security') }}?window=24h"
+                hx-target="#report-content"
+                hx-push-url="{{ url_for('admin.reports_page') }}?tab=security">
+            24h
+        </button>
+        <button class="px-3 py-2 text-sm rounded-md {% if active_window == '7d' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}"
+                hx-get="{{ url_for('admin.api_reports_security') }}?window=7d"
+                hx-target="#report-content"
+                hx-push-url="{{ url_for('admin.reports_page') }}?tab=security">
+            7d
+        </button>
+        <button class="px-3 py-2 text-sm rounded-md {% if active_window == '30d' %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}"
+                hx-get="{{ url_for('admin.api_reports_security') }}?window=30d"
+                hx-target="#report-content"
+                hx-push-url="{{ url_for('admin.reports_page') }}?tab=security">
+            30d
+        </button>
+        <div class="border-l border-gray-300 pl-3 flex items-center gap-2">
+            <input type="date" name="from_date" id="signin-from-date" value="{{ from_date }}"
+                   class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+            <span class="text-gray-400">to</span>
+            <input type="date" name="to_date" id="signin-to-date" value="{{ to_date }}"
+                   class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+            <button class="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    hx-get="{{ url_for('admin.api_reports_security') }}"
+                    hx-target="#report-content"
+                    hx-include="#signin-from-date, #signin-to-date">
+                Apply Filter
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Failed Sign-ins Table -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden" id="signin-table">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">Failed Sign-ins</h2>
+    </div>
+    {% if signin_entries %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">User</th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">Timestamp</th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">Failure Reason</th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">IP Address</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for entry in signin_entries %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ entry.userPrincipalName|default('') }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ entry.createdDateTime|default('') }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">{{ entry.failureReason|default('') }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ entry.ipAddress|default('') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if signin_pagination and signin_pagination.total > 25 %}
+    <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div class="flex-1 flex justify-between sm:hidden">
+            {% if signin_pagination.has_prev %}
+            <a class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+               hx-get="{{ url_for('admin.api_reports_security') }}?page={{ signin_pagination.prev_num }}&window={{ active_window }}"
+               hx-target="#report-content">Previous</a>
+            {% endif %}
+            {% if signin_pagination.has_next %}
+            <a class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-normal rounded-md text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+               hx-get="{{ url_for('admin.api_reports_security') }}?page={{ signin_pagination.next_num }}&window={{ active_window }}"
+               hx-target="#report-content">Next</a>
+            {% endif %}
+        </div>
+        <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    Showing <span class="font-semibold">{{ signin_pagination.start_index }}</span>
+                    to <span class="font-semibold">{{ signin_pagination.end_index }}</span>
+                    of <span class="font-semibold">{{ signin_pagination.total }}</span> failed sign-ins
+                </p>
+            </div>
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                {% if signin_pagination.has_prev %}
+                <a class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-normal text-gray-500 hover:bg-gray-50 cursor-pointer"
+                   hx-get="{{ url_for('admin.api_reports_security') }}?page={{ signin_pagination.prev_num }}&window={{ active_window }}"
+                   hx-target="#report-content"><i class="fas fa-chevron-left"></i></a>
+                {% endif %}
+                {% set window_start = [1, signin_pagination.page - 2]|max %}
+                {% set window_end = [signin_pagination.pages, signin_pagination.page + 2]|min %}
+                {% for n in range(window_start, window_end + 1) %}
+                    {% if n == signin_pagination.page %}
+                    <span class="z-10 bg-blue-50 border-blue-500 text-blue-600 relative inline-flex items-center px-4 py-2 border text-sm font-semibold">{{ n }}</span>
+                    {% else %}
+                    <a class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-normal cursor-pointer"
+                       hx-get="{{ url_for('admin.api_reports_security') }}?page={{ n }}&window={{ active_window }}"
+                       hx-target="#report-content">{{ n }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if signin_pagination.has_next %}
+                <a class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-normal text-gray-500 hover:bg-gray-50 cursor-pointer"
+                   hx-get="{{ url_for('admin.api_reports_security') }}?page={{ signin_pagination.next_num }}&window={{ active_window }}"
+                   hx-target="#report-content"><i class="fas fa-chevron-right"></i></a>
+                {% endif %}
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-12">
+        <i class="fas fa-check-circle text-green-300 text-4xl mb-4"></i>
+        <h3 class="text-xl font-semibold text-gray-900 mb-2">No Failed Sign-ins</h3>
+        <p class="text-sm text-gray-500 max-w-md mx-auto">No failed sign-in attempts found for the selected time range.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div class="text-center py-12">
+    <i class="fas fa-shield-halved text-gray-300 text-4xl mb-4"></i>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">No Security Data Available</h3>
+    <p class="text-sm text-gray-500 max-w-md mx-auto">Security report data has not been synced. Configure a security sync job in the SandCastle portal.</p>
+</div>
+{% endif %}

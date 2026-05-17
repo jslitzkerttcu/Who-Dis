@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Admin{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+    <div class="mb-6">
+        <h1 class="text-2xl font-semibold text-gray-900 mb-2">Reports</h1>
+        <p class="text-sm font-normal text-gray-600">Organization-wide license, security, and contact center reports.</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="flex -mb-px space-x-8" aria-label="Report tabs">
+            <a href="{{ url_for('admin.reports_page') }}?tab=licenses"
+               hx-get="{{ url_for('admin.api_reports_licenses') }}"
+               hx-target="#report-content"
+               hx-push-url="{{ url_for('admin.reports_page') }}?tab=licenses"
+               class="group inline-flex items-center py-4 px-1 border-b-2 text-sm cursor-pointer
+                      {% if active_tab == 'licenses' %}border-blue-600 text-blue-600 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-normal{% endif %}">
+                <i class="fas fa-id-card-clip mr-2"></i>
+                Licenses
+            </a>
+            <a href="{{ url_for('admin.reports_page') }}?tab=security"
+               hx-get="{{ url_for('admin.api_reports_security') }}"
+               hx-target="#report-content"
+               hx-push-url="{{ url_for('admin.reports_page') }}?tab=security"
+               class="group inline-flex items-center py-4 px-1 border-b-2 text-sm cursor-pointer
+                      {% if active_tab == 'security' %}border-blue-600 text-blue-600 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-normal{% endif %}">
+                <i class="fas fa-shield-halved mr-2"></i>
+                Security
+            </a>
+            <a href="{{ url_for('admin.reports_page') }}?tab=genesys"
+               hx-get="{{ url_for('admin.api_reports_genesys') }}"
+               hx-target="#report-content"
+               hx-push-url="{{ url_for('admin.reports_page') }}?tab=genesys"
+               class="group inline-flex items-center py-4 px-1 border-b-2 text-sm cursor-pointer
+                      {% if active_tab == 'genesys' %}border-blue-600 text-blue-600 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-normal{% endif %}">
+                <i class="fas fa-headset mr-2"></i>
+                Contact Center
+            </a>
+            <a href="{{ url_for('admin.reports_page') }}?tab=history"
+               hx-get="{{ url_for('admin.api_reports_history') }}"
+               hx-target="#report-content"
+               hx-push-url="{{ url_for('admin.reports_page') }}?tab=history"
+               class="group inline-flex items-center py-4 px-1 border-b-2 text-sm cursor-pointer
+                      {% if active_tab == 'history' %}border-blue-600 text-blue-600 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-normal{% endif %}">
+                <i class="fas fa-clock-rotate-left mr-2"></i>
+                Run History
+            </a>
+        </nav>
+    </div>
+
+    <!-- Loading Indicator (htmx-indicator) -->
+    <div id="report-loading" class="htmx-indicator flex items-center justify-center py-8">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span class="ml-3 text-sm text-gray-600">Loading...</span>
+    </div>
+
+    <!-- Tab Content -->
+    <div id="report-content" hx-indicator="#report-loading">
+        {% if active_tab == 'security' %}
+            {% include "admin/partials/_report_security.html" %}
+        {% elif active_tab == 'genesys' %}
+            {% include "admin/partials/_report_genesys.html" %}
+        {% elif active_tab == 'history' %}
+            {% include "admin/partials/_report_history.html" %}
+        {% else %}
+            {% include "admin/partials/_report_licenses.html" %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -14,6 +14,7 @@ from . import (
     audit,
     admin_employee_profiles,
     job_role_compliance,
+    reports,
 )
 
 admin_bp = Blueprint("admin", __name__)
@@ -419,6 +420,31 @@ admin_bp.route("/api/run-compliance-check", methods=["POST"])(
 admin_bp.route("/api/compliance-export/<run_id>")(
     job_role_compliance.api_compliance_export
 )
+
+
+# Reports routes
+admin_bp.route("/reports", endpoint="reports_page")(reports.reports)
+admin_bp.route("/api/reports/licenses", endpoint="api_reports_licenses")(
+    reports.api_licenses_tab
+)
+admin_bp.route("/api/reports/security", endpoint="api_reports_security")(
+    reports.api_security_tab
+)
+admin_bp.route(
+    "/api/reports/export/licenses", endpoint="api_reports_export_licenses"
+)(reports.export_license_csv)
+admin_bp.route(
+    "/api/reports/export/security", endpoint="api_reports_export_security"
+)(reports.export_security_csv)
+admin_bp.route("/api/reports/genesys", endpoint="api_reports_genesys")(
+    reports.api_genesys_tab
+)
+admin_bp.route("/api/reports/history", endpoint="api_reports_history")(
+    reports.api_history_tab
+)
+admin_bp.route(
+    "/api/reports/export/genesys", endpoint="api_reports_export_genesys"
+)(reports.export_genesys_csv)
 
 
 # Compliance Violations Management routes
