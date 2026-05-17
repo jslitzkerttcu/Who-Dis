@@ -31,7 +31,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 - [x] **Phase 5: Database Migration & Alembic** - Move schema to Alembic, switch to DATABASE_URL, document data-migration path (verified; delivered via PR #25)
 - [x] **Phase 6: Enriched Profiles & Search Export** - Surface full Graph/Genesys data on profile cards with export (verified; all UAT passed)
 - [ ] **Phase 7: Compliance Polish** - Bulk checks with progress, export, and warehouse sync visibility
-- [ ] **Phase 8: Reporting** - License, security posture, and Genesys reports with scheduling
+- [x] **Phase 8: Reporting** - License, security posture, and Genesys reports with scheduling (completed 2026-05-17)
 - [ ] **Phase 9: Write Operations** - AD account actions and license management from the UI
 - [ ] **Phase 10: REST API** - Token-authenticated read-only API with rate limiting and docs
 - [ ] **Phase 11: Workflow Automation** - Onboarding/offboarding checklists with completion tracking
@@ -163,7 +163,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 
 - [x] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
 - [x] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
-- [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
+- [x] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
 
 **UI hint**: no
 
@@ -227,7 +227,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 **Plans**: 3 plans
 
 - [x] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
-- [ ] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
+- [x] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
 - [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
 
 **UI hint**: yes
@@ -247,7 +247,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 
 **Plans**: 3 plans
 
-- [ ] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
+- [x] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
 - [ ] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
 - [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
 
@@ -297,7 +297,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 | 5. Database Migration & Alembic | 0/0 | Complete (PR #25) | 2026-04-27 |
 | 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
 | 7. Compliance Polish | 0/3 | Not started | - |
-| 8. Reporting | 2/3 | In Progress|  |
+| 8. Reporting | 3/3 | Complete   | 2026-05-17 |
 | 9. Write Operations | 0/? | Not started | - |
 | 10. REST API | 0/? | Not started | - |
 | 11. Workflow Automation | 0/? | Not started | - |
