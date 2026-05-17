@@ -508,14 +508,14 @@ def _render_tab(tab: str):
 | A3 | Sign-in log retention is 30 days in target tenant | Pitfall 4 | Custom date ranges beyond retention return empty data |
 | A4 | Genesys agent roster is small enough for per-user presence if search expand fails | Pitfall 5 | Large rosters would need batch Analytics API approach |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Genesys presence API approach**
+1. **Genesys presence API approach** (RESOLVED — implement with search expand + per-user fallback)
    - What we know: The search endpoint returns presence from `presenceDefinition.systemPresence` in existing code, but this may only work for individual user lookups with expand
    - What's unclear: Whether bulk search with `presence` expand returns real-time presence or requires separate API calls
    - Recommendation: Implement with search expand first; add fallback to per-user GET if presence is null in search results
 
-2. **MFA reporting endpoint licensing**
+2. **MFA reporting endpoint licensing** (RESOLVED — graceful degradation on 403)
    - What we know: `userRegistrationDetails` requires Entra ID P1/P2
    - What's unclear: Whether the target tenant has this license tier
    - Recommendation: Implement with graceful degradation -- if endpoint returns 403, show "MFA data requires Entra ID P1/P2 license" message
