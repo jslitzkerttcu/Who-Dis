@@ -436,6 +436,15 @@ admin_bp.route(
 admin_bp.route(
     "/api/reports/export/security", endpoint="api_reports_export_security"
 )(reports.export_security_csv)
+admin_bp.route("/api/reports/genesys", endpoint="api_reports_genesys")(
+    reports.api_genesys_tab
+)
+admin_bp.route("/api/reports/history", endpoint="api_reports_history")(
+    reports.api_history_tab
+)
+admin_bp.route(
+    "/api/reports/export/genesys", endpoint="api_reports_export_genesys"
+)(reports.export_genesys_csv)
 
 
 # Compliance Violations Management routes
