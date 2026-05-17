@@ -1,8 +1,8 @@
 ---
 phase: 06-enriched-profiles-search-export
 verified: 2026-04-26T00:00:00Z
-status: human_needed
-score: 8/8 must-haves verified (programmatic) — 1 live-browser smoke remains
+status: passed
+score: 8/8 must-haves verified (programmatic) + 5/5 human smokes passed
 overrides_applied: 0
 human_verification:
   - test: "Open /search, query for a known user, expand the Microsoft 365 section on the result card"
@@ -27,7 +27,7 @@ human_verification:
 **Phase Goal:** Profile cards show the full picture of an employee — Graph licenses, MFA, last sign-in, Genesys queues and skills — without cluttering the default view, and users can export what they see.
 
 **Verified:** 2026-04-26
-**Status:** human_needed (programmatic verification PASS; 5 visual/interaction items require live-browser smoke)
+**Status:** PASSED (programmatic verification PASS + 5/5 human smoke tests confirmed 2026-05-16)
 **Re-verification:** No — initial verification
 
 ## Goal Achievement

@@ -29,7 +29,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 - [x] **Phase 3: SandCastle Containerization & Deployment** - Containerize, gunicorn, Traefik, env-var config, structured logs, portal registration (verified; PR #31)
 - [x] **Phase 4: Keycloak OIDC Authentication** - Replace Azure AD header auth with Keycloak OIDC; preserve role decorators (verified; PR #25)
 - [x] **Phase 5: Database Migration & Alembic** - Move schema to Alembic, switch to DATABASE_URL, document data-migration path (verified; delivered via PR #25)
-- [x] **Phase 6: Enriched Profiles & Search Export** - Surface full Graph/Genesys data on profile cards with export (verified; 5 human smokes pending)
+- [x] **Phase 6: Enriched Profiles & Search Export** - Surface full Graph/Genesys data on profile cards with export (verified; all UAT passed)
 - [ ] **Phase 7: Compliance Polish** - Bulk checks with progress, export, and warehouse sync visibility
 - [ ] **Phase 8: Reporting** - License, security posture, and Genesys reports with scheduling
 - [ ] **Phase 9: Write Operations** - AD account actions and license management from the UI

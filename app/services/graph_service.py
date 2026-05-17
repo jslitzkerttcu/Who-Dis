@@ -1,6 +1,7 @@
 """Microsoft Graph service with simplified configuration."""
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, Dict, Any, List
 from msal import ConfidentialClientApplication  # type: ignore[import-untyped]
 import base64
@@ -163,67 +164,67 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
         # Use base class method to normalize search terms
         search_variations = self._normalize_search_term(search_term)
 
-        all_results = []
-
+        # Try direct lookup first for email addresses (fast path)
         for search_query in search_variations:
-            try:
-                # Try direct user lookup by userPrincipalName or email first
-                if "@" in search_query:
+            if "@" in search_query:
+                try:
                     user_url = f"{self.graph_base_url}/users/{search_query}"
                     response = self._make_request("GET", user_url, token)
-
                     if response.status_code == 200:
                         user = self._handle_response(response)
                         return self._process_user_data(user, include_photo)
+                except (TimeoutError, ConnectionError):
+                    raise
+                except Exception:
+                    pass
 
-                    # Also try as mail filter for exact match
-                    mail_filter = f"mail eq '{search_query}'"
-                    select_fields = self._get_select_fields()
+        # Build all filter queries and run them in parallel
+        queries = []
+        select_fields = self._get_select_fields()
+        search_url = f"{self.graph_base_url}/users"
 
-                    search_url = f"{self.graph_base_url}/users"
-                    params = {
-                        "$filter": mail_filter,
-                        "$select": ",".join(select_fields),
-                    }
+        for search_query in search_variations:
+            if "@" in search_query:
+                queries.append({
+                    "$filter": f"mail eq '{search_query}'",
+                    "$select": ",".join(select_fields),
+                })
 
-                    response = self._make_request(
-                        "GET", search_url, token, params=params
-                    )
-                    if response.status_code == 200:
-                        data = self._handle_response(response)
-                        users = data.get("value", [])
-                        if users:
-                            return self._process_user_data(users[0], include_photo)
+            filter_query = (
+                f"startswith(userPrincipalName,'{search_query}') or "
+                f"startswith(displayName,'{search_query}') or "
+                f"startswith(mail,'{search_query}') or "
+                f"startswith(surname,'{search_query}') or "
+                f"startswith(givenName,'{search_query}')"
+            )
+            queries.append({
+                "$filter": filter_query,
+                "$select": ",".join(select_fields),
+            })
 
-                # Search using filter - only use startswith as contains is not supported
-                filter_query = (
-                    f"startswith(userPrincipalName,'{search_query}') or "
-                    f"startswith(displayName,'{search_query}') or "
-                    f"startswith(mail,'{search_query}') or "
-                    f"startswith(surname,'{search_query}') or "
-                    f"startswith(givenName,'{search_query}')"
-                )
+        all_results = []
 
-                select_fields = self._get_select_fields()
-                search_url = f"{self.graph_base_url}/users"
-                params = {"$filter": filter_query, "$select": ",".join(select_fields)}
+        def _run_filter_query(params: Dict[str, str]) -> List[Dict[str, Any]]:
+            resp = self._make_request("GET", search_url, token, params=params)
+            if resp.status_code == 200:
+                data = self._handle_response(resp)
+                results: List[Dict[str, Any]] = data.get("value", [])
+                return results
+            return []
 
-                response = self._make_request("GET", search_url, token, params=params)
-
-                if response.status_code == 200:
-                    data = self._handle_response(response)
-                    users = data.get("value", [])
-
-                    # Add to results if found
+        with ThreadPoolExecutor(max_workers=len(queries)) as executor:
+            futures = {
+                executor.submit(_run_filter_query, q): q for q in queries
+            }
+            for future in as_completed(futures):
+                try:
+                    users = future.result(timeout=5)
                     all_results.extend(users)
-
-            except (TimeoutError, ConnectionError):
-                # Base class already handles these with proper error messages
-                raise
-            except Exception as e:
-                logger.error(f"Error searching Graph API: {str(e)}")
-                # Continue with other search variations instead of raising
-                continue
+                except (TimeoutError, ConnectionError):
+                    raise
+                except Exception as e:
+                    logger.error(f"Error searching Graph API: {str(e)}")
+                    continue
 
         # Remove duplicates by user ID
         if all_results:
@@ -341,17 +342,13 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
                 "photo": photo_data,
             }
 
-            # Get manager info if present
+            # Use inline manager data from $expand (no extra API call needed)
             if user.get("manager"):
-                manager_id = user["manager"].get("id")
-                if manager_id:
-                    manager_data = self.get_user_by_id(manager_id, include_photo=False)
-                    if manager_data:
-                        result["manager"] = {
-                            "id": manager_data.get("id"),
-                            "displayName": manager_data.get("displayName"),
-                            "mail": manager_data.get("mail"),
-                        }
+                result["manager"] = {
+                    "id": user["manager"].get("id"),
+                    "displayName": user["manager"].get("displayName"),
+                    "mail": user["manager"].get("mail"),
+                }
 
             # Remove None values and empty dicts
             result = {k: v for k, v in result.items() if v is not None and v != {}}

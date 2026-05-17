@@ -33,7 +33,7 @@ Phase: 07 (compliance-polish) — NOT STARTED
 **Phase 3:** SandCastle Containerization & Deployment ✓ (verified; PR #31)
 **Phase 4:** Keycloak OIDC Authentication ✓ (verified; PR #25)
 **Phase 5:** Database Migration & Alembic ✓ (verified; delivered via PR #25)
-**Phase 6:** Enriched Profiles & Search Export ✓ (verified; 5 human smokes pending)
+**Phase 6:** Enriched Profiles & Search Export ✓ (verified; all UAT passed)
 **Status:** Ready for Phase 07
 **Next:** Phase 7 — Compliance Polish (bulk checks with progress, export, warehouse sync visibility)
 **Progress:** [███████████████░░░░░░░░░░░░░░░] 55% (6/11 phases)
