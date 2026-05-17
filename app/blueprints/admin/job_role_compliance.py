@@ -5,9 +5,11 @@ This module provides admin interface for managing job role compliance,
 including the visual matrix editor and compliance dashboard.
 """
 
+import csv
+import io
 import logging
 from datetime import datetime, timezone
-from flask import request, jsonify, render_template, g
+from flask import request, jsonify, render_template, g, Response, abort
 
 from app.middleware.auth import require_role
 from app.models.job_role_compliance import (
@@ -15,6 +17,7 @@ from app.models.job_role_compliance import (
     SystemRole,
     JobRoleMapping,
     ComplianceCheck,
+    ComplianceCheckRun,
     JobRoleMappingHistory,
 )
 from app.services.job_role_mapping_service import JobRoleMappingService
@@ -631,3 +634,77 @@ def api_run_compliance_check():
                 error_message=str(e),
             )
         return jsonify({"error": "Failed to run compliance check"}), 500
+
+
+def _csv_safe(value: str) -> str:
+    """Prevent CSV injection by prefixing dangerous characters with apostrophe."""
+    if value and value[0] in ("=", "+", "-", "@"):
+        return "'" + value
+    return value
+
+
+@require_role("admin")
+def api_compliance_export(run_id: str):
+    """Export compliance check results as CSV."""
+    check_run = ComplianceCheckRun.query.filter_by(run_id=run_id).first()
+    if not check_run:
+        abort(404)
+
+    violations = ComplianceCheck.query.filter(
+        ComplianceCheck.check_run_id == run_id,
+        ComplianceCheck.compliance_status != "compliant",
+    ).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Metadata rows
+    writer.writerow([f"Run ID: {run_id}"])
+    writer.writerow(
+        [
+            f"Date/Time (UTC): {check_run.started_at.strftime('%Y-%m-%d %H:%M:%S') if check_run.started_at else 'N/A'}"
+        ]
+    )
+    writer.writerow(["Scope: All employees"])
+    writer.writerow([f"Triggered By: {_csv_safe(check_run.started_by)}"])
+    writer.writerow([])
+
+    # Header row
+    writer.writerow(
+        [
+            "Employee (UPN)",
+            "Job Code",
+            "System",
+            "Expected Role",
+            "Actual Assignment",
+            "Violation Type",
+            "Severity",
+            "Remediation Action",
+        ]
+    )
+
+    # Data rows
+    for v in violations:
+        writer.writerow(
+            [
+                _csv_safe(v.employee_upn),
+                _csv_safe(v.job_code or ""),
+                _csv_safe(v.system_name or ""),
+                _csv_safe(v.role_name or ""),
+                "Yes" if v.actual_assignment else "No",
+                _csv_safe(v.compliance_status or ""),
+                _csv_safe(v.violation_severity or ""),
+                _csv_safe(v.remediation_action or ""),
+            ]
+        )
+
+    csv_content = output.getvalue()
+    output.close()
+
+    return Response(
+        csv_content,
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=compliance_run_{run_id}.csv"
+        },
+    )

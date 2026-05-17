@@ -417,6 +417,9 @@ admin_bp.route("/api/compliance-violations")(
 admin_bp.route("/api/run-compliance-check", methods=["POST"])(
     job_role_compliance.api_run_compliance_check
 )
+admin_bp.route("/api/compliance-export/<run_id>")(
+    job_role_compliance.api_compliance_export
+)
 
 
 # Compliance Violations Management routes
