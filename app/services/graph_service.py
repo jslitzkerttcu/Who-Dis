@@ -634,4 +634,215 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
             return None
 
 
+    # ------------------------------------------------------------------ #
+    # Bulk methods for Phase 8 Reporting                                   #
+    # ------------------------------------------------------------------ #
+
+    def get_all_users_with_licenses(self) -> List[Dict[str, Any]]:
+        """Paginated iteration over all users with license and sign-in data.
+
+        Fetches displayName, userPrincipalName, assignedLicenses, and
+        signInActivity using /beta/users with ConsistencyLevel: eventual.
+
+        Requires User.Read.All permission (D-05).
+
+        Returns:
+            List of user dicts, or permission_missing sentinel on 403.
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Graph API access token for bulk users")
+            return []
+
+        all_users: List[Dict[str, Any]] = []
+        url: Optional[str] = f"{self.graph_base_url}/users"
+        params: Optional[Dict[str, str]] = {
+            "$select": "displayName,userPrincipalName,assignedLicenses,signInActivity",
+            "$top": "500",
+        }
+        headers = {"ConsistencyLevel": "eventual"}
+
+        try:
+            while url:
+                response = self._make_request(
+                    "GET", url, token, params=params, headers=headers,
+                )
+                data = self._handle_response(response)
+
+                if isinstance(data, dict) and "error" in data:
+                    return data  # type: ignore[return-value]
+
+                users = data.get("value", []) if data else []
+                all_users.extend(users)
+
+                # Follow @odata.nextLink for pagination
+                url = data.get("@odata.nextLink") if data else None
+                # After first page, params are embedded in nextLink
+                params = None
+
+            logger.info(
+                f"Fetched {len(all_users)} users with license data from Graph"
+            )
+            return all_users
+
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("User.Read.All")  # type: ignore[return-value]
+            logger.error(
+                f"HTTP error fetching bulk users: {str(e)}", exc_info=True,
+            )
+            return []
+        except Exception as e:
+            logger.error(
+                f"Error fetching bulk users with licenses: {str(e)}",
+                exc_info=True,
+            )
+            return []
+
+    def get_mfa_registration_details(self) -> List[Dict[str, Any]]:
+        """Bulk MFA registration details via v1.0 userRegistrationDetails.
+
+        Uses the v1.0 endpoint (not beta) per RESEARCH.md Pattern 2.
+        Requires AuditLog.Read.All permission.
+
+        Returns:
+            List of user registration detail dicts, or permission_missing
+            sentinel on 403.
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Graph API access token for MFA details")
+            return []
+
+        all_details: List[Dict[str, Any]] = []
+        url: Optional[str] = (
+            "https://graph.microsoft.com/v1.0"
+            "/reports/authenticationMethods/userRegistrationDetails"
+        )
+        params: Optional[Dict[str, str]] = None
+
+        try:
+            while url:
+                response = self._make_request(
+                    "GET", url, token, params=params,
+                )
+                data = self._handle_response(response)
+
+                if isinstance(data, dict) and "error" in data:
+                    return data  # type: ignore[return-value]
+
+                details = data.get("value", []) if data else []
+                all_details.extend(details)
+
+                url = data.get("@odata.nextLink") if data else None
+                params = None
+
+            logger.info(
+                f"Fetched {len(all_details)} MFA registration records from Graph"
+            )
+            return all_details
+
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("AuditLog.Read.All")  # type: ignore[return-value]
+            logger.error(
+                f"HTTP error fetching MFA registration details: {str(e)}",
+                exc_info=True,
+            )
+            return []
+        except Exception as e:
+            logger.error(
+                f"Error fetching MFA registration details: {str(e)}",
+                exc_info=True,
+            )
+            return []
+
+    def get_failed_signins_bulk(
+        self, from_date: str, to_date: str,
+    ) -> List[Dict[str, Any]]:
+        """Bulk failed sign-in logs within a date range.
+
+        Queries /beta/auditLogs/signIns filtered by errorCode ne 0.
+        Validates from_date and to_date as ISO 8601 before embedding
+        in the OData $filter (T-08-04 mitigation).
+
+        Requires AuditLog.Read.All permission.
+
+        Args:
+            from_date: ISO 8601 datetime string (inclusive lower bound).
+            to_date: ISO 8601 datetime string (inclusive upper bound).
+
+        Returns:
+            List of sign-in log dicts, or permission_missing sentinel on 403.
+        """
+        # T-08-04: Validate date inputs to prevent OData injection
+        import re
+
+        iso_pattern = re.compile(
+            r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?$"
+        )
+        if not iso_pattern.match(from_date) or not iso_pattern.match(to_date):
+            logger.error(
+                f"Invalid date format for sign-in query: "
+                f"from={from_date}, to={to_date}"
+            )
+            return []
+
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get Graph API access token for sign-in logs")
+            return []
+
+        all_entries: List[Dict[str, Any]] = []
+        url: Optional[str] = f"{self.graph_base_url}/auditLogs/signIns"
+        params: Optional[Dict[str, str]] = {
+            "$filter": (
+                f"status/errorCode ne 0 "
+                f"and createdDateTime ge {from_date} "
+                f"and createdDateTime le {to_date}"
+            ),
+            "$orderby": "createdDateTime desc",
+            "$top": "500",
+            "$select": (
+                "createdDateTime,userDisplayName,userPrincipalName,"
+                "ipAddress,location,status,appDisplayName"
+            ),
+        }
+
+        try:
+            while url:
+                response = self._make_request(
+                    "GET", url, token, params=params,
+                )
+                data = self._handle_response(response)
+
+                if isinstance(data, dict) and "error" in data:
+                    return data  # type: ignore[return-value]
+
+                entries = data.get("value", []) if data else []
+                all_entries.extend(entries)
+
+                url = data.get("@odata.nextLink") if data else None
+                params = None
+
+            logger.info(
+                f"Fetched {len(all_entries)} failed sign-in entries from Graph"
+            )
+            return all_entries
+
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("AuditLog.Read.All")  # type: ignore[return-value]
+            logger.error(
+                f"HTTP error fetching failed sign-ins: {str(e)}",
+                exc_info=True,
+            )
+            return []
+        except Exception as e:
+            logger.error(
+                f"Error fetching failed sign-ins: {str(e)}", exc_info=True,
+            )
+            return []
+
+
 graph_service = GraphService()
