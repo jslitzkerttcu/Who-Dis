@@ -319,6 +319,7 @@ class ComplianceCheckRun(BaseModel, TimestampMixin, JSONDataMixin):
     compliant_count = db.Column(db.Integer, default=0)
     violation_count = db.Column(db.Integer, default=0)
     error_count = db.Column(db.Integer, default=0)
+    checked_count = db.Column(db.Integer, default=0)
     duration_seconds = db.Column(db.Integer)
     status = db.Column(
         db.String(50), default="running", index=True
