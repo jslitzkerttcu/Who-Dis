@@ -132,7 +132,10 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   3. A documented runbook (`docs/runbooks/sandcastle-data-migration.md`) lets an operator export the current WhoDis database, provision the SandCastle DB via `provision-db.sh whodis`, and restore data with row counts verified
   4. SQLAlchemy connection pool is configured for a containerized deployment (`pool_size=5`, `pool_pre_ping=True`); pool exhaustion logs surface as structured errors, not stack traces
   5. A new schema change can be authored, committed, deployed via portal webhook, and applied on container start without any manual `psql` step
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
+- [ ] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
+- [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
 **UI hint**: no
 
 ### Phase 6: Enriched Profiles & Search Export
@@ -179,7 +182,10 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   4. Genesys section shows current presence, routing status, and queue memberships for Genesys-enabled users
   5. Admin can create, edit, and delete report schedules (daily/weekly/monthly) with a history view of past runs
   6. Report data is served from cache (4h licenses, 1h security, 5min Genesys) — a stale-cache indicator is visible
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
+- [ ] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
+- [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
 **UI hint**: yes
 
 ### Phase 9: Write Operations
@@ -192,7 +198,10 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   3. Every write action (AD or license) creates an audit log entry with who, what, to whom, when, IP address, and the typed reason
   4. Admin can assign or remove an M365 license from the profile view with confirmation
   5. License swap (remove old SKU, assign new SKU) executes as an atomic operation — partial state is not left if one step fails
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
+- [ ] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
+- [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
 **UI hint**: yes
 
 ### Phase 10: REST API
@@ -215,7 +224,10 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   2. Admin can generate an offboarding checklist that mirrors and reverses all provisioning steps from onboarding
   3. Each checklist item records who completed it and when — the audit trail is queryable
   4. A workflow dashboard shows all active checklists with per-item progress and highlights overdue items
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
+- [ ] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
+- [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
 **UI hint**: yes
 
 ## Progress Table
@@ -229,7 +241,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 | 5. Database Migration & Alembic | 0/0 | Complete (PR #25) | 2026-04-27 |
 | 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
 | 7. Compliance Polish | 0/3 | Not started | - |
-| 8. Reporting | 0/? | Not started | - |
+| 8. Reporting | 0/3 | Not started | - |
 | 9. Write Operations | 0/? | Not started | - |
 | 10. REST API | 0/? | Not started | - |
 | 11. Workflow Automation | 0/? | Not started | - |
