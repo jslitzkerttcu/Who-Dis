@@ -160,6 +160,13 @@ def register_services(container: ServiceContainer) -> None:
     # Cache cleanup service (DEBT-03: hourly prune of expired SearchCache rows)
     container.register("cache_cleanup", lambda c: CacheCleanupService(container))
 
+    # Job role warehouse service (warehouse sync for compliance data)
+    from app.services.job_role_warehouse_service import JobRoleWarehouseService
+
+    container.register(
+        "job_role_warehouse_service", lambda c: JobRoleWarehouseService()
+    )
+
     # Job manager service (Phase 7: background job execution with conflict detection)
     from app.services.job_manager_service import JobManagerService
 
