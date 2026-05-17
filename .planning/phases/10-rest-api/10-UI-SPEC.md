@@ -79,7 +79,7 @@ Inherited from Phase 6 UI-SPEC. No new sizes introduced.
 | Dominant (60%) | `#f9fafb` | `bg-gray-50` | Page background (existing) |
 | Secondary (30%) | `#ffffff` | `bg-white` | Token management card surface, table rows |
 | Accent (10%) -- Create action | `#007c59` | `text-ttcu-green` / `bg-ttcu-green` | "Create Token" primary button |
-| Destructive | `#dc2626` | `text-red-600` / `bg-red-600` | "Revoke" token button, revoke confirmation modal confirm button |
+| Destructive | `#dc2626` | `text-red-600` / `bg-red-600` | "Revoke Token" button, revoke confirmation modal confirm button |
 | Warning | `#d97706` | `text-amber-600` / `bg-amber-50` | One-time reveal warning: "This token will not be shown again" |
 | Info | `#1e40af` | `bg-blue-50 border-blue-400` | Token reveal display box (blue-tinted, consistent with password banner from Phase 9) |
 | Status -- Active | `#059669` | `text-green-700 bg-green-100` | Active token badge |
@@ -87,7 +87,7 @@ Inherited from Phase 6 UI-SPEC. No new sizes introduced.
 
 **Accent reserved for:**
 1. `ttcu-green` -- "Create Token" button only. No other constructive action in this phase.
-2. `red-600` -- "Revoke" button per token row and the confirm button inside the revoke confirmation modal. Revocation is irreversible; red signals this clearly.
+2. `red-600` -- "Revoke Token" button per token row and the confirm button inside the revoke confirmation modal. Revocation is irreversible; red signals this clearly.
 3. `ttcu-yellow` -- Not used in this phase. Reserved for copy/export per Phase 6.
 
 ---
@@ -118,9 +118,9 @@ Inherited from Phase 6 UI-SPEC. No new sizes introduced.
 | **Token list column: Status** | `Status` |
 | **Token list column: Actions** | `Actions` |
 | **Last used never** | `Never` -- `text-gray-400 italic` |
-| **Active status badge** | `Active` -- `text-green-700 bg-green-100 px-2 py-0.5 rounded-full text-xs font-semibold` |
-| **Revoked status badge** | `Revoked` -- `text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full text-xs font-semibold` |
-| **Revoke button (row)** | `Revoke` (icon: `fa-ban`, color: `text-red-600`) |
+| **Active status badge** | `Active` -- `text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs font-semibold` |
+| **Revoked status badge** | `Revoked` -- `text-gray-500 bg-gray-100 px-2 py-1 rounded-full text-xs font-semibold` |
+| **Revoke button (row)** | `Revoke Token` (icon: `fa-ban`, color: `text-red-600`) |
 | **Revoke modal title** | `Revoke Token` |
 | **Revoke modal body** | `Revoke the token "{token_name}"? This cannot be undone. Any system using this token will immediately lose API access.` |
 | **Revoke modal confirm button** | `Revoke Token` (red: `bg-red-600 hover:bg-red-700 text-white`) |
@@ -143,7 +143,7 @@ Inherited from Phase 6 UI-SPEC. No new sizes introduced.
 | **Copy token** | `navigator.clipboard.writeText(token)` -> `showToast('Token copied to clipboard', 'success', 3000)`. Copy button briefly shows `fa-check` for 2s then reverts. |
 | **Reveal modal close** | Click "Done -- I've Copied the Token" button. Modal closes. Token list refreshes via HTMX (`hx-get` on the token list container with `hx-trigger="tokenCreated from:body"`). Token value is gone from memory -- cannot be recovered from UI. |
 | **Revoke button click** | Opens revoke confirmation modal (standard `max-w-md`). Displays token name in modal body. No reason text field required (revocation is its own audit event). Confirm button is red. |
-| **Revoke confirm** | DELETE or POST to `/admin/api-tokens/{token_id}/revoke` via HTMX. Server responds `HX-Trigger: tokenRevoked`. Token row updates in-place: Name goes `line-through text-gray-400`, status badge swaps to "Revoked", Revoke button disappears (row becomes read-only). Modal closes. Success toast appears. |
+| **Revoke confirm** | DELETE or POST to `/admin/api-tokens/{token_id}/revoke` via HTMX. Server responds `HX-Trigger: tokenRevoked`. Token row updates in-place: Name goes `line-through text-gray-400`, status badge swaps to "Revoked", Revoke Token button disappears (row becomes read-only). Modal closes. Success toast appears. |
 | **Cancel / Escape** | Closes any open modal. No network call. Matches existing pattern. |
 | **Keyboard** | Modal traps focus. Tab cycles through fields and buttons. Escape closes modal. Confirm button not in tab order while disabled. |
 | **Screen reader** | Create and revoke modals have `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to modal title. Token name input has `aria-required="true"`. |
