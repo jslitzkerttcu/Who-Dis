@@ -770,6 +770,10 @@ def profile_m365(user_id):
     data["sign_in_logs"] = _build_sign_in_logs_data(sign_in_logs)
     data["devices"] = _build_devices_data(devices)
 
+    # Prefer real-time sign-in logs over stale signInActivity on the user object
+    if data["sign_in_logs"]:
+        data["last_sign_in"] = data["sign_in_logs"][0]["time"]
+
     audit_service = current_app.container.get("audit_logger")
     user_email = getattr(g, "user", "unknown")
     audit_service.log_search(
