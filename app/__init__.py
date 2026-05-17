@@ -305,6 +305,9 @@ def create_app():
     app.register_blueprint(home_bp)
     app.register_blueprint(search_bp, url_prefix="/search")
     app.register_blueprint(admin_bp, url_prefix="/admin")
+
+    from app.blueprints.admin.jobs import jobs_api_bp
+    app.register_blueprint(jobs_api_bp, url_prefix="/api/v2/admin/jobs")
     app.register_blueprint(session_bp)
     app.register_blueprint(utilities, url_prefix="/utilities")
     # OPS-01: unauthenticated /health and /health/live for external monitors

@@ -3,23 +3,28 @@ SandCastle Job API endpoints.
 
 Provides the manifest, trigger, and status endpoints consumed by
 the SandCastle scheduler portal for background job orchestration.
+
+Mounted as a separate blueprint at /api/v2/admin/jobs to match the
+paths SandCastle expects (avoids double-prefixing under admin_bp).
 """
 
 import logging
 from typing import Any, Callable, Dict
 
-from flask import current_app, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from app.auth.portal_auth import admin_or_portal_required
 
 logger = logging.getLogger(__name__)
+
+jobs_api_bp = Blueprint("jobs_api", __name__)
 
 JOB_REGISTRY = [
     {
         "name": "compliance_check",
         "display_name": "Compliance Check",
         "description": "Run bulk job-role compliance check",
-        "endpoint": "/api/admin/jobs/compliance_check",
+        "endpoint": "/api/v2/admin/jobs/compliance_check",
         "default_cron": "0 6 * * 1",
         "timeout_seconds": 600,
         "method": "POST",
@@ -29,7 +34,7 @@ JOB_REGISTRY = [
         "name": "warehouse_sync",
         "display_name": "Warehouse Sync",
         "description": "Sync job roles from warehouse",
-        "endpoint": "/api/admin/jobs/warehouse_sync",
+        "endpoint": "/api/v2/admin/jobs/warehouse_sync",
         "default_cron": "0 5 * * *",
         "timeout_seconds": 300,
         "method": "POST",
@@ -64,12 +69,14 @@ _JOB_RUNNERS = {
 }
 
 
+@jobs_api_bp.route("/manifest", methods=["GET"])
 @admin_or_portal_required
 def get_manifest():
     """Return the job manifest for the SandCastle scheduler."""
     return jsonify({"jobs": JOB_REGISTRY})
 
 
+@jobs_api_bp.route("/<name>", methods=["POST"])
 @admin_or_portal_required
 def trigger_job(name: str):
     """Trigger a named job and return 202 with run_id."""
@@ -95,6 +102,7 @@ def trigger_job(name: str):
         return jsonify({"error": str(e), "run_id": e.run_id}), 409
 
 
+@jobs_api_bp.route("/<name>/status/<run_id>", methods=["GET"])
 @admin_or_portal_required
 def get_job_status(name: str, run_id: str):
     """Get the status of a specific job run."""

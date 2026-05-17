@@ -19,7 +19,7 @@
 </div>
 {% else %}
 <div id="compliance-progress"
-     hx-get="{{ url_for('admin.job_status', name='compliance_check', run_id=run_id) }}"
+     hx-get="{{ url_for('jobs_api.get_job_status', name='compliance_check', run_id=run_id) }}"
      hx-trigger="every 2s"
      hx-swap="outerHTML"
      class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
