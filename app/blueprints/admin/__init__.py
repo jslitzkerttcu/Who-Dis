@@ -14,6 +14,7 @@ from . import (
     audit,
     admin_employee_profiles,
     job_role_compliance,
+    jobs,
 )
 
 admin_bp = Blueprint("admin", __name__)
@@ -424,3 +425,15 @@ admin_bp.route("/api/run-compliance-check", methods=["POST"])(
 def compliance_violations():
     """Compliance violations management page."""
     return render_template("admin/compliance_violations.html")
+
+
+# SandCastle Job API routes
+admin_bp.route("/api/admin/jobs/manifest", endpoint="jobs_manifest", methods=["GET"])(
+    jobs.get_manifest
+)
+admin_bp.route("/api/admin/jobs/<name>", endpoint="trigger_job", methods=["POST"])(
+    jobs.trigger_job
+)
+admin_bp.route(
+    "/api/admin/jobs/<name>/status/<run_id>", endpoint="job_status", methods=["GET"]
+)(jobs.get_job_status)
