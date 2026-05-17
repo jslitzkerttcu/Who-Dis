@@ -6,7 +6,7 @@ against actual role assignments across all systems.
 """
 
 import logging
-from typing import Dict, Any, List, Optional, Set
+from typing import Callable, Dict, Any, List, Optional, Set
 from datetime import datetime, timezone, timedelta
 import uuid
 
@@ -219,6 +219,7 @@ class ComplianceCheckingService(BaseConfigurableService):
         scope_filter: Optional[str] = None,
         started_by: str = "system",
         run_type: str = "manual",
+        progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> ComplianceCheckRun:
         """
         Run a compliance check across specified scope.
@@ -285,11 +286,19 @@ class ComplianceCheckingService(BaseConfigurableService):
                             )
                             error_count += 1
 
-                    # Commit batch
+                    # Commit batch and update progress
+                    check_run.checked_count = min(
+                        i + batch_size, len(employees_to_check)
+                    )
                     db.session.commit()
                     logger.debug(
                         f"Processed batch {i // batch_size + 1}, total checks: {total_checks}"
                     )
+
+                    if progress_callback:
+                        progress_callback(
+                            check_run.checked_count, len(employees_to_check)
+                        )
 
                 except Exception as e:
                     logger.error(

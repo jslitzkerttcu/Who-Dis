@@ -22,8 +22,18 @@ from app.models.job_role_compliance import (
     SystemRole,
     EmployeeRoleAssignment,
 )
+from app.models.sync_metadata import SyncMetadata
 
 logger = logging.getLogger(__name__)
+
+# Maps pyodbc SQLSTATE codes to human-friendly error categories
+WAREHOUSE_ERROR_CATEGORIES: Dict[str, tuple] = {
+    "08001": ("connection_timeout", "Connection timeout - warehouse unreachable"),
+    "08S01": ("connection_timeout", "Connection timeout - warehouse unreachable"),
+    "28000": ("auth_failed", "Authentication failed - check service principal credentials"),
+    "HYT00": ("query_timeout", "Query timeout - warehouse may be under load"),
+    "HYT01": ("query_timeout", "Query timeout - warehouse may be under load"),
+}
 
 
 class JobRoleWarehouseService(BaseAPIService):
@@ -501,6 +511,61 @@ class JobRoleWarehouseService(BaseAPIService):
             logger.error(f"Error getting expected roles mapping: {str(e)}")
             raise
 
+    def _categorize_pyodbc_error(self, error: Exception) -> tuple:
+        """
+        Categorize a pyodbc error into a human-friendly category.
+
+        Args:
+            error: The exception to categorize
+
+        Returns:
+            Tuple of (category, message)
+        """
+        error_str = str(error)
+        for code, (category, message) in WAREHOUSE_ERROR_CATEGORIES.items():
+            if code in error_str:
+                return (category, message)
+        return ("unknown", "Sync failed - an unexpected error occurred")
+
+    def _update_sync_metadata(
+        self,
+        sync_type: str,
+        success: bool,
+        duration_seconds: int = None,
+        records_synced: int = None,
+        error: Exception = None,
+    ) -> None:
+        """
+        Update SyncMetadata record for a given sync type.
+
+        Args:
+            sync_type: The type of sync operation
+            success: Whether the sync succeeded
+            duration_seconds: How long the sync took
+            records_synced: Number of records synced
+            error: The exception if sync failed
+        """
+        now = datetime.now(timezone.utc)
+        metadata = SyncMetadata.query.filter_by(sync_type=sync_type).first()
+        if not metadata:
+            metadata = SyncMetadata(sync_type=sync_type)
+            db.session.add(metadata)
+
+        if success:
+            metadata.last_success_at = now
+            if duration_seconds is not None:
+                metadata.duration_seconds = duration_seconds
+            if records_synced is not None:
+                metadata.total_records_synced = records_synced
+        else:
+            metadata.last_error_at = now
+            if error is not None:
+                category, message = self._categorize_pyodbc_error(error)
+                metadata.last_error_category = category
+                metadata.last_error_message = message
+
+        db.session.commit()
+
     def sync_system_roles(self) -> Dict[str, int]:
         """
         Sync system roles (currently just Keystone roles).
@@ -519,10 +584,9 @@ class JobRoleWarehouseService(BaseAPIService):
         """
         logger.info("Starting full job role compliance data sync")
         start_time = datetime.now(timezone.utc)
+        results: Dict[str, Any] = {}
 
         try:
-            results = {}
-
             # Sync job codes
             logger.info("Syncing job codes...")
             results["job_codes"] = self.sync_job_codes()
@@ -543,6 +607,21 @@ class JobRoleWarehouseService(BaseAPIService):
             results["duration_seconds"] = duration
             results["status"] = "success"
 
+            # Calculate total records synced
+            total_records = 0
+            for key in ("job_codes", "keystone_roles"):
+                if key in results and isinstance(results[key], dict):
+                    total_records += results[key].get("created", 0) + results[key].get("updated", 0)
+            if "keystone_assignments" in results and isinstance(results["keystone_assignments"], dict):
+                total_records += results["keystone_assignments"].get("assignments_updated", 0)
+
+            self._update_sync_metadata(
+                sync_type="warehouse_sync",
+                success=True,
+                duration_seconds=duration,
+                records_synced=total_records,
+            )
+
             logger.info(
                 f"Full job role compliance data sync completed in {duration} seconds"
             )
@@ -550,6 +629,16 @@ class JobRoleWarehouseService(BaseAPIService):
 
         except Exception as e:
             logger.error(f"Error during full sync: {str(e)}")
+            end_time = datetime.now(timezone.utc)
+            duration = int((end_time - start_time).total_seconds())
+
+            self._update_sync_metadata(
+                sync_type="warehouse_sync",
+                success=False,
+                duration_seconds=duration,
+                error=e,
+            )
+
             results["status"] = "error"
             results["error"] = str(e)
             return results
