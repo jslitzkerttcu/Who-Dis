@@ -167,6 +167,13 @@ def register_services(container: ServiceContainer) -> None:
         "job_role_warehouse_service", lambda c: JobRoleWarehouseService()
     )
 
+    # Compliance checking service (bulk job-role compliance checks)
+    from app.services.compliance_checking_service import ComplianceCheckingService
+
+    container.register(
+        "compliance_checking_service", lambda c: ComplianceCheckingService()
+    )
+
     # Job manager service (Phase 7: background job execution with conflict detection)
     from app.services.job_manager_service import JobManagerService
 
