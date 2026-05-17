@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-05-17
+revised: 2026-05-17
 ---
 
 # Phase 8 — UI Design Contract
@@ -32,7 +33,7 @@ Declared values (must be multiples of 4):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px (`p-1`) | Icon gaps, inline padding |
-| sm | 8px (`p-2`, `gap-2`) | Compact element spacing, button icon gaps |
+| sm | 8px (`p-2`, `gap-2`) | Compact element spacing, button icon gaps, filter button vertical padding |
 | md | 16px (`p-4`, `gap-4`, `px-4`) | Default card padding, element spacing |
 | lg | 24px (`p-6`, `gap-6`, `py-6`) | Card inner padding, section gaps |
 | xl | 32px (`gap-8`, `mb-8`) | Layout column gaps, major section breaks |
@@ -48,11 +49,13 @@ Exceptions: none
 | Role | Size | Weight | Line Height | Tailwind Class |
 |------|------|--------|-------------|----------------|
 | Body | 14px | 400 (normal) | 1.5 | `text-sm font-normal` |
-| Label | 14px | 500 (medium) | 1.4 | `text-sm font-medium` |
+| Label | 14px | 400 (normal) | 1.4 | `text-sm font-normal text-gray-500 uppercase tracking-wider` |
 | Heading | 20px | 600 (semibold) | 1.2 | `text-xl font-semibold` |
-| Page Title | 24px | 700 (bold) | 1.2 | `text-2xl font-bold` |
+| Page Title | 24px | 600 (semibold) | 1.2 | `text-2xl font-semibold` |
 
-Source: Derived from existing admin templates (`compliance_dashboard.html`, `admin/index.html`). Page titles use `text-2xl font-bold text-gray-900`. Section headings use `text-lg font-semibold text-gray-900`. Body/labels use `text-sm`.
+Weights used: 2 (400 normal, 600 semibold). Labels are distinguished from body text by uppercase letterform and muted color (`text-gray-500`), not by weight. Page titles are distinguished from headings by size (24px vs 20px), not by weight.
+
+Source: Derived from existing admin templates (`compliance_dashboard.html`, `admin/index.html`). Collapsed to 2-weight system for visual consistency.
 
 ---
 
@@ -109,10 +112,10 @@ Each card structure:
 ```html
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
     <div class="flex items-center justify-between mb-2">
-        <span class="text-sm font-medium text-gray-500">{label}</span>
+        <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">{label}</span>
         <i class="fas {icon} text-{color}"></i>
     </div>
-    <div class="text-2xl font-bold text-gray-900">{value}</div>
+    <div class="text-2xl font-semibold text-gray-900">{value}</div>
     <div class="text-sm text-gray-500 mt-1">{subtitle}</div>
 </div>
 ```
@@ -146,7 +149,7 @@ Follow existing table pattern from compliance violations and audit logs:
 <table class="min-w-full divide-y divide-gray-200">
     <thead class="bg-gray-50">
         <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">...</th>
+            <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">...</th>
         </tr>
     </thead>
     <tbody class="bg-white divide-y divide-gray-200">
@@ -181,15 +184,15 @@ Structure: Preset buttons + custom date picker in a filter bar above the table.
 ```html
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
     <div class="flex flex-wrap items-center gap-3">
-        <span class="text-sm font-medium text-gray-700">Time Range:</span>
-        <button class="px-3 py-1.5 text-sm rounded-md {active: bg-blue-600 text-white} {inactive: bg-gray-100 text-gray-700 hover:bg-gray-200}">24h</button>
-        <button class="...">7d</button>
-        <button class="...">30d</button>
+        <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">Time Range:</span>
+        <button class="px-3 py-2 text-sm rounded-md {active: bg-blue-600 text-white} {inactive: bg-gray-100 text-gray-700 hover:bg-gray-200}">24h</button>
+        <button class="px-3 py-2 text-sm rounded-md ...">7d</button>
+        <button class="px-3 py-2 text-sm rounded-md ...">30d</button>
         <div class="border-l border-gray-300 pl-3 flex items-center gap-2">
-            <input type="date" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+            <input type="date" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
             <span class="text-gray-400">to</span>
-            <input type="date" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-            <button class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Apply</button>
+            <input type="date" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+            <button class="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Apply Filter</button>
         </div>
     </div>
 </div>
@@ -219,18 +222,18 @@ Design: Inline timestamp badge in the tab header area, right-aligned next to the
 ```html
 <div class="flex items-center text-sm">
     <!-- Fresh -->
-    <i class="fas fa-clock text-green-500 mr-1.5"></i>
+    <i class="fas fa-clock text-green-500 mr-2"></i>
     <span class="text-gray-500">Updated <time title="2026-05-17 14:30:00">12 min ago</time></span>
     
     <!-- Stale -->
-    <i class="fas fa-clock text-yellow-500 mr-1.5"></i>
-    <span class="text-yellow-600 font-medium">Data is 5h old</span>
-    <button class="ml-2 text-blue-600 hover:text-blue-800 text-sm font-medium">Refresh</button>
+    <i class="fas fa-clock text-yellow-500 mr-2"></i>
+    <span class="text-yellow-600 font-semibold">Data is 5h old</span>
+    <button class="ml-2 text-blue-600 hover:text-blue-800 text-sm font-semibold">Refresh Data</button>
 </div>
 ```
 
 Fresh threshold: Within TTL (4h licenses, 1h security, 5min Genesys).
-Stale threshold: Beyond TTL — icon turns yellow, text becomes bold, manual refresh button appears.
+Stale threshold: Beyond TTL — icon turns yellow, text becomes semibold, manual refresh button appears.
 
 Source: D-11 (Claude's discretion) — timestamp+badge chosen as simplest effective approach, matching the `_warehouse_sync_status.html` pattern.
 
@@ -240,7 +243,7 @@ Position: Top-right of each report tab content area, next to the stale-cache ind
 Style: Matches existing Phase 7 export pattern.
 
 ```html
-<button class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+<button class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-normal rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
     <i class="fas fa-download mr-2"></i>
     Export CSV
 </button>
@@ -276,7 +279,7 @@ Source: D-13/D-14 (read-only history from SandCastle job status API).
 | Trigger | Action | Target |
 |---------|--------|--------|
 | Click preset button (24h/7d/30d) | `hx-get` with `?window=24h` | `#signin-table` |
-| Click "Apply" (custom range) | `hx-get` with `?from=...&to=...` | `#signin-table` |
+| Click "Apply Filter" (custom range) | `hx-get` with `?from=...&to=...` | `#signin-table` |
 | Active preset | Gets `bg-blue-600 text-white` class; others revert to gray | Visual feedback only |
 
 ### Lazy-Load Genesys Tab
@@ -297,7 +300,7 @@ Source: D-13/D-14 (read-only history from SandCastle job status API).
 
 | Trigger | Action | Target |
 |---------|--------|--------|
-| Click "Refresh" on stale indicator | `hx-post` to trigger report sync job | Replace indicator with spinner |
+| Click "Refresh Data" on stale indicator | `hx-post` to trigger report sync job | Replace indicator with spinner |
 | Job completes | Indicator updates to fresh timestamp | Auto via HTMX polling or swap |
 
 ### Table Sorting (Client-Side)
@@ -341,6 +344,8 @@ Page container: `container mx-auto px-4 py-6 max-w-7xl` (matches compliance dash
 | Element | Copy |
 |---------|------|
 | Primary CTA | "Export CSV" (per-tab export action) |
+| Secondary CTA | "Apply Filter" (date range filter submission) |
+| Refresh action | "Refresh Data" (stale-cache manual refresh) |
 | Page title | "Reports" |
 | Page subtitle | "Organization-wide license, security, and contact center reports." |
 | Licenses tab heading | "License Utilization" |
@@ -374,7 +379,7 @@ Each report tab has a dedicated empty state when no sync data exists.
 ```html
 <div class="text-center py-12">
     <i class="fas {icon} text-gray-300 text-4xl mb-4"></i>
-    <h3 class="text-lg font-medium text-gray-900 mb-2">{heading}</h3>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">{heading}</h3>
     <p class="text-sm text-gray-500 max-w-md mx-auto">{body}</p>
 </div>
 ```
