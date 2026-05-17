@@ -10,7 +10,7 @@ import csv
 import io
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from flask import (
     abort,
@@ -85,6 +85,8 @@ def _render_tab(tab: str) -> str:
     tab_handlers = {
         "licenses": _render_licenses_tab,
         "security": _render_security_tab,
+        "genesys": _render_genesys_tab,
+        "history": _render_history_tab,
     }
     handler = tab_handlers.get(tab)
     if handler is None:
@@ -292,5 +294,143 @@ def export_security_csv():
         mimetype="text/csv",
         headers={
             "Content-Disposition": "attachment; filename=security_posture.csv"
+        },
+    )
+
+
+@require_role("admin")
+def api_genesys_tab():
+    """HTMX endpoint for Contact Center (Genesys presence) tab content."""
+    return _render_genesys_tab()
+
+
+@require_role("admin")
+def api_history_tab():
+    """HTMX endpoint for Run History tab content."""
+    return _render_history_tab()
+
+
+def _render_genesys_tab() -> str:
+    """Render the Contact Center tab partial with live Genesys presence data.
+
+    Calls genesys_service.get_all_agents_presence() for real-time data
+    (no caching per D-09).
+    """
+    try:
+        genesys_service = current_app.container.get("genesys_service")
+        agents: List[Dict[str, Any]] = genesys_service.get_all_agents_presence()
+    except Exception as e:
+        logger.error(f"Error fetching Genesys agent presence: {e}", exc_info=True)
+        agents = []
+
+    return render_template(
+        "admin/partials/_report_genesys.html",
+        agents=agents,
+    )
+
+
+def _render_history_tab() -> str:
+    """Render the Run History tab partial.
+
+    Queries the JobRun model directly for report-related job runs,
+    filtered to job names starting with 'report_'. Per D-14, this
+    is a read-only history view.
+    """
+    from app.models.job_run import JobRun
+    from app.blueprints.admin.jobs import _JOBS_BY_NAME
+
+    try:
+        runs_query = (
+            JobRun.query
+            .filter(JobRun.job_name.like("report_%"))
+            .order_by(JobRun.started_at.desc())
+            .limit(50)
+            .all()
+        )
+
+        runs: List[Dict[str, Any]] = []
+        for run in runs_query:
+            job_meta = _JOBS_BY_NAME.get(run.job_name, {})
+            display_name = job_meta.get("display_name", run.job_name)
+
+            # Calculate duration
+            duration = None
+            if run.started_at and run.completed_at:
+                delta = run.completed_at - run.started_at
+                total_seconds = int(delta.total_seconds())
+                minutes = total_seconds // 60
+                seconds = total_seconds % 60
+                if minutes > 0:
+                    duration = f"{minutes}m {seconds}s"
+                else:
+                    duration = f"{seconds}s"
+
+            runs.append({
+                "display_name": display_name,
+                "started_at": run.started_at,
+                "completed_at": run.completed_at,
+                "duration": duration,
+                "status": run.status,
+            })
+    except Exception as e:
+        logger.error(f"Error fetching job run history: {e}", exc_info=True)
+        runs = []
+
+    return render_template(
+        "admin/partials/_report_history.html",
+        runs=runs,
+    )
+
+
+@require_role("admin")
+def export_genesys_csv():
+    """Export Contact Center presence data as CSV.
+
+    Returns CSV with agent presence, routing status, and queue memberships.
+    """
+    try:
+        genesys_service = current_app.container.get("genesys_service")
+        agents: List[Dict[str, Any]] = genesys_service.get_all_agents_presence()
+    except Exception as e:
+        logger.error(f"Error fetching Genesys data for CSV export: {e}", exc_info=True)
+        abort(500)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Metadata rows
+    writer.writerow(["Report: Contact Center Status"])
+    writer.writerow([f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}"])
+    writer.writerow([])
+
+    # Header row
+    writer.writerow([
+        "Agent Name",
+        "Email",
+        "Presence",
+        "Routing Status",
+        "Queues",
+    ])
+
+    # Data rows
+    for agent in agents:
+        queues = agent.get("queues")
+        queues_str = ", ".join(queues) if isinstance(queues, list) else str(queues or "")
+        writer.writerow([
+            _csv_safe(str(agent.get("name", ""))),
+            _csv_safe(str(agent.get("email", ""))),
+            str(agent.get("presence", "")),
+            str(agent.get("routingStatus", "")),
+            _csv_safe(queues_str),
+        ])
+
+    csv_content = output.getvalue()
+    output.close()
+
+    return Response(
+        csv_content,
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=contact_center_status.csv"
         },
     )
