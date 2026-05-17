@@ -689,4 +689,92 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
             return None
 
 
+    # ------------------------------------------------------------------ #
+    # Bulk methods for Phase 8 Reporting                                   #
+    # ------------------------------------------------------------------ #
+
+    def get_all_agents_presence(self) -> List[Dict[str, Any]]:
+        """Bulk agent presence via POST /api/v2/users/search.
+
+        Returns live (not cached) presence data for all active agents.
+        Uses pagination with pageNumber starting at 1.
+
+        Per D-09: this is called on-demand for the Genesys presence tab
+        and is intentionally not cached — presence is inherently real-time.
+
+        Returns:
+            List of agent presence dicts with id, name, email, presence,
+            routingStatus, and queues.
+        """
+        token = self.get_access_token()
+        if not token:
+            logger.error("Failed to get access token for bulk agent presence")
+            return []
+
+        all_agents: List[Dict[str, Any]] = []
+        page_number = 1
+        page_size = 100
+
+        try:
+            while True:
+                search_payload = {
+                    "query": [
+                        {
+                            "type": "EXACT",
+                            "fields": ["state"],
+                            "values": ["active"],
+                        }
+                    ],
+                    "expand": ["routingStatus", "presence"],
+                    "pageSize": page_size,
+                    "pageNumber": page_number,
+                }
+
+                response = self._make_request(
+                    "POST",
+                    f"{self.base_url}/api/v2/users/search",
+                    token,
+                    json=search_payload,
+                )
+
+                data = self._handle_response(response)
+                results = data.get("results", []) if data else []
+                total = data.get("total", 0) if data else 0
+
+                for user in results:
+                    presence_def = (
+                        user.get("presence", {})
+                        .get("presenceDefinition", {})
+                    )
+                    routing = user.get("routingStatus", {})
+
+                    agent_info: Dict[str, Any] = {
+                        "id": user.get("id"),
+                        "name": user.get("name"),
+                        "email": user.get("email"),
+                        "presence": presence_def.get("systemPresence"),
+                        "routingStatus": routing.get("status"),
+                    }
+                    all_agents.append(agent_info)
+
+                # Check if we have fetched all results
+                fetched_so_far = page_number * page_size
+                if fetched_so_far >= total or not results:
+                    break
+
+                page_number += 1
+
+            logger.info(
+                f"Fetched presence data for {len(all_agents)} active agents"
+            )
+            return all_agents
+
+        except Exception as e:
+            logger.error(
+                f"Error fetching bulk agent presence: {str(e)}",
+                exc_info=True,
+            )
+            return []
+
+
 genesys_service = GenesysCloudService()
