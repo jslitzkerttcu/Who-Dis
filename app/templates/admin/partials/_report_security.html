@@ -100,17 +100,15 @@
             30d
         </button>
         <div class="border-l border-gray-300 pl-3 flex items-center gap-2">
-            <input type="date" id="signin-from-date" value="{{ from_date }}"
+            <input type="date" name="from_date" id="signin-from-date" value="{{ from_date }}"
                    class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
             <span class="text-gray-400">to</span>
-            <input type="date" id="signin-to-date" value="{{ to_date }}"
+            <input type="date" name="to_date" id="signin-to-date" value="{{ to_date }}"
                    class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
             <button class="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
                     hx-get="{{ url_for('admin.api_reports_security') }}"
                     hx-target="#report-content"
-                    hx-include="#signin-from-date, #signin-to-date"
-                    hx-vals='{"from_date": "", "to_date": ""}'
-                    onclick="this.setAttribute('hx-vals', JSON.stringify({from_date: document.getElementById('signin-from-date').value, to_date: document.getElementById('signin-to-date').value})); htmx.process(this);">
+                    hx-include="#signin-from-date, #signin-to-date">
                 Apply Filter
             </button>
         </div>

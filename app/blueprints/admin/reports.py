@@ -9,7 +9,7 @@ tabbed navigation, KPI cards, data tables, and CSV export.
 import csv
 import io
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from flask import (
@@ -140,7 +140,7 @@ def _render_security_tab() -> str:
         signin_data = {"entries": [], "source": "error", "count": 0}
 
     # Paginate sign-in entries
-    page = request.args.get("page", 1, type=int)
+    page = max(1, request.args.get("page", 1, type=int))
     per_page = 25
     entries = signin_data.get("entries", [])
     total = len(entries)
@@ -400,7 +400,7 @@ def export_genesys_csv():
 
     # Metadata rows
     writer.writerow(["Report: Contact Center Status"])
-    writer.writerow([f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}"])
+    writer.writerow([f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"])
     writer.writerow([])
 
     # Header row

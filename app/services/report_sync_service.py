@@ -147,9 +147,10 @@ class ReportSyncService(BaseConfigurableService):
 
         # Compute aggregate KPIs
         total_skus = len(per_sku_data)
+        total_available = sum(s.get("available", 0) for s in per_sku_data)
         utilization_pct = (
-            round((total_assigned - total_unused_30d) / total_assigned * 100, 1)
-            if total_assigned > 0
+            round(total_assigned / total_available * 100, 1)
+            if total_available > 0
             else 0.0
         )
 
