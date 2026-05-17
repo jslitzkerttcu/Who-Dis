@@ -1,0 +1,46 @@
+<!-- Warehouse Sync Status Card -->
+<div id="warehouse-sync-status" class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center">
+            {% if syncing %}
+                <i class="fas fa-spinner fa-spin text-blue-600 mr-2"></i>
+                <span class="text-sm text-blue-600 font-medium">Syncing...</span>
+            {% elif last_error_message and not last_success_at %}
+                <i class="fas fa-exclamation-triangle text-red-600 mr-2"></i>
+                <span class="text-sm text-red-600">
+                    {% if last_error_category == 'connection_timeout' %}
+                        Connection timeout — warehouse unreachable. Try again in a few minutes or contact infrastructure.
+                    {% elif last_error_category == 'authentication' %}
+                        Authentication failed — check service principal credentials in configuration.
+                    {% elif last_error_category == 'query_timeout' %}
+                        Query timeout — warehouse may be under load. Try again shortly.
+                    {% else %}
+                        Sync failed — an unexpected error occurred. Check error logs for details.
+                    {% endif %}
+                </span>
+            {% elif last_success_at %}
+                <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                <span class="text-sm text-gray-600">Last synced: <span title="{{ last_success_at }}">{{ last_success_at_relative }}</span></span>
+            {% else %}
+                <i class="fas fa-clock text-yellow-600 mr-2"></i>
+                <span class="text-sm text-gray-500">Never synced</span>
+            {% endif %}
+        </div>
+        <button
+            hx-post="{{ url_for('admin.trigger_job', name='warehouse_sync') }}"
+            hx-target="#warehouse-sync-status"
+            hx-swap="outerHTML"
+            class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+                   {% if syncing %} opacity-50 cursor-not-allowed{% endif %}"
+            {% if syncing %}disabled{% endif %}
+        >
+            {% if syncing %}
+                <i class="fas fa-spinner fa-spin mr-2"></i>
+                Syncing...
+            {% else %}
+                <i class="fas fa-sync-alt mr-2"></i>
+                Sync Now
+            {% endif %}
+        </button>
+    </div>
+</div>

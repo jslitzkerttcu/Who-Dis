@@ -98,6 +98,8 @@ def trigger_job(name: str):
 @admin_or_portal_required
 def get_job_status(name: str, run_id: str):
     """Get the status of a specific job run."""
+    from flask import render_template
+
     if name not in _JOBS_BY_NAME:
         return jsonify({"error": f"Unknown job: {name}"}), 404
 
@@ -107,4 +109,102 @@ def get_job_status(name: str, run_id: str):
     if status is None:
         return jsonify({"error": f"Run not found: {run_id}"}), 404
 
+    # Return HTMX partials for browser polling
+    if request.headers.get("HX-Request"):
+        if name == "compliance_check":
+            from app.models.job_role_compliance import ComplianceCheckRun, ComplianceCheck
+
+            check_run = ComplianceCheckRun.query.filter_by(run_id=run_id).first()
+
+            if status["status"] == "completed" and check_run:
+                # Fetch violations for the completed run
+                violations = ComplianceCheck.query.filter(
+                    ComplianceCheck.check_run_id == run_id,
+                    ComplianceCheck.compliance_status != "compliant",
+                ).all()
+
+                violation_data = []
+                for v in violations:
+                    violation_data.append({
+                        "id": v.id,
+                        "employee_id": v.employee_upn,
+                        "job_code": v.job_code,
+                        "system_name": v.system_name,
+                        "violation_type": v.compliance_status,
+                        "severity": v.violation_severity,
+                        "status": "open",
+                        "detected_at": v.created_at.isoformat() if v.created_at else None,
+                        "details": v.notes,
+                        "recommended_action": v.remediation_action,
+                    })
+
+                return render_template(
+                    "admin/partials/_compliance_progress.html",
+                    status="completed",
+                    run_id=run_id,
+                    checked_count=check_run.checked_count or check_run.total_employees or 0,
+                    total_employees=check_run.total_employees or 0,
+                    percent=100,
+                    error_count=check_run.error_count or 0,
+                    data={"violations": violation_data, "run_id": run_id},
+                )
+
+            elif status["status"] == "failed":
+                return render_template(
+                    "admin/partials/_compliance_progress.html",
+                    status="failed",
+                    run_id=run_id,
+                    checked_count=check_run.checked_count if check_run else 0,
+                    total_employees=check_run.total_employees if check_run else 0,
+                    percent=_calc_percent(check_run),
+                    error_count=check_run.error_count if check_run else 0,
+                    error_message=status.get("error", "Unknown error"),
+                )
+
+            else:
+                # Running state
+                return render_template(
+                    "admin/partials/_compliance_progress.html",
+                    status="running",
+                    run_id=run_id,
+                    checked_count=check_run.checked_count if check_run else 0,
+                    total_employees=check_run.total_employees if check_run else 0,
+                    percent=_calc_percent(check_run),
+                    error_count=check_run.error_count if check_run else 0,
+                )
+
+        elif name == "warehouse_sync":
+            from app.models.sync_metadata import SyncMetadata
+            from datetime import datetime, timezone
+
+            metadata = SyncMetadata.query.filter_by(sync_type="warehouse_sync").first()
+            last_success_at_relative = ""
+            if metadata and metadata.last_success_at:
+                delta = datetime.now(timezone.utc) - metadata.last_success_at
+                if delta.days > 0:
+                    last_success_at_relative = f"{delta.days} day{'s' if delta.days > 1 else ''} ago"
+                elif delta.seconds >= 3600:
+                    hours = delta.seconds // 3600
+                    last_success_at_relative = f"{hours} hour{'s' if hours > 1 else ''} ago"
+                else:
+                    minutes = max(1, delta.seconds // 60)
+                    last_success_at_relative = f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+
+            return render_template(
+                "admin/partials/_warehouse_sync_status.html",
+                syncing=(status["status"] == "running"),
+                last_success_at=metadata.last_success_at.isoformat() if metadata and metadata.last_success_at else None,
+                last_success_at_relative=last_success_at_relative,
+                last_error_message=metadata.last_error_message if metadata else None,
+                last_error_category=metadata.last_error_category if metadata else None,
+            )
+
     return jsonify(status)
+
+
+def _calc_percent(check_run) -> int:
+    """Calculate progress percentage for a compliance check run."""
+    if not check_run or not check_run.total_employees:
+        return 0
+    checked = check_run.checked_count or 0
+    return min(100, int((checked / check_run.total_employees) * 100))

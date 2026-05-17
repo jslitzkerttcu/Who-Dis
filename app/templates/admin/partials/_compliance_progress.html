@@ -1,0 +1,40 @@
+<!-- Compliance Check Progress Bar -->
+{% if status == 'completed' %}
+<div id="compliance-progress">
+    {% include "admin/partials/_compliance_violations_table.html" %}
+</div>
+{% elif status == 'failed' %}
+<div id="compliance-progress" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div class="bg-red-600 rounded-full h-2 transition-all duration-300" style="width: {{ percent }}%"></div>
+    </div>
+    <div class="flex justify-between mt-2 text-sm text-gray-600">
+        <span>{{ checked_count }}/{{ total_employees }} employees checked</span>
+        <span>{{ percent }}% complete</span>
+    </div>
+    <div class="mt-2 text-sm text-red-600">
+        <i class="fas fa-exclamation-triangle mr-1"></i>
+        Compliance check failed: {{ error_message }}
+    </div>
+</div>
+{% else %}
+<div id="compliance-progress"
+     hx-get="{{ url_for('admin.job_status', name='compliance_check', run_id=run_id) }}"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div class="bg-blue-600 rounded-full h-2 transition-all duration-300" style="width: {{ percent }}%"></div>
+    </div>
+    <div class="flex justify-between mt-2 text-sm text-gray-600">
+        <span>{{ checked_count }}/{{ total_employees }} employees checked</span>
+        <span>{{ percent }}% complete</span>
+    </div>
+    {% if error_count > 0 %}
+    <div class="mt-2 text-sm text-red-600">
+        <i class="fas fa-exclamation-triangle mr-1"></i>
+        {{ error_count }} errors encountered
+    </div>
+    {% endif %}
+</div>
+{% endif %}

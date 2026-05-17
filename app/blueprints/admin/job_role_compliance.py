@@ -413,7 +413,41 @@ def api_sync_system_roles():
 @require_role("admin")
 def compliance_dashboard():
     """Compliance dashboard with overview and metrics."""
-    return render_template("admin/compliance_dashboard.html")
+    from app.models.sync_metadata import SyncMetadata
+    from datetime import timezone
+
+    # Fetch warehouse sync status for the sync status card
+    metadata = SyncMetadata.query.filter_by(sync_type="warehouse_sync").first()
+    last_success_at_relative = ""
+    syncing = False
+
+    if metadata and metadata.last_success_at:
+        delta = datetime.now(timezone.utc) - metadata.last_success_at
+        if delta.days > 0:
+            last_success_at_relative = (
+                f"{delta.days} day{'s' if delta.days > 1 else ''} ago"
+            )
+        elif delta.seconds >= 3600:
+            hours = delta.seconds // 3600
+            last_success_at_relative = (
+                f"{hours} hour{'s' if hours > 1 else ''} ago"
+            )
+        else:
+            minutes = max(1, delta.seconds // 60)
+            last_success_at_relative = (
+                f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+            )
+
+    return render_template(
+        "admin/compliance_dashboard.html",
+        syncing=syncing,
+        last_success_at=metadata.last_success_at.isoformat()
+        if metadata and metadata.last_success_at
+        else None,
+        last_success_at_relative=last_success_at_relative,
+        last_error_message=metadata.last_error_message if metadata else None,
+        last_error_category=metadata.last_error_category if metadata else None,
+    )
 
 
 @require_role("admin")
@@ -563,24 +597,37 @@ def api_run_compliance_check():
         started_by = g.user or "admin"
         check_run = engine.run_compliance_check(started_by=started_by)
 
-        # Since the compliance check runs in background, we'll return basic info
-        result = {
-            "checked_employees": 0,  # Will be updated when check completes
-            "violations_found": 0,  # Will be updated when check completes
-            "violations_resolved": 0,  # Will be updated when check completes
-            "run_id": check_run.run_id,
-        }
+        # Return HTMX progress partial for polling
+        if request.headers.get("HX-Request"):
+            return render_template(
+                "admin/partials/_compliance_progress.html",
+                status="running",
+                run_id=check_run.run_id,
+                checked_count=0,
+                total_employees=check_run.total_employees or 0,
+                percent=0,
+                error_count=0,
+            )
 
         return jsonify(
             {
                 "success": True,
-                "checked_employees": result.get("checked_employees", 0),
-                "violations_found": result.get("violations_found", 0),
-                "violations_resolved": result.get("violations_resolved", 0),
-                "message": "Compliance check completed successfully",
+                "run_id": check_run.run_id,
+                "message": "Compliance check started",
             }
         )
 
     except Exception as e:
         logger.error(f"Error running compliance check: {e}")
+        if request.headers.get("HX-Request"):
+            return render_template(
+                "admin/partials/_compliance_progress.html",
+                status="failed",
+                run_id="",
+                checked_count=0,
+                total_employees=0,
+                percent=0,
+                error_count=0,
+                error_message=str(e),
+            )
         return jsonify({"error": "Failed to run compliance check"}), 500

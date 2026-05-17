@@ -14,18 +14,14 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex flex-wrap items-center gap-3">
                 <button
-                    onclick="runComplianceCheck()"
+                    id="run-compliance-btn"
+                    hx-post="{{ url_for('admin.api_run_compliance_check') }}"
+                    hx-target="#compliance-progress"
+                    hx-swap="innerHTML"
                     class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                     <i class="fas fa-play mr-2"></i>
                     Run Compliance Check
-                </button>
-                <button
-                    onclick="exportComplianceReport()"
-                    class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                    <i class="fas fa-download mr-2"></i>
-                    Export Report
                 </button>
                 <a
                     href="{{ url_for('admin.job_role_compliance') }}"
@@ -41,6 +37,12 @@
             </div>
         </div>
     </div>
+
+    <!-- Warehouse Sync Status -->
+    {% include "admin/partials/_warehouse_sync_status.html" %}
+
+    <!-- Compliance Check Progress -->
+    <div id="compliance-progress" class="mt-6"></div>
 
     <!-- Compliance Overview Cards -->
     <div id="compliance-overview" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -195,48 +197,8 @@ function loadRecentViolations() {
 }
 
 function runComplianceCheck() {
-    if (!confirm('This will run a full compliance check across all employees. This may take several minutes. Continue?')) {
-        return;
-    }
-    
-    // Show loading state
-    const button = event.target;
-    const originalText = button.innerHTML;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Running Check...';
-    button.disabled = true;
-    
-    fetch('{{ url_for('admin.api_run_compliance_check') }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`Compliance check completed successfully!\n\nChecked: ${data.checked_employees} employees\nViolations found: ${data.violations_found}\nViolations resolved: ${data.violations_resolved}`);
-            // Refresh dashboard data
-            loadComplianceOverview();
-            loadRecentViolations();
-        } else {
-            alert('Error running compliance check: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error running compliance check');
-    })
-    .finally(() => {
-        // Restore button state
-        button.innerHTML = originalText;
-        button.disabled = false;
-    });
-}
-
-function exportComplianceReport() {
-    // Implementation for report export
-    console.log('Export compliance report functionality');
-    alert('Report export functionality will be implemented in the next phase.');
+    // Legacy fallback - HTMX handles this now via hx-post on the button
+    console.log('Compliance check triggered via HTMX');
 }
 
 function refreshViolationChart() {
