@@ -73,7 +73,7 @@ _JOB_RUNNERS = {
 @admin_or_portal_required
 def get_manifest():
     """Return the job manifest for the SandCastle scheduler."""
-    return jsonify({"jobs": JOB_REGISTRY})
+    return jsonify(JOB_REGISTRY)
 
 
 @jobs_api_bp.route("/<name>", methods=["POST"])
