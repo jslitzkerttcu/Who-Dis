@@ -62,26 +62,26 @@
 {% if sku_cache and sku_cache.data %}
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200" id="sku-table">
+        <table class="min-w-full divide-y divide-gray-200" data-sortable-table>
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="sku_name">
-                        SKU Name <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="0" data-sort-type="text">
+                        SKU Name <i class="sort-icon fas fa-sort ml-1 text-xs text-gray-400"></i>
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="assigned">
-                        Assigned <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="1" data-sort-type="number">
+                        Assigned <i class="sort-icon fas fa-sort ml-1 text-xs text-gray-400"></i>
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="available">
-                        Available <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="2" data-sort-type="number">
+                        Available <i class="sort-icon fas fa-sort ml-1 text-xs text-gray-400"></i>
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="consumed">
-                        Consumed <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="3" data-sort-type="number">
+                        Consumed <i class="sort-icon fas fa-sort ml-1 text-xs text-gray-400"></i>
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="utilization">
-                        Utilization % <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="4" data-sort-type="number">
+                        Utilization % <i class="sort-icon fas fa-sort ml-1 text-xs text-gray-400"></i>
                     </th>
-                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="unused_30d">
-                        Unused (30d) <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="5" data-sort-type="number">
+                        Unused (30d) <i class="sort-icon fas fa-sort ml-1 text-xs text-gray-400"></i>
                     </th>
                 </tr>
             </thead>
@@ -101,6 +101,7 @@
         </table>
     </div>
 </div>
+<script src="{{ url_for('static', filename='js/compliance-sort.js') }}"></script>
 {% endif %}
 
 {% else %}
