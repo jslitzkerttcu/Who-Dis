@@ -162,6 +162,10 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   3. Admin can download compliance results as CSV with employee, job code, expected/actual roles, violation type, and severity columns
   4. Warehouse sync failures display a human-readable error message instead of a stack trace or blank screen
   5. Admin UI shows the timestamp of the last successful warehouse sync with a manual re-sync trigger button
+**Plans**: 3 plans
+- [ ] 07-01-PLAN.md — Schema migration, models (JobRun, SyncMetadata, checked_count), JobManagerService + DI registration
+- [ ] 07-02-PLAN.md — SandCastle jobs blueprint, portal M2M auth, warehouse error categorization, compliance progress callback
+- [ ] 07-03-PLAN.md — UI layer: progress polling, sync status card, sortable violations table, CSV export, client-side sort JS
 **UI hint**: yes
 
 ### Phase 8: Reporting
@@ -224,7 +228,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 | 4. Keycloak OIDC Authentication | 2/2 | Complete | 2026-04-27 |
 | 5. Database Migration & Alembic | 0/0 | Complete (PR #25) | 2026-04-27 |
 | 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
-| 7. Compliance Polish | 0/? | Not started | - |
+| 7. Compliance Polish | 0/3 | Not started | - |
 | 8. Reporting | 0/? | Not started | - |
 | 9. Write Operations | 0/? | Not started | - |
 | 10. REST API | 0/? | Not started | - |
