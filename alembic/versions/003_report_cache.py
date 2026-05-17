@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.create_table(
         "report_cache",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("report_type", sa.String(50), nullable=False, index=True),
+        sa.Column("report_type", sa.String(50), nullable=False),
         sa.Column("cache_key", sa.String(100), nullable=False, index=True),
         sa.Column("data", sa.JSON(), nullable=False),
         sa.Column(
@@ -31,10 +31,17 @@ def upgrade() -> None:
         ),
         sa.Column("ttl_hours", sa.Integer(), nullable=False),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True), nullable=False
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+            index=True,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True), nullable=False
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
         ),
         sa.UniqueConstraint(
             "report_type", "cache_key", name="uq_report_cache"
