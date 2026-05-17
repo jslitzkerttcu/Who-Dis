@@ -1,0 +1,80 @@
+{# Contact Center Status tab partial.
+   Expects: agents (list of dicts with name, email, presence, routingStatus, queues).
+#}
+
+{% if agents %}
+<!-- Status Bar -->
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold text-gray-900">Contact Center Status</h2>
+    <a href="{{ url_for('admin.api_reports_export_genesys') }}"
+       class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-normal rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+        <i class="fas fa-download mr-2"></i>
+        Export CSV
+    </a>
+</div>
+
+<!-- Agent Table -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200" id="genesys-table">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="agent_name">
+                        Agent Name <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="presence">
+                        Presence <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="routing_status">
+                        Routing Status <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="queues">
+                        Queues <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for agent in agents %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{{ agent.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {% set presence = agent.presence|default("")|upper %}
+                        {% if presence in ["ON_QUEUE", "ON QUEUE"] %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>On Queue
+                        {% elif presence == "AVAILABLE" %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-green-400 mr-2"></span>Available
+                        {% elif presence in ["AWAY", "BREAK"] %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-2"></span>{{ agent.presence|default("Away") }}
+                        {% elif presence == "BUSY" %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-red-400 mr-2"></span>Busy
+                        {% elif presence == "OFFLINE" %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-gray-400 mr-2"></span>Offline
+                        {% else %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-gray-400 mr-2"></span>{{ agent.presence|default("Unknown") }}
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ agent.routingStatus|default("-") }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">
+                        {% if agent.queues is iterable and agent.queues is not string %}
+                            {{ agent.queues|join(", ") }}
+                        {% elif agent.queues %}
+                            {{ agent.queues }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div class="text-center py-12">
+    <i class="fas fa-headset text-gray-300 text-4xl mb-4"></i>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">No Genesys Agents Found</h3>
+    <p class="text-sm text-gray-500 max-w-md mx-auto">No Genesys-enabled users were found. Verify Genesys Cloud integration is configured in the admin settings.</p>
+</div>
+{% endif %}

@@ -1,0 +1,82 @@
+{# Report Run History tab partial.
+   Expects: runs (list of dicts with display_name, started_at, completed_at, duration, status).
+#}
+
+{% if runs %}
+<!-- Heading -->
+<h2 class="text-xl font-semibold text-gray-900 mb-4">Report Run History</h2>
+
+<!-- History Table -->
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200" id="history-table">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                        Job Name
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                        Started
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                        Completed
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                        Duration
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider">
+                        Status
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for run in runs %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{{ run.display_name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {% if run.started_at %}
+                            {{ run.started_at.strftime("%b %d, %Y %I:%M %p") }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {% if run.completed_at %}
+                            {{ run.completed_at.strftime("%b %d, %Y %I:%M %p") }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ run.duration|default("-") }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if run.status == "completed" %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-green-100 text-green-800">Success</span>
+                        {% elif run.status == "failed" %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-red-100 text-red-800">Failed</span>
+                        {% elif run.status == "running" %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-blue-100 text-blue-800">
+                                <svg class="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Running
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-normal bg-gray-100 text-gray-800">{{ run.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div class="text-center py-12">
+    <i class="fas fa-clock-rotate-left text-gray-300 text-4xl mb-4"></i>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">No Report Runs Yet</h3>
+    <p class="text-sm text-gray-500 max-w-md mx-auto">Report sync jobs have not been executed. Configure schedules in the SandCastle portal to begin generating reports.</p>
+</div>
+{% endif %}
