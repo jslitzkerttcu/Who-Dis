@@ -1,0 +1,113 @@
+{# License Utilization tab partial.
+   Expects: totals_cache (ReportCache or None), sku_cache (ReportCache or None).
+#}
+
+{% if totals_cache and totals_cache.data %}
+<!-- Status Bar -->
+<div class="flex items-center justify-between mb-6">
+    {% with cache_entry=totals_cache, report_type="license" %}
+        {% include "admin/partials/_report_stale_badge.html" %}
+    {% endwith %}
+    <a href="{{ url_for('admin.api_reports_export_licenses') }}"
+       class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-normal rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+        <i class="fas fa-download mr-2"></i>
+        Export CSV
+    </a>
+</div>
+
+<!-- KPI Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total SKUs -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">Total SKUs</span>
+            <i class="fas fa-cubes text-blue-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ totals_cache.data.total_skus|default(0) }}</div>
+        <div class="text-sm text-gray-500 mt-1">Active subscriptions</div>
+    </div>
+
+    <!-- Assigned Licenses -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">Assigned Licenses</span>
+            <i class="fas fa-user-check text-green-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ totals_cache.data.total_assigned|default(0) }}</div>
+        <div class="text-sm text-gray-500 mt-1">Across all SKUs</div>
+    </div>
+
+    <!-- Unused Licenses -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 {% if totals_cache.data.total_unused_30d|default(0) > 0 %}border-l-4 border-l-yellow-400{% endif %}">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">Unused Licenses</span>
+            <i class="fas fa-user-clock text-yellow-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ totals_cache.data.total_unused_30d|default(0) }}</div>
+        <div class="text-sm text-gray-500 mt-1">No sign-in for 30+ days</div>
+    </div>
+
+    <!-- Utilization -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-normal text-gray-500 uppercase tracking-wider">Utilization</span>
+            <i class="fas fa-chart-pie text-blue-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ totals_cache.data.utilization_pct|default(0) }}%</div>
+        <div class="text-sm text-gray-500 mt-1">Overall utilization rate</div>
+    </div>
+</div>
+
+<!-- SKU Data Table -->
+{% if sku_cache and sku_cache.data %}
+<div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200" id="sku-table">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="sku_name">
+                        SKU Name <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="assigned">
+                        Assigned <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="available">
+                        Available <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="consumed">
+                        Consumed <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="utilization">
+                        Utilization % <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-normal text-gray-500 uppercase tracking-wider cursor-pointer" data-sort-column="unused_30d">
+                        Unused (30d) <i class="fas fa-sort text-gray-300 ml-1"></i>
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for sku in sku_cache.data %}
+                {% set utilization_pct = (sku.assigned / sku.available * 100) if sku.available > 0 else 0 %}
+                <tr class="hover:bg-gray-50 {% if utilization_pct < 80 %}bg-yellow-50{% endif %}">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ sku.sku_name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ sku.assigned }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ sku.available }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ sku.consumed }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ "%.1f"|format(utilization_pct) }}%</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ sku.unused_30d }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- Empty State -->
+<div class="text-center py-12">
+    <i class="fas fa-id-card-clip text-gray-300 text-4xl mb-4"></i>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">No License Data Available</h3>
+    <p class="text-sm text-gray-500 max-w-md mx-auto">License data has not been synced yet. Run a license sync job from the SandCastle portal to populate this dashboard.</p>
+</div>
+{% endif %}
