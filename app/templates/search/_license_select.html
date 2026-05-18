@@ -1,0 +1,12 @@
+{# License SKU dropdown options fragment -- loaded via HTMX into assign/swap modals.
+
+Receives: skus (list of {sku_id, display_name, available, total})
+#}
+<option disabled selected value="">Select a license...</option>
+{% for sku in skus %}
+  {% if sku.available == 0 %}
+    <option value="{{ sku.sku_id }}" disabled>{{ sku.display_name }} (none available)</option>
+  {% else %}
+    <option value="{{ sku.sku_id }}" data-display-name="{{ sku.display_name }}">{{ sku.display_name }} ({{ sku.available }}/{{ sku.total }} available)</option>
+  {% endif %}
+{% endfor %}
