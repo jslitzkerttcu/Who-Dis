@@ -6,7 +6,7 @@ All API errors are returned as JSON with a consistent structure:
 
 import logging
 
-from flask import jsonify, request
+from flask import jsonify
 
 logger = logging.getLogger(__name__)
 

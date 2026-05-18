@@ -42,13 +42,12 @@ def init_api(app):
 
     api = Api(app)
 
-    # Register API-scoped error handlers so all /api/v1/* errors
-    # return the D-07 JSON envelope instead of HTML.
-    register_api_error_handlers(app)
-
     # Register API resource blueprints
     from app.blueprints.api.search import api_search_bp
     from app.blueprints.api.users import api_users_bp
+
+    register_api_error_handlers(api_search_bp)
+    register_api_error_handlers(api_users_bp)
 
     api.register_blueprint(api_search_bp, url_prefix="/api/v1")
     api.register_blueprint(api_users_bp, url_prefix="/api/v1")

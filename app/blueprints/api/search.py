@@ -48,8 +48,8 @@ class SearchResource(MethodView):
 
     @api_search_bp.arguments(SearchQuerySchema, location="query")
     @api_search_bp.response(200, SearchResponseSchema)
-    @limiter.limit(lambda: API_RATE_LIMIT, key_func=_api_token_rate_key)
     @require_api_token
+    @limiter.limit(lambda: API_RATE_LIMIT, key_func=_api_token_rate_key)
     def get(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a search and return paginated results.
 
@@ -95,7 +95,7 @@ class SearchResource(MethodView):
                 results.append(azure_ad_result)
 
         # Include Genesys results if separate from Azure AD merge
-        genesys_data = genesys_result.get("result")
+        genesys_data = genesys_result.get("result") if isinstance(genesys_result, dict) else None
         genesys_multiple = genesys_result.get("multiple", False)
         if genesys_data is not None:
             if genesys_multiple and isinstance(genesys_data, dict):

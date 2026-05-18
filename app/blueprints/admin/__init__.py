@@ -4,6 +4,7 @@ Refactored to follow Single Responsibility Principle with separate modules.
 """
 
 from flask import Blueprint, render_template, request, jsonify, render_template_string
+from markupsafe import escape
 from app.middleware.auth import require_role
 
 # Import all module functions
@@ -361,7 +362,7 @@ def api_employee_profile_lookup():
                     <span class="text-yellow-800">No employee profile found for UPN: {}</span>
                 </div>
             </div>
-            """.format(upn)
+            """.format(escape(upn))
 
     return jsonify({"profile": profile, "upn": upn})
 

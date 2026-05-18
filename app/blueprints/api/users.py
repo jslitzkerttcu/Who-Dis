@@ -50,8 +50,8 @@ class UserProfileResource(MethodView):
     """Retrieve a full merged profile for a single user by email."""
 
     @api_users_bp.response(200, ProfileResponseSchema)
-    @limiter.limit(lambda: API_RATE_LIMIT, key_func=_api_token_rate_key)
     @require_api_token
+    @limiter.limit(lambda: API_RATE_LIMIT, key_func=_api_token_rate_key)
     def get(self, email: str) -> Any:
         """Look up a user profile by email address.
 
@@ -102,7 +102,7 @@ class UserProfileResource(MethodView):
                 merged_profile = azure_ad_result
 
         # Include Genesys data if available and not already merged
-        genesys_data = genesys_result.get("result")
+        genesys_data = genesys_result.get("result") if isinstance(genesys_result, dict) else None
         if genesys_data and merged_profile:
             # Add Genesys-specific fields to the profile
             for key in ["genesys_presence", "genesys_queues", "genesys_skills",

@@ -70,9 +70,14 @@ class ExternalApiToken(BaseModel, TimestampMixin):
 
     def record_usage(self) -> None:
         """Record a usage event for this token."""
-        self.usage_count = (self.usage_count or 0) + 1
-        self.last_used_at = datetime.now(timezone.utc)
-        self.save()
+        db.session.execute(
+            db.update(ExternalApiToken)
+            .where(ExternalApiToken.id == self.id)
+            .values(
+                usage_count=ExternalApiToken.usage_count + 1,
+                last_used_at=datetime.now(timezone.utc),
+            )
+        )
 
     @classmethod
     def find_by_hash(cls, token_hash: str) -> Optional["ExternalApiToken"]:
