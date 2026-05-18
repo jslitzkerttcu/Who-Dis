@@ -196,6 +196,11 @@ def register_services(container: ServiceContainer) -> None:
         "external_api_token_service", lambda c: ExternalApiTokenService()
     )
 
+    # Workflow service (Phase 11: onboarding/offboarding checklist automation)
+    from app.services.workflow_service import WorkflowService
+
+    container.register("workflow_service", lambda c: WorkflowService())
+
     # SEC-03: Flask-Limiter instance (initialized in app/__init__.py against
     # the Flask app) — exposed via the container so blueprints/services can
     # retrieve it without importing the app module directly.
