@@ -254,7 +254,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 09-02-PLAN.md — AD write endpoints, shared confirmation modal, password banner, AD action buttons, write-actions.js
+- [x] 09-02-PLAN.md — AD write endpoints, shared confirmation modal, password banner, AD action buttons, write-actions.js
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -321,7 +321,7 @@ Plans:
 | 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
 | 7. Compliance Polish | 0/3 | Not started | - |
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
-| 9. Write Operations | 1/3 | In Progress|  |
+| 9. Write Operations | 2/3 | In Progress|  |
 | 10. REST API | 3/3 | Complete   | 2026-05-18 |
 | 11. Workflow Automation | 0/? | Not started | - |
 
