@@ -24,6 +24,7 @@ from flask import (
 
 from app.middleware.auth import require_role
 from app.middleware.csrf import csrf_double_submit
+from app.database import db
 from app.models.workflow import StandardOffboardingItem
 from app.models.job_role_compliance import JobCode, JobRoleMapping
 
@@ -95,10 +96,12 @@ def create_workflow():
     if request.method == "GET":
         job_codes = JobCode.get_active_job_codes()
         error = request.args.get("error")
+        prefill_email = request.args.get("employee_email", "")
         return render_template(
             "admin/workflow_create.html",
             job_codes=job_codes,
             error=error,
+            prefill_email=prefill_email,
         )
 
     # POST: create the workflow
@@ -484,3 +487,224 @@ def employee_search():
 
     html_parts.append("</div>")
     return "".join(html_parts)
+
+
+@require_role("admin")
+def manage_offboarding_items():
+    """Admin page for managing standard offboarding items."""
+    items = (
+        StandardOffboardingItem.query
+        .order_by(StandardOffboardingItem.sort_order)
+        .all()
+    )
+    return render_template(
+        "admin/workflow_offboarding_items.html",
+        items=items,
+    )
+
+
+@require_role("admin")
+@csrf_double_submit.protect
+def add_offboarding_item():
+    """Add a new standard offboarding item. HTMX endpoint."""
+    item_text = request.form.get("item_text", "").strip()
+
+    if not item_text:
+        return (
+            '<div class="bg-red-50 border border-red-200 rounded-md p-4">'
+            '<p class="text-sm text-red-800">Item text is required.</p></div>'
+        ), 400
+
+    if len(item_text) > 500:
+        return (
+            '<div class="bg-red-50 border border-red-200 rounded-md p-4">'
+            '<p class="text-sm text-red-800">Item text must be 500 characters or fewer.</p></div>'
+        ), 400
+
+    # Determine next sort_order
+    max_order = (
+        db.session.query(db.func.max(StandardOffboardingItem.sort_order)).scalar()
+        or 0
+    )
+
+    item = StandardOffboardingItem(
+        item_text=item_text,
+        sort_order=max_order + 1,
+        created_by=g.user,
+    )
+    item.save()
+
+    # Audit log
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    current_app.container.get("audit_logger").log_admin_action(
+        user_email=g.user,
+        action="offboarding_item_created",
+        target=item_text,
+        details={"item_id": item.id, "sort_order": item.sort_order},
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+    return _render_offboarding_item_row(item)
+
+
+@require_role("admin")
+@csrf_double_submit.protect
+def delete_offboarding_item(item_id: int):
+    """Soft-delete a standard offboarding item. HTMX endpoint."""
+    item = StandardOffboardingItem.query.get_or_404(item_id)
+    item.is_active = False
+    item.save()
+
+    # Audit log
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    current_app.container.get("audit_logger").log_admin_action(
+        user_email=g.user,
+        action="offboarding_item_deleted",
+        target=item.item_text,
+        details={"item_id": item.id},
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+    return "", 200, {"HX-Trigger": "itemDeleted"}
+
+
+@require_role("admin")
+@csrf_double_submit.protect
+def update_offboarding_item(item_id: int):
+    """Update a standard offboarding item's text. HTMX endpoint."""
+    item = StandardOffboardingItem.query.get_or_404(item_id)
+    item_text = request.form.get("item_text", "").strip()
+
+    if not item_text:
+        return (
+            '<div class="bg-red-50 border border-red-200 rounded-md p-4">'
+            '<p class="text-sm text-red-800">Item text is required.</p></div>'
+        ), 400
+
+    if len(item_text) > 500:
+        return (
+            '<div class="bg-red-50 border border-red-200 rounded-md p-4">'
+            '<p class="text-sm text-red-800">Item text must be 500 characters or fewer.</p></div>'
+        ), 400
+
+    item.item_text = item_text
+    item.save()
+
+    # Audit log
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    current_app.container.get("audit_logger").log_admin_action(
+        user_email=g.user,
+        action="offboarding_item_updated",
+        target=item_text,
+        details={"item_id": item.id},
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+    return _render_offboarding_item_row(item)
+
+
+@require_role("admin")
+@csrf_double_submit.protect
+def reorder_offboarding_items():
+    """Reorder standard offboarding items. HTMX endpoint."""
+    item_ids = request.form.getlist("item_ids[]", type=int)
+
+    if not item_ids:
+        return (
+            '<div class="bg-red-50 border border-red-200 rounded-md p-4">'
+            '<p class="text-sm text-red-800">No items to reorder.</p></div>'
+        ), 400
+
+    for idx, item_id in enumerate(item_ids):
+        item = StandardOffboardingItem.query.get(item_id)
+        if item:
+            item.sort_order = idx
+    db.session.commit()
+
+    # Audit log
+    admin_role = getattr(request, "user_role", None)
+    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    current_app.container.get("audit_logger").log_admin_action(
+        user_email=g.user,
+        action="offboarding_items_reordered",
+        target="standard_offboarding_items",
+        details={"new_order": item_ids},
+        user_role=admin_role,
+        ip_address=user_ip,
+        user_agent=request.headers.get("User-Agent"),
+    )
+
+    # Return full list
+    items = (
+        StandardOffboardingItem.query
+        .filter_by(is_active=True)
+        .order_by(StandardOffboardingItem.sort_order)
+        .all()
+    )
+    rows = "".join(_render_offboarding_item_row(item) for item in items)
+    return rows
+
+
+def _render_offboarding_item_row(item: StandardOffboardingItem) -> str:
+    """Render a single offboarding item row as an HTML fragment.
+
+    Args:
+        item: The StandardOffboardingItem to render.
+
+    Returns:
+        HTML string for the item row.
+    """
+    inactive_class = " opacity-50" if not item.is_active else ""
+    inactive_badge = (
+        ' <span class="text-xs text-red-500 font-medium">(inactive)</span>'
+        if not item.is_active
+        else ""
+    )
+    return f"""
+    <div id="offboarding-item-{item.id}"
+         class="bg-white border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between{inactive_class}"
+         data-item-id="{item.id}">
+        <div class="flex-1 text-sm text-gray-900" id="item-text-{item.id}">
+            {item.item_text}{inactive_badge}
+        </div>
+        <div class="flex items-center gap-2 ml-4">
+            <button type="button"
+                    class="text-gray-400 hover:text-gray-600 p-1"
+                    title="Move up"
+                    onclick="moveOffboardingItem({item.id}, 'up')">
+                <i class="fas fa-arrow-up text-xs"></i>
+            </button>
+            <button type="button"
+                    class="text-gray-400 hover:text-gray-600 p-1"
+                    title="Move down"
+                    onclick="moveOffboardingItem({item.id}, 'down')">
+                <i class="fas fa-arrow-down text-xs"></i>
+            </button>
+            <button type="button"
+                    class="text-gray-400 hover:text-blue-600 p-1"
+                    title="Edit"
+                    onclick="editOffboardingItem({item.id})">
+                <i class="fas fa-pen text-xs"></i>
+            </button>
+            <button type="button"
+                    class="text-gray-400 hover:text-red-600 p-1"
+                    title="Delete"
+                    onclick="if(window.confirm('Remove this standard offboarding item? It will no longer appear in new offboarding checklists.'))deleteOffboardingItem({item.id})">
+                <i class="fas fa-trash text-xs"></i>
+            </button>
+        </div>
+    </div>
+    """

@@ -230,5 +230,14 @@
         }
         return true;
     }
+
+    // Pre-populate from query parameter if provided (Phase 11 D-03 search-first path)
+    {% if prefill_email %}
+    document.addEventListener('DOMContentLoaded', function() {
+        var searchInput = document.getElementById('employee-search-input');
+        searchInput.value = '{{ prefill_email | e }}';
+        htmx.trigger(searchInput, 'keyup');
+    });
+    {% endif %}
 </script>
 {% endblock %}
