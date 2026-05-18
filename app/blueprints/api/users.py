@@ -126,7 +126,7 @@ class UserProfileResource(MethodView):
         try:
             from flask import current_app
 
-            audit_service = current_app.container.get("audit_service")
+            audit_service = current_app.container.get("audit_logger")
             audit_service.log_access(
                 user_email=g.user,
                 action="api_profile_lookup",

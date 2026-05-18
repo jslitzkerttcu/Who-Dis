@@ -125,12 +125,17 @@
 
     // ===== HTMX Event Listeners =====
 
-    // Listen for tokenCreated event from HX-Trigger header
-    document.addEventListener('tokenCreated', function (e) {
-        closeCreateModal();
-        var detail = e.detail || {};
-        if (detail.token && detail.name) {
-            showRevealModal(detail.token, detail.name);
+    // Listen for successful token creation via HTMX afterRequest
+    document.addEventListener('htmx:afterRequest', function (e) {
+        var target = e.detail.elt;
+        if (target && target.id === 'create-token-confirm' && e.detail.successful) {
+            try {
+                var data = JSON.parse(e.detail.xhr.responseText);
+                if (data.success && data.token && data.name) {
+                    closeCreateModal();
+                    showRevealModal(data.token, data.name);
+                }
+            } catch (err) { /* ignore parse errors */ }
         }
     });
 

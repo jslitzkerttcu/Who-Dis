@@ -3,12 +3,11 @@ External API token management for admin blueprint.
 Handles token CRUD operations: create, list, and revoke.
 """
 
-import json
 import logging
 
 from flask import current_app, g, jsonify, render_template, request
 from app.middleware.auth import require_role
-from app.services.audit_service_postgres import audit_service
+from app.middleware.csrf import csrf_double_submit
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,7 @@ def manage_api_tokens():
 
 
 @require_role("admin")
+@csrf_double_submit.protect
 def create_api_token():
     """Create a new external API token.
 
@@ -54,7 +54,7 @@ def create_api_token():
         admin_role = getattr(request, "user_role", None)
         user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-        audit_service.log_admin_action(
+        current_app.container.get("audit_logger").log_admin_action(
             user_email=g.user,
             action="api_token_created",
             target=name,
@@ -67,13 +67,12 @@ def create_api_token():
             user_agent=request.headers.get("User-Agent"),
         )
 
-        response = jsonify({"success": True})
-        response.headers["HX-Trigger"] = json.dumps({
-            "tokenCreated": {
-                "token": raw_token,
-                "name": name,
-            }
+        response = jsonify({
+            "success": True,
+            "token": raw_token,
+            "name": name,
         })
+        response.headers["HX-Trigger"] = "tokenCreated"
         return response
 
     except Exception as e:
@@ -85,6 +84,7 @@ def create_api_token():
 
 
 @require_role("admin")
+@csrf_double_submit.protect
 def revoke_api_token(token_id):
     """Revoke an external API token.
 
@@ -107,7 +107,7 @@ def revoke_api_token(token_id):
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-    audit_service.log_admin_action(
+    current_app.container.get("audit_logger").log_admin_action(
         user_email=g.user,
         action="api_token_revoked",
         target=token.name,
@@ -128,6 +128,4 @@ def revoke_api_token(token_id):
 @require_role("admin")
 def api_token_list():
     """Return the token list partial for HTMX refresh after create/revoke."""
-    token_service = current_app.container.get("external_api_token_service")
-    tokens = token_service.list_tokens()
-    return render_template("admin/_external_api_tokens.html", tokens=tokens)
+    return manage_api_tokens()

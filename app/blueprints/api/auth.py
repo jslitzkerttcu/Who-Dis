@@ -4,12 +4,11 @@ Validates API tokens from the Authorization header and sets
 g.api_token and g.user for downstream handlers.
 """
 
-import hashlib
 import logging
 from functools import wraps
 from typing import Any, Callable
 
-from flask import g, jsonify, request
+from flask import current_app, g, jsonify, request
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +44,9 @@ def require_api_token(f: Callable[..., Any]) -> Callable[..., Any]:
                 }
             }), 401
 
-        # Hash and look up — never log the raw token (T-10-02)
-        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-
-        from app.models.external_api_token import ExternalApiToken
-
-        token = ExternalApiToken.find_by_hash(token_hash)
+        # Validate via service layer — never log the raw token (T-10-02)
+        token_service = current_app.container.get("external_api_token_service")
+        token = token_service.validate_token(raw_token)
 
         if token is None:
             logger.warning("API auth failed: invalid or revoked token")

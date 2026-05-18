@@ -104,7 +104,7 @@ class SearchResource(MethodView):
                     results.extend(multiple_items)
                 else:
                     results.append(genesys_data)
-            elif genesys_data and not azure_ad_result:
+            elif genesys_data:
                 # Only add standalone Genesys if not already merged
                 results.append(genesys_data)
 
@@ -119,7 +119,7 @@ class SearchResource(MethodView):
         try:
             from flask import current_app
 
-            audit_service = current_app.container.get("audit_service")
+            audit_service = current_app.container.get("audit_logger")
             audit_service.log_search(
                 user_email=g.user,
                 search_query=q,

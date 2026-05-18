@@ -78,6 +78,7 @@ class ExternalApiToken(BaseModel, TimestampMixin):
                 last_used_at=datetime.now(timezone.utc),
             )
         )
+        db.session.commit()
 
     @classmethod
     def find_by_hash(cls, token_hash: str) -> Optional["ExternalApiToken"]:
