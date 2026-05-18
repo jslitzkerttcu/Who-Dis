@@ -271,7 +271,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 Plans:
 **Wave 1**
 
-- [ ] 10-01-PLAN.md -- Backend foundation: ExternalApiToken model, service, migration, auth decorator, schemas, flask-smorest init
+- [x] 10-01-PLAN.md -- Backend foundation: ExternalApiToken model, service, migration, auth decorator, schemas, flask-smorest init
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -313,7 +313,7 @@ Plans:
 | 7. Compliance Polish | 0/3 | Not started | - |
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
 | 9. Write Operations | 0/? | Not started | - |
-| 10. REST API | 0/3 | Not started | - |
+| 10. REST API | 1/3 | In Progress|  |
 | 11. Workflow Automation | 0/? | Not started | - |
 
 ## Backlog
