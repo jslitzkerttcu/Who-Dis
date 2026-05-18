@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Workflows - Admin{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+    <!-- Header with breadcrumb and action button -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <nav class="text-sm text-gray-500 mb-1">
+                <a href="{{ url_for('admin.index') }}" class="hover:text-gray-700">Admin</a>
+                <span class="mx-1">/</span>
+                <span class="text-gray-900">Workflows</span>
+            </nav>
+            <h1 class="text-2xl font-semibold text-gray-900">Workflows</h1>
+        </div>
+        <a href="{{ url_for('admin.create_workflow') }}"
+           class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-medium rounded-md">
+            <i class="fas fa-plus mr-2"></i> New Workflow
+        </a>
+    </div>
+
+    <!-- KPI Cards -->
+    {% include "admin/partials/_workflow_kpi.html" %}
+
+    <!-- Tab Navigation -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="flex -mb-px space-x-8" aria-label="Workflow tabs">
+            <a href="{{ url_for('admin.workflows_dashboard') }}?tab=active"
+               hx-get="{{ url_for('admin.workflows_dashboard') }}?tab=active"
+               hx-target="#workflow-content"
+               hx-push-url="{{ url_for('admin.workflows_dashboard') }}?tab=active"
+               class="group inline-flex items-center py-4 px-1 border-b-2 text-sm cursor-pointer
+                      {% if active_tab == 'active' %}border-blue-600 text-blue-600 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-normal{% endif %}">
+                <i class="fas fa-spinner mr-2"></i>
+                Active
+            </a>
+            <a href="{{ url_for('admin.workflows_dashboard') }}?tab=completed"
+               hx-get="{{ url_for('admin.workflows_dashboard') }}?tab=completed"
+               hx-target="#workflow-content"
+               hx-push-url="{{ url_for('admin.workflows_dashboard') }}?tab=completed"
+               class="group inline-flex items-center py-4 px-1 border-b-2 text-sm cursor-pointer
+                      {% if active_tab == 'completed' %}border-blue-600 text-blue-600 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-normal{% endif %}">
+                <i class="fas fa-circle-check mr-2"></i>
+                Completed
+            </a>
+        </nav>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="workflow-loading" class="htmx-indicator flex items-center justify-center py-8">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span class="ml-3 text-sm text-gray-600">Loading...</span>
+    </div>
+
+    <!-- Tab Content -->
+    <div id="workflow-content" hx-indicator="#workflow-loading">
+        {{ tab_content|safe }}
+    </div>
+</div>
+
+<script>
+    // Tab switching: update active tab visual state
+    document.querySelector('nav[aria-label="Workflow tabs"]').addEventListener('click', function(e) {
+        var link = e.target.closest('a');
+        if (!link) return;
+        this.querySelectorAll('a').forEach(function(a) {
+            a.classList.remove('border-blue-600', 'text-blue-600', 'font-semibold');
+            a.classList.add('border-transparent', 'text-gray-500', 'font-normal');
+        });
+        link.classList.remove('border-transparent', 'text-gray-500', 'font-normal');
+        link.classList.add('border-blue-600', 'text-blue-600', 'font-semibold');
+    });
+</script>
+{% endblock %}

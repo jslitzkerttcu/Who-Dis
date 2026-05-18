@@ -1,0 +1,42 @@
+<!-- Workflow KPI Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <!-- Active Workflows -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-normal text-gray-500 uppercase tracking-wider">Active Workflows</span>
+            <i class="fas fa-list-check text-blue-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ stats.active }}</div>
+        <div class="text-sm text-gray-500 mt-1">Currently in progress</div>
+    </div>
+
+    <!-- Overdue Items -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-normal text-gray-500 uppercase tracking-wider">Overdue Items</span>
+            <i class="fas fa-clock text-yellow-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ stats.overdue }}</div>
+        <div class="text-sm text-gray-500 mt-1">Past due date</div>
+    </div>
+
+    <!-- Completed This Month -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-normal text-gray-500 uppercase tracking-wider">Completed This Month</span>
+            <i class="fas fa-circle-check text-green-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ stats.completed_this_month }}</div>
+        <div class="text-sm text-gray-500 mt-1">Finished workflows</div>
+    </div>
+
+    <!-- Avg. Completion Time -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-normal text-gray-500 uppercase tracking-wider">Avg. Completion Time</span>
+            <i class="fas fa-stopwatch text-blue-600"></i>
+        </div>
+        <div class="text-2xl font-semibold text-gray-900">{{ stats.avg_completion_days }} days</div>
+        <div class="text-sm text-gray-500 mt-1">Average days to complete</div>
+    </div>
+</div>

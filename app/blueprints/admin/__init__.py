@@ -17,6 +17,7 @@ from . import (
     job_role_compliance,
     reports,
     api_tokens,
+    workflows,
 )
 
 admin_bp = Blueprint("admin", __name__)
@@ -65,6 +66,31 @@ admin_bp.route("/api-tokens/<int:token_id>/revoke", methods=["POST"])(
     api_tokens.revoke_api_token
 )
 admin_bp.route("/api-tokens/list")(api_tokens.api_token_list)
+
+# Workflow automation routes
+admin_bp.route("/workflows", endpoint="workflows_dashboard")(
+    workflows.workflows_dashboard
+)
+admin_bp.route("/workflows/create", methods=["GET", "POST"])(
+    workflows.create_workflow
+)
+admin_bp.route("/workflows/preview")(workflows.preview_checklist)
+admin_bp.route("/workflows/<int:workflow_id>", endpoint="workflow_detail")(
+    workflows.workflow_detail
+)
+admin_bp.route("/workflows/items/<int:item_id>/complete", methods=["POST"])(
+    workflows.complete_item
+)
+admin_bp.route("/workflows/items/<int:item_id>/skip", methods=["POST"])(
+    workflows.skip_item
+)
+admin_bp.route("/workflows/<int:workflow_id>/cancel", methods=["POST"])(
+    workflows.cancel_workflow
+)
+admin_bp.route("/workflows/<int:workflow_id>/export")(
+    workflows.export_workflow_csv
+)
+admin_bp.route("/workflows/employee-search")(workflows.employee_search)
 
 # Database management routes
 admin_bp.route("/database")(database.database)

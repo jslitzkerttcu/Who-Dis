@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Create Workflow - Admin{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+    <!-- Header with breadcrumb -->
+    <div class="mb-6">
+        <nav class="text-sm text-gray-500 mb-1">
+            <a href="{{ url_for('admin.index') }}" class="hover:text-gray-700">Admin</a>
+            <span class="mx-1">/</span>
+            <a href="{{ url_for('admin.workflows_dashboard') }}" class="hover:text-gray-700">Workflows</a>
+            <span class="mx-1">/</span>
+            <span class="text-gray-900">Create</span>
+        </nav>
+        <h1 class="text-2xl font-semibold text-gray-900">Create Workflow</h1>
+    </div>
+
+    {% if error %}
+    <div class="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+        <div class="flex">
+            <i class="fas fa-exclamation-circle text-red-400 mr-3 mt-0.5"></i>
+            <p class="text-sm text-red-800">{{ error }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Two-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Left column: Form -->
+        <div>
+            <form method="POST" action="{{ url_for('admin.create_workflow') }}"
+                  class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+
+                <!-- Employee Selection -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Employee</h3>
+
+                    <!-- Search input -->
+                    <div id="employee-search-section">
+                        <label for="employee-search-input" class="block text-sm font-medium text-gray-700 mb-1">Search for employee</label>
+                        <input type="text"
+                               id="employee-search-input"
+                               placeholder="Type name or email..."
+                               autocomplete="off"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                               hx-get="{{ url_for('admin.employee_search') }}"
+                               hx-trigger="keyup changed delay:300ms"
+                               hx-target="#employee-results"
+                               hx-params="*"
+                               name="q">
+                        <div id="employee-results" class="mt-1"></div>
+                    </div>
+
+                    <!-- Selected employee display -->
+                    <div id="selected-employee" class="hidden mt-3 bg-blue-50 border border-blue-200 rounded-md p-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900" id="selected-name-display"></div>
+                                <div class="text-xs text-gray-500" id="selected-email-display"></div>
+                            </div>
+                            <button type="button" onclick="clearEmployee()" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Toggle for manual entry -->
+                    <div class="mt-3">
+                        <button type="button" onclick="toggleManualEntry()"
+                                id="manual-entry-toggle"
+                                class="text-sm text-blue-600 hover:text-blue-800">
+                            Employee not in any system yet?
+                        </button>
+                    </div>
+
+                    <!-- Manual entry fields (hidden by default) -->
+                    <div id="manual-entry-fields" class="hidden mt-3 space-y-3">
+                        <div>
+                            <label for="manual-name" class="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                            <input type="text" id="manual-name"
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Full name">
+                        </div>
+                        <div>
+                            <label for="manual-email" class="block text-sm font-medium text-gray-700 mb-1">Employee Email (optional)</label>
+                            <input type="email" id="manual-email"
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="email@example.com">
+                        </div>
+                    </div>
+
+                    <!-- Hidden form fields that get submitted -->
+                    <input type="hidden" name="employee_name" id="employee_name">
+                    <input type="hidden" name="employee_email" id="employee_email">
+                </div>
+
+                <!-- Job Code -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Job Code</h3>
+                    <label for="job_code" class="block text-sm font-medium text-gray-700 mb-1">Select job code</label>
+                    <select name="job_code" id="job_code"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                            hx-get="{{ url_for('admin.preview_checklist') }}"
+                            hx-trigger="change"
+                            hx-target="#checklist-preview"
+                            hx-include="#workflow_type_onboarding, #workflow_type_offboarding">
+                        <option value="">-- Select a job code --</option>
+                        {% for jc in job_codes %}
+                        <option value="{{ jc.job_code }}">{{ jc.job_code }} - {{ jc.job_title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Workflow Type -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Workflow Type</h3>
+                    <div class="flex space-x-6">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="workflow_type" value="onboarding" id="workflow_type_onboarding"
+                                   checked
+                                   class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                   hx-get="{{ url_for('admin.preview_checklist') }}"
+                                   hx-trigger="change"
+                                   hx-target="#checklist-preview"
+                                   hx-include="#job_code">
+                            <span class="ml-2 text-sm text-gray-700">Onboarding</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="workflow_type" value="offboarding" id="workflow_type_offboarding"
+                                   class="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                   hx-get="{{ url_for('admin.preview_checklist') }}"
+                                   hx-trigger="change"
+                                   hx-target="#checklist-preview"
+                                   hx-include="#job_code">
+                            <span class="ml-2 text-sm text-gray-700">Offboarding</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" onclick="return prepareSubmit()"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-medium rounded-md">
+                    <i class="fas fa-list-check mr-2"></i> Generate Checklist
+                </button>
+            </form>
+        </div>
+
+        <!-- Right column: Preview -->
+        <div>
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">Checklist Preview</h3>
+                <div id="checklist-preview">
+                    <div class="text-sm text-gray-500 italic">Select a job code to preview checklist items.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var isManualEntry = false;
+
+    function selectEmployee(el) {
+        var name = el.getAttribute('data-name');
+        var email = el.getAttribute('data-email');
+        var jobCode = el.getAttribute('data-job-code');
+
+        document.getElementById('employee_name').value = name;
+        document.getElementById('employee_email').value = email;
+        document.getElementById('selected-name-display').textContent = name;
+        document.getElementById('selected-email-display').textContent = email;
+        document.getElementById('selected-employee').classList.remove('hidden');
+        document.getElementById('employee-search-input').value = '';
+        document.getElementById('employee-results').innerHTML = '';
+
+        // Auto-select job code if available
+        if (jobCode) {
+            var jobSelect = document.getElementById('job_code');
+            for (var i = 0; i < jobSelect.options.length; i++) {
+                if (jobSelect.options[i].value === jobCode) {
+                    jobSelect.selectedIndex = i;
+                    htmx.trigger(jobSelect, 'change');
+                    break;
+                }
+            }
+        }
+    }
+
+    function clearEmployee() {
+        document.getElementById('employee_name').value = '';
+        document.getElementById('employee_email').value = '';
+        document.getElementById('selected-employee').classList.add('hidden');
+    }
+
+    function toggleManualEntry() {
+        isManualEntry = !isManualEntry;
+        var manualFields = document.getElementById('manual-entry-fields');
+        var searchSection = document.getElementById('employee-search-section');
+        var selectedDisplay = document.getElementById('selected-employee');
+        var toggleBtn = document.getElementById('manual-entry-toggle');
+
+        if (isManualEntry) {
+            manualFields.classList.remove('hidden');
+            searchSection.classList.add('hidden');
+            selectedDisplay.classList.add('hidden');
+            toggleBtn.textContent = 'Search for existing employee instead';
+        } else {
+            manualFields.classList.add('hidden');
+            searchSection.classList.remove('hidden');
+            toggleBtn.textContent = 'Employee not in any system yet?';
+        }
+    }
+
+    function prepareSubmit() {
+        if (isManualEntry) {
+            var name = document.getElementById('manual-name').value.trim();
+            var email = document.getElementById('manual-email').value.trim();
+            document.getElementById('employee_name').value = name;
+            document.getElementById('employee_email').value = email;
+        }
+
+        if (!document.getElementById('employee_name').value.trim()) {
+            alert('Please select or enter an employee name.');
+            return false;
+        }
+        if (!document.getElementById('job_code').value) {
+            alert('Please select a job code.');
+            return false;
+        }
+        return true;
+    }
+</script>
+{% endblock %}
