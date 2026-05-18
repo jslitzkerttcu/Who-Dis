@@ -75,6 +75,10 @@
         var dateA = Date.parse(valA) || 0;
         var dateB = Date.parse(valB) || 0;
         result = dateA - dateB;
+      } else if (sortType === "number") {
+        var numA = parseFloat(valA.replace(/[^0-9.\-]/g, "")) || 0;
+        var numB = parseFloat(valB.replace(/[^0-9.\-]/g, "")) || 0;
+        result = numA - numB;
       } else {
         result = valA.localeCompare(valB);
       }

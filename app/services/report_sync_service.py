@@ -84,7 +84,7 @@ class ReportSyncService(BaseConfigurableService):
         for sku in skus:
             sku_id = sku.get("skuId", "")
             # Use skuPartNumber as fallback name
-            sku_name_map[sku_id] = self.sku_catalog.get_friendly_name(
+            sku_name_map[sku_id] = self.sku_catalog.get_sku_name(
                 sku_id
             ) or sku.get("skuPartNumber", sku_id)
 

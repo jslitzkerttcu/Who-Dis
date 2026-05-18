@@ -59,15 +59,20 @@
 
     <!-- Tab Content -->
     <div id="report-content" hx-indicator="#report-loading">
-        {% if active_tab == 'security' %}
-            {% include "admin/partials/_report_security.html" %}
-        {% elif active_tab == 'genesys' %}
-            {% include "admin/partials/_report_genesys.html" %}
-        {% elif active_tab == 'history' %}
-            {% include "admin/partials/_report_history.html" %}
-        {% else %}
-            {% include "admin/partials/_report_licenses.html" %}
-        {% endif %}
+        {{ tab_content|safe }}
     </div>
 </div>
+
+<script>
+    document.querySelector('nav[aria-label="Report tabs"]').addEventListener('click', function(e) {
+        var link = e.target.closest('a');
+        if (!link) return;
+        this.querySelectorAll('a').forEach(function(a) {
+            a.classList.remove('border-blue-600', 'text-blue-600', 'font-semibold');
+            a.classList.add('border-transparent', 'text-gray-500', 'font-normal');
+        });
+        link.classList.remove('border-transparent', 'text-gray-500', 'font-normal');
+        link.classList.add('border-blue-600', 'text-blue-600', 'font-semibold');
+    });
+</script>
 {% endblock %}

@@ -58,7 +58,8 @@ def reports():
     tab = request.args.get("tab", "licenses")
     if request.headers.get("HX-Request"):
         return _render_tab(tab)
-    return render_template("admin/reports.html", active_tab=tab)
+    tab_content = _render_tab(tab)
+    return render_template("admin/reports.html", active_tab=tab, tab_content=tab_content)
 
 
 @require_role("admin")
