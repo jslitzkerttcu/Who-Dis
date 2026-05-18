@@ -94,6 +94,8 @@
                 // Azure AD headers should be automatically included by the browser
                 // But we can add a flag to identify HTMX requests
                 evt.detail.headers['X-Requested-With'] = 'XMLHttpRequest';
+                var csrfCookie = document.cookie.split('; ').find(function(c) { return c.startsWith('_csrf_token='); });
+                if (csrfCookie) { evt.detail.headers['X-CSRF-Token'] = csrfCookie.split('=')[1]; }
             });
         });
     </script>
