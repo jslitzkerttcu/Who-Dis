@@ -306,7 +306,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 11-01-PLAN.md — Data layer: Workflow/WorkflowItem/StandardOffboardingItem models, Alembic migration 005, WorkflowService, DI registration, unit tests (WKFL-01, WKFL-02, WKFL-03, WKFL-04)
+- [x] 11-01-PLAN.md — Data layer: Workflow/WorkflowItem/StandardOffboardingItem models, Alembic migration 005, WorkflowService, DI registration, unit tests (WKFL-01, WKFL-02, WKFL-03, WKFL-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -329,7 +329,7 @@ Plans:
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
 | 9. Write Operations | 3/3 | Complete   | 2026-05-18 |
 | 10. REST API | 3/3 | Complete   | 2026-05-18 |
-| 11. Workflow Automation | 0/3 | Planning complete | - |
+| 11. Workflow Automation | 1/3 | In Progress|  |
 
 ## Backlog
 
