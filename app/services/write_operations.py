@@ -6,7 +6,7 @@ with audit logging. Does not enforce auth -- callers (route handlers) must use
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from flask import current_app, g, request
 
@@ -18,31 +18,21 @@ logger = logging.getLogger(__name__)
 class WriteOperationsService:
     """Coordinator for LDAP and Graph write operations with audit trail.
 
-    Uses lazy-property access to services via DI container (CLAUDE.md pattern).
+    Resolves dependencies from the DI container on each access to avoid
+    stale references across configuration reloads.
     """
-
-    def __init__(self) -> None:
-        self._ldap_service: Optional[Any] = None
-        self._graph_service: Optional[Any] = None
-        self._audit_logger: Optional[Any] = None
 
     @property
     def ldap_service(self) -> Any:
-        if self._ldap_service is None:
-            self._ldap_service = current_app.container.get("ldap_service")
-        return self._ldap_service
+        return current_app.container.get("ldap_service")
 
     @property
     def graph_service(self) -> Any:
-        if self._graph_service is None:
-            self._graph_service = current_app.container.get("graph_service")
-        return self._graph_service
+        return current_app.container.get("graph_service")
 
     @property
     def audit_logger(self) -> Any:
-        if self._audit_logger is None:
-            self._audit_logger = current_app.container.get("audit_logger")
-        return self._audit_logger
+        return current_app.container.get("audit_logger")
 
     def _get_request_context(self) -> Dict[str, str]:
         """Extract IP and user-agent from current request for audit."""

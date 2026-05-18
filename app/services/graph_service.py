@@ -954,10 +954,13 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
             response = self._make_request("POST", url, token, json=body)
             if response.status_code == 200:
                 return {"success": True, "rollback_needed": False, "rollback_success": None}
-        except requests.HTTPError:
-            # Atomic swap failed — fall through to two-call approach
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else 0
+            if status in (401, 403):
+                return {"success": False, "error": "permission_missing",
+                        "rollback_needed": False, "rollback_success": None}
             logger.warning(
-                f"Atomic license swap failed for user {user_id}, "
+                f"Atomic license swap failed for user {user_id} (HTTP {status}), "
                 f"falling back to sequential remove+assign"
             )
         except Exception as e:

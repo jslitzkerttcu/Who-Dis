@@ -317,6 +317,11 @@ def register_routes(search_bp: Any) -> None:
             user_id, user_email, old_sku_id, old_sku_name, new_sku_id, new_sku_name, reason
         )
 
+        if result.get("error") == "permission_missing":
+            return make_response(
+                "Graph API permission missing: LicenseAssignment.ReadWrite.All", 403
+            )
+
         if result.get("success"):
             resp = make_response("", 200)
             resp.headers["HX-Trigger"] = json.dumps(

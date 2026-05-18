@@ -137,10 +137,18 @@ function _buildAssignLicenseFields(config, container) {
 
     // Load SKU options via fetch
     fetch("/search/api/write/available-skus")
-        .then(function(resp) { return resp.text(); })
+        .then(function(resp) {
+            if (!resp.ok) throw new Error("Failed to load SKUs");
+            return resp.text();
+        })
         .then(function(html) {
             var select = document.getElementById("write-license-select");
             if (select) select.innerHTML = html;
+        })
+        .catch(function(err) {
+            var select = document.getElementById("write-license-select");
+            if (select) select.innerHTML = '<option disabled>Error loading licenses</option>';
+            console.error(err);
         });
 }
 
