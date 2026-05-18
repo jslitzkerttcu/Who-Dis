@@ -1,7 +1,7 @@
 """LDAP service with simplified configuration."""
 
 from typing import Optional, Dict, Any, List
-from ldap3 import Server, Connection, ALL, SUBTREE
+from ldap3 import Server, Connection, ALL, SUBTREE, MODIFY_REPLACE
 from ldap3.core.exceptions import (
     LDAPException,
     LDAPSocketOpenError,
@@ -352,6 +352,166 @@ class LDAPService(BaseSearchService, ISearchService):
             logger.error(f"Error getting user by DN: {str(e)}")
 
         return None
+
+    # ------------------------------------------------------------------ #
+    # Write operations (Phase 9)                                           #
+    # ------------------------------------------------------------------ #
+
+    def unlock_account(self, user_dn: str) -> bool:
+        """Unlock an Active Directory account by resetting lockoutTime to 0.
+
+        Args:
+            user_dn: Distinguished name of the user account.
+
+        Returns:
+            True if the unlock succeeded, False otherwise.
+        """
+        try:
+            server = Server(
+                self.host,
+                port=self.port,
+                use_ssl=self.use_ssl,
+                get_info=ALL,
+                connect_timeout=self.connect_timeout,
+            )
+
+            with Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True,
+                receive_timeout=self.operation_timeout,
+            ) as conn:
+                result = conn.modify(
+                    user_dn,
+                    {"lockoutTime": [(MODIFY_REPLACE, ["0"])]},
+                )
+                if not result:
+                    logger.error(
+                        f"Failed to unlock account {user_dn}: {conn.result}"
+                    )
+                return bool(result)
+
+        except LDAPException as e:
+            logger.error(f"LDAP error unlocking account {user_dn}: {str(e)}")
+            return False
+
+    def reset_password(self, user_dn: str, new_password: str) -> bool:
+        """Reset an Active Directory user's password.
+
+        Requires SSL/TLS connection (AD policy). The password value is never logged.
+
+        Args:
+            user_dn: Distinguished name of the user account.
+            new_password: The new password to set.
+
+        Returns:
+            True if the password reset succeeded, False otherwise.
+        """
+        if not self.use_ssl:
+            logger.error(
+                "Password reset requires SSL/TLS connection — "
+                "cannot reset password over unencrypted channel"
+            )
+            return False
+
+        try:
+            server = Server(
+                self.host,
+                port=self.port,
+                use_ssl=self.use_ssl,
+                get_info=ALL,
+                connect_timeout=self.connect_timeout,
+            )
+
+            with Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True,
+                receive_timeout=self.operation_timeout,
+            ) as conn:
+                result = conn.extend.microsoft.modify_password(
+                    user_dn, new_password
+                )
+                if not result:
+                    logger.error(
+                        f"Failed to reset password for {user_dn}: {conn.result}"
+                    )
+                return bool(result)
+
+        except LDAPException as e:
+            logger.error(f"LDAP error resetting password for {user_dn}: {str(e)}")
+            return False
+
+    def set_account_enabled(self, user_dn: str, enabled: bool) -> bool:
+        """Enable or disable an Active Directory account via userAccountControl.
+
+        Only toggles bit 1 (ACCOUNTDISABLE) — all other UAC flags are preserved.
+
+        Args:
+            user_dn: Distinguished name of the user account.
+            enabled: True to enable, False to disable.
+
+        Returns:
+            True if the operation succeeded, False otherwise.
+        """
+        try:
+            server = Server(
+                self.host,
+                port=self.port,
+                use_ssl=self.use_ssl,
+                get_info=ALL,
+                connect_timeout=self.connect_timeout,
+            )
+
+            with Connection(
+                server,
+                user=self.bind_dn,
+                password=self.bind_password,
+                auto_bind=True,
+                receive_timeout=self.operation_timeout,
+            ) as conn:
+                # Read current UAC value
+                conn.search(
+                    user_dn,
+                    "(objectClass=*)",
+                    search_scope="BASE",
+                    attributes=["userAccountControl"],
+                )
+
+                if not conn.entries:
+                    logger.error(
+                        f"Cannot read userAccountControl for {user_dn}: "
+                        "user not found"
+                    )
+                    return False
+
+                current_uac = int(conn.entries[0].userAccountControl.value)
+
+                # Toggle only bit 1 (ACCOUNTDISABLE = 0x2)
+                if enabled:
+                    new_uac = current_uac & ~2
+                else:
+                    new_uac = current_uac | 2
+
+                result = conn.modify(
+                    user_dn,
+                    {"userAccountControl": [(MODIFY_REPLACE, [str(new_uac)])]},
+                )
+                if not result:
+                    logger.error(
+                        f"Failed to {'enable' if enabled else 'disable'} "
+                        f"account {user_dn}: {conn.result}"
+                    )
+                return bool(result)
+
+        except LDAPException as e:
+            logger.error(
+                f"LDAP error setting account enabled={enabled} "
+                f"for {user_dn}: {str(e)}"
+            )
+            return False
 
     def _process_ldap_entry(self, entry) -> Dict[str, Any]:
         """Process a single LDAP entry into user data."""

@@ -32,7 +32,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 - [x] **Phase 6: Enriched Profiles & Search Export** - Surface full Graph/Genesys data on profile cards with export (verified; all UAT passed)
 - [ ] **Phase 7: Compliance Polish** - Bulk checks with progress, export, and warehouse sync visibility
 - [x] **Phase 8: Reporting** - License, security posture, and Genesys reports with scheduling (completed 2026-05-17)
-- [ ] **Phase 9: Write Operations** - AD account actions and license management from the UI
+- [x] **Phase 9: Write Operations** - AD account actions and license management from the UI (completed 2026-05-18)
 - [x] **Phase 10: REST API** - Token-authenticated read-only API with rate limiting and docs (completed 2026-05-18)
 - [ ] **Phase 11: Workflow Automation** - Onboarding/offboarding checklists with completion tracking
 
@@ -247,9 +247,18 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 
 **Plans**: 3 plans
 
-- [x] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
-- [ ] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
-- [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
+Plans:
+**Wave 1**
+
+- [x] 09-01-PLAN.md — Backend services: LDAP write methods, Graph license methods, WriteOperationsService, password generator, tests
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 09-02-PLAN.md — AD write endpoints, shared confirmation modal, password banner, AD action buttons, write-actions.js
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 09-03-PLAN.md — License write endpoints, SKU dropdown, license action buttons, M365 section integration
 
 **UI hint**: yes
 
@@ -312,7 +321,7 @@ Plans:
 | 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
 | 7. Compliance Polish | 0/3 | Not started | - |
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
-| 9. Write Operations | 0/? | Not started | - |
+| 9. Write Operations | 3/3 | Complete   | 2026-05-18 |
 | 10. REST API | 3/3 | Complete   | 2026-05-18 |
 | 11. Workflow Automation | 0/? | Not started | - |
 

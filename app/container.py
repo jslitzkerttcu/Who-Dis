@@ -149,6 +149,11 @@ def register_services(container: ServiceContainer) -> None:
     container.register("genesys_service", lambda c: GenesysCloudService())
     container.register("graph_service", lambda c: GraphService())
 
+    # Write operations coordinator (Phase 9: LDAP + Graph writes with audit)
+    from app.services.write_operations import WriteOperationsService
+
+    container.register("write_operations", lambda c: WriteOperationsService())
+
     # Employee profiles refresh service (employee + warehouse data consolidated)
     container.register(
         "employee_profiles_refresh", lambda c: EmployeeProfilesRefreshService()
