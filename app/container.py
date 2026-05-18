@@ -184,6 +184,13 @@ def register_services(container: ServiceContainer) -> None:
 
     container.register("report_sync_service", lambda c: ReportSyncService())
 
+    # External API token service (Phase 10: REST API bearer token management)
+    from app.services.external_api_token_service import ExternalApiTokenService
+
+    container.register(
+        "external_api_token_service", lambda c: ExternalApiTokenService()
+    )
+
     # SEC-03: Flask-Limiter instance (initialized in app/__init__.py against
     # the Flask app) — exposed via the container so blueprints/services can
     # retrieve it without importing the app module directly.
