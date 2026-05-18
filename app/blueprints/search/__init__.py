@@ -193,6 +193,10 @@ def _get_photo_element_for_card(user_data: Dict[str, Any]) -> Optional[str]:
 
 search_bp = Blueprint("search", __name__)
 
+# Register write operation routes (Phase 9)
+from app.blueprints.search import write_routes  # noqa: E402
+
+write_routes.register_routes(search_bp)
 
 # Configuration will be loaded lazily to avoid app context issues
 _config_cache: Dict[str, Any] = {}
