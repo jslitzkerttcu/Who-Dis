@@ -15,6 +15,7 @@ from . import (
     admin_employee_profiles,
     job_role_compliance,
     reports,
+    api_tokens,
 )
 
 admin_bp = Blueprint("admin", __name__)
@@ -55,6 +56,14 @@ admin_bp.route("/api/users/<int:user_id>/update", methods=["POST"])(
 admin_bp.route("/users/toggle/<int:user_id>", methods=["POST"])(
     users.toggle_user_status
 )
+
+# External API token management routes
+admin_bp.route("/api-tokens", endpoint="api_tokens")(api_tokens.manage_api_tokens)
+admin_bp.route("/api-tokens/create", methods=["POST"])(api_tokens.create_api_token)
+admin_bp.route("/api-tokens/<int:token_id>/revoke", methods=["POST"])(
+    api_tokens.revoke_api_token
+)
+admin_bp.route("/api-tokens/list")(api_tokens.api_token_list)
 
 # Database management routes
 admin_bp.route("/database")(database.database)

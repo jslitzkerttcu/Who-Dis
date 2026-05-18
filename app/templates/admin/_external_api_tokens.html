@@ -1,0 +1,93 @@
+<!-- External API Token Management Section -->
+<div class="bg-white rounded-2xl shadow-md border border-gray-200 p-6 mb-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900">External API Tokens</h2>
+            <p class="text-sm text-gray-500 mt-1">Bearer tokens for external systems (ServiceNow, scripts, integrations). Each token grants read-only access to the WhoDis API.</p>
+        </div>
+        <button onclick="openCreateModal()"
+                class="inline-flex items-center px-4 py-2 bg-ttcu-green text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-all duration-150">
+            <i class="fas fa-plus mr-2"></i>
+            Create Token
+        </button>
+    </div>
+
+    <!-- Token List -->
+    <div id="api-token-list"
+         hx-get="{{ url_for('admin.api_token_list') }}"
+         hx-trigger="tokenCreated from:body, tokenRevoked from:body"
+         hx-swap="innerHTML">
+        {% if tokens %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Used</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for token in tokens %}
+                    <tr class="hover:bg-gray-50 transition-all duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium {{ 'text-gray-400' if token.is_revoked else 'text-gray-900' }}">{{ token.name }}</div>
+                            <div class="text-xs text-gray-400">{{ token.token_prefix }}...</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ token.created_at.strftime("%b %d, %Y") }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            {% if token.last_used_at %}
+                                <span class="text-gray-500">{{ token.last_used_at.strftime("%b %d, %Y") }}</span>
+                            {% else %}
+                                <span class="text-gray-400 italic">Never</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if token.is_revoked %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold text-gray-500 bg-gray-100">Revoked</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold text-green-700 bg-green-100">Active</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            {% if not token.is_revoked %}
+                                <button onclick="openRevokeModal({{ token.id }}, '{{ token.name | e }}')"
+                                        class="inline-flex items-center text-red-600 hover:text-red-800 transition-all duration-150">
+                                    <i class="fas fa-ban mr-1"></i>
+                                    Revoke Token
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-12">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <i class="fas fa-key text-gray-400 text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">No API Tokens</h3>
+            <p class="text-sm text-gray-500">No external API tokens have been created yet. Create one to allow external systems to query WhoDis.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Footer: Rate Limit Note + API Docs Link -->
+    <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
+        <p class="text-xs text-gray-500">Rate limit: 60 requests per minute per token (configurable in Settings).</p>
+        <a href="/api/v1/docs" target="_blank" rel="noopener"
+           class="inline-flex items-center text-sm text-ttcu-green hover:text-green-700 transition-all duration-150">
+            <i class="fas fa-book mr-1"></i>
+            API Documentation
+            <i class="fas fa-external-link-alt ml-1 text-xs"></i>
+        </a>
+    </div>
+</div>
