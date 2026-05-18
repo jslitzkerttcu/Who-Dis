@@ -269,12 +269,16 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 **Plans**: 3 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 10-01-PLAN.md -- Backend foundation: ExternalApiToken model, service, migration, auth decorator, schemas, flask-smorest init
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 10-02-PLAN.md -- API endpoints: search and profile with rate limiting, audit, OpenAPI docs
 - [ ] 10-03-PLAN.md -- Admin UI: token create/list/revoke with HTMX modals
 
 **UI hint**: yes
-
 
 ### Phase 11: Workflow Automation
 
