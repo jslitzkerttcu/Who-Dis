@@ -48,8 +48,10 @@ def init_api(app):
 
     # Register API resource blueprints
     from app.blueprints.api.search import api_search_bp
+    from app.blueprints.api.users import api_users_bp
 
     api.register_blueprint(api_search_bp, url_prefix="/api/v1")
+    api.register_blueprint(api_users_bp, url_prefix="/api/v1")
 
     logger.info("REST API initialized (flask-smorest) — Swagger UI at /api/v1/docs")
 
