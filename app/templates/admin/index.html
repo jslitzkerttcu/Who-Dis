@@ -177,10 +177,29 @@
         </div>
     </div>
 
+    <!-- External API Tokens Section -->
+    <div class="mt-8"
+         hx-get="{{ url_for('admin.api_tokens') }}"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="text-center py-8">
+            <i class="fas fa-spinner fa-spin text-gray-400"></i>
+            <p class="text-sm text-gray-500 mt-2">Loading API tokens...</p>
+        </div>
+    </div>
+
     <!-- Footer Notice -->
     <div class="text-center text-gray-500 text-sm mt-8">
         <i class="fas fa-eye mr-1"></i>
         All actions are now being logged. Big Brother is watching.
     </div>
 </div>
+
+<!-- API Token Modals -->
+{% include "admin/_token_create_modal.html" %}
+{% include "admin/_token_reveal_modal.html" %}
+{% include "admin/_token_revoke_modal.html" %}
+
+<!-- API Token JS -->
+<script src="{{ url_for('static', filename='js/api-tokens.js') }}"></script>
 {% endblock %}
