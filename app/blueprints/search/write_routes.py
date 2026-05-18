@@ -10,6 +10,7 @@ returns HX-Trigger headers for toast/banner notifications.
 
 import json
 import logging
+import re
 from typing import Any
 
 from flask import current_app, make_response, render_template, request
@@ -19,6 +20,21 @@ from app.middleware.csrf import csrf_double_submit
 from app.utils.error_handler import handle_errors
 
 logger = logging.getLogger(__name__)
+
+_DN_PATTERN = re.compile(r"^(?:CN|OU|DC)=[^,]+(?:,(?:CN|OU|DC)=[^,]+)*$", re.IGNORECASE)
+_GUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+)
+
+
+def _validate_dn(user_dn: str) -> bool:
+    """Validate that user_dn looks like a legitimate LDAP distinguished name."""
+    return bool(user_dn and _DN_PATTERN.match(user_dn))
+
+
+def _validate_guid(value: str) -> bool:
+    """Validate that value is a proper GUID/UUID format."""
+    return bool(value and _GUID_PATTERN.match(value))
 
 
 def register_routes(search_bp: Any) -> None:
@@ -38,6 +54,10 @@ def register_routes(search_bp: Any) -> None:
         display_name = request.form.get("display_name", "").strip()
         reason = request.form.get("reason", "").strip()
 
+        if not _validate_dn(user_dn):
+            return make_response("Invalid user DN format.", 400)
+        if not display_name:
+            return make_response("Display name is required.", 400)
         if len(reason) < 3:
             return make_response("Reason must be at least 3 characters.", 400)
 
@@ -64,6 +84,10 @@ def register_routes(search_bp: Any) -> None:
         display_name = request.form.get("display_name", "").strip()
         reason = request.form.get("reason", "").strip()
 
+        if not _validate_dn(user_dn):
+            return make_response("Invalid user DN format.", 400)
+        if not display_name:
+            return make_response("Display name is required.", 400)
         if len(reason) < 3:
             return make_response("Reason must be at least 3 characters.", 400)
 
@@ -92,6 +116,10 @@ def register_routes(search_bp: Any) -> None:
         display_name = request.form.get("display_name", "").strip()
         reason = request.form.get("reason", "").strip()
 
+        if not _validate_dn(user_dn):
+            return make_response("Invalid user DN format.", 400)
+        if not display_name:
+            return make_response("Display name is required.", 400)
         if len(reason) < 3:
             return make_response("Reason must be at least 3 characters.", 400)
 
@@ -118,6 +146,10 @@ def register_routes(search_bp: Any) -> None:
         display_name = request.form.get("display_name", "").strip()
         reason = request.form.get("reason", "").strip()
 
+        if not _validate_dn(user_dn):
+            return make_response("Invalid user DN format.", 400)
+        if not display_name:
+            return make_response("Display name is required.", 400)
         if len(reason) < 3:
             return make_response("Reason must be at least 3 characters.", 400)
 
@@ -197,6 +229,10 @@ def register_routes(search_bp: Any) -> None:
         sku_name = request.form.get("sku_name", "").strip()
         reason = request.form.get("reason", "").strip()
 
+        if not _validate_guid(user_id):
+            return make_response("Invalid user ID format.", 400)
+        if not _validate_guid(sku_id):
+            return make_response("Invalid SKU ID format.", 400)
         if len(reason) < 3:
             return make_response("Reason must be at least 3 characters.", 400)
 
@@ -230,6 +266,10 @@ def register_routes(search_bp: Any) -> None:
         sku_name = request.form.get("sku_name", "").strip()
         reason = request.form.get("reason", "").strip()
 
+        if not _validate_guid(user_id):
+            return make_response("Invalid user ID format.", 400)
+        if not _validate_guid(sku_id):
+            return make_response("Invalid SKU ID format.", 400)
         if len(reason) < 3:
             return make_response("Reason must be at least 3 characters.", 400)
 
@@ -265,6 +305,10 @@ def register_routes(search_bp: Any) -> None:
         new_sku_name = request.form.get("new_sku_name", "").strip()
         reason = request.form.get("reason", "").strip()
 
+        if not _validate_guid(user_id):
+            return make_response("Invalid user ID format.", 400)
+        if not _validate_guid(old_sku_id) or not _validate_guid(new_sku_id):
+            return make_response("Invalid SKU ID format.", 400)
         if len(reason) < 3:
             return make_response("Reason must be at least 3 characters.", 400)
 
@@ -285,8 +329,7 @@ def register_routes(search_bp: Any) -> None:
         rollback_success = result.get("rollback_success")
 
         if rollback_needed and rollback_success:
-            # Rollback succeeded -- warn but not critical
-            resp = make_response("", 200)
+            resp = make_response("", 422)
             resp.headers["HX-Trigger"] = json.dumps(
                 {"showToast": {
                     "message": (

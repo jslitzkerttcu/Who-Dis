@@ -5,7 +5,7 @@ uppercase, lowercase, digit, and symbol. Designed for verbal
 communication to end users (D-06 pattern).
 """
 
-import random
+import secrets
 from typing import List
 
 WORDS: List[str] = [
@@ -28,7 +28,7 @@ def generate_temp_password() -> str:
     Returns:
         A readable temporary password with uppercase, lowercase, digit, and symbol.
     """
-    word = random.choice(WORDS)
-    digits = random.randint(10, 99)
-    symbol = random.choice(SYMBOLS)
+    word = secrets.choice(WORDS)
+    digits = secrets.randbelow(90) + 10
+    symbol = secrets.choice(SYMBOLS)
     return f"{word}{digits}{symbol}"

@@ -9,6 +9,12 @@
 let _currentActionConfig = null;
 let _passwordVisible = true; // D-05: visible by default
 
+function _escapeHtml(str) {
+    var div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 /**
  * Open the write confirmation modal.
  * @param {Object} config - Modal configuration.
@@ -148,8 +154,8 @@ function _buildSwapLicenseFields(config, container) {
     var removeOptions = '<option disabled selected value="">Select license to remove...</option>';
     for (var i = 0; i < licenses.length; i++) {
         var lic = licenses[i];
-        var name = lic.displayName || lic.name || lic.skuId;
-        removeOptions += '<option value="' + lic.skuId + '" data-display-name="' + name + '">' + name + '</option>';
+        var name = _escapeHtml(lic.displayName || lic.name || lic.skuId);
+        removeOptions += '<option value="' + _escapeHtml(lic.skuId) + '" data-display-name="' + name + '">' + name + '</option>';
     }
 
     var html = '<div class="mb-3">' +
@@ -188,7 +194,7 @@ function _buildRemoveLicenseFields(config, container) {
         '<input type="hidden" name="sku_name" id="write-form-sku-name">' +
         '<p class="text-sm text-gray-700 mb-2">' +
         '<i class="fas fa-minus-circle text-red-600 mr-1"></i>' +
-        'Remove: <strong>' + (config.skuName || "Unknown") + '</strong></p>';
+        'Remove: <strong>' + _escapeHtml(config.skuName || "Unknown") + '</strong></p>';
     container.innerHTML = html;
 
     document.getElementById("write-form-user-id").value = config.userId || "";
