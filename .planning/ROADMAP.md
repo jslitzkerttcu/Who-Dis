@@ -32,7 +32,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 - [x] **Phase 6: Enriched Profiles & Search Export** - Surface full Graph/Genesys data on profile cards with export (verified; all UAT passed)
 - [ ] **Phase 7: Compliance Polish** - Bulk checks with progress, export, and warehouse sync visibility
 - [x] **Phase 8: Reporting** - License, security posture, and Genesys reports with scheduling (completed 2026-05-17)
-- [ ] **Phase 9: Write Operations** - AD account actions and license management from the UI
+- [x] **Phase 9: Write Operations** - AD account actions and license management from the UI (completed 2026-05-18)
 - [x] **Phase 10: REST API** - Token-authenticated read-only API with rate limiting and docs (completed 2026-05-18)
 - [ ] **Phase 11: Workflow Automation** - Onboarding/offboarding checklists with completion tracking
 
@@ -258,7 +258,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 09-03-PLAN.md — License write endpoints, SKU dropdown, license action buttons, M365 section integration
+- [x] 09-03-PLAN.md — License write endpoints, SKU dropdown, license action buttons, M365 section integration
 
 **UI hint**: yes
 
@@ -321,7 +321,7 @@ Plans:
 | 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
 | 7. Compliance Polish | 0/3 | Not started | - |
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
-| 9. Write Operations | 2/3 | In Progress|  |
+| 9. Write Operations | 3/3 | Complete   | 2026-05-18 |
 | 10. REST API | 3/3 | Complete   | 2026-05-18 |
 | 11. Workflow Automation | 0/? | Not started | - |
 
