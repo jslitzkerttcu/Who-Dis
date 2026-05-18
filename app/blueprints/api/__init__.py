@@ -46,6 +46,11 @@ def init_api(app):
     # return the D-07 JSON envelope instead of HTML.
     register_api_error_handlers(app)
 
+    # Register API resource blueprints
+    from app.blueprints.api.search import api_search_bp
+
+    api.register_blueprint(api_search_bp, url_prefix="/api/v1")
+
     logger.info("REST API initialized (flask-smorest) — Swagger UI at /api/v1/docs")
 
     return api
