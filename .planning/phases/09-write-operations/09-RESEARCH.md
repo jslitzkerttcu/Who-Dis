@@ -476,19 +476,19 @@ def remove_genesys_license(user_id, license_id):
 | A4 | Single-call atomic license swap (add+remove in one `assignLicense`) works for all SKU combinations | Architecture Patterns | Some SKU conflicts might require two calls; fallback approach handles this. |
 | A5 | The `showToast` event name is what the HTMX `HX-Trigger` header needs to fire the existing `showToast()` function | Pitfall 5 | May need a custom HTMX event listener bridge in `write-actions.js` if names don't match. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **LDAP SSL Configuration**
+1. **LDAP SSL Configuration** — RESOLVED: Plan 01 Task 1 implements runtime SSL gate in reset_password(); refuses operation if ldap.use_ssl is False.
    - What we know: `use_ssl` is configurable via `ldap.use_ssl` config key; current default is `False`
    - What's unclear: Whether the production LDAP connection already uses SSL/TLS
    - Recommendation: Add a runtime check in the password reset method; if SSL is not enabled, return an error explaining the requirement
 
-2. **Azure AD App Permission for License Management**
+2. **Azure AD App Permission for License Management** — RESOLVED: Plan 03 includes checkpoint:human-verify for permission grant; user_setup documents required Azure AD permission.
    - What we know: Need `LicenseAssignment.ReadWrite.All` (least privileged) per official docs
    - What's unclear: Whether the tenant admin will grant this permission, and what the approval timeline is
    - Recommendation: Planner should include a `checkpoint:human-verify` task for permission grant before license management can be tested. AD write operations can be developed and tested independently.
 
-3. **LDAP Bind DN Write Permissions**
+3. **LDAP Bind DN Write Permissions** — RESOLVED: Plan 01 Task 1 LDAP write methods return graceful errors if bind DN lacks write permissions (per D-07).
    - What we know: D-07 says use existing bind credentials; no separate write account
    - What's unclear: Whether the current bind DN has been granted unlock/reset/enable/disable permissions in AD
    - Recommendation: First implementation task should include a connection test that attempts a read-only operation to verify connectivity, with a clear error message if write operations fail due to insufficient permissions
