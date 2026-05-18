@@ -163,6 +163,12 @@ def create_app():
             "in the portal env-var store (see .env.sandcastle.example)."
         )
 
+    # Phase 10: initialize flask-smorest REST API (must be after limiter.init_app
+    # and before blueprint registrations — Pitfall 5).
+    from app.blueprints.api import init_api
+
+    init_api(app)
+
     # Phase 9 D-13 carve-out: read the debug-mode toggle from DB (non-secret flag).
     # All secrets now come from os.environ via portal env-var injection (D-11, D-16).
     try:
