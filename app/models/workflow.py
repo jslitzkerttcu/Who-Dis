@@ -5,8 +5,8 @@ This module contains SQLAlchemy models for managing onboarding and offboarding
 workflow checklists generated from job role mappings.
 """
 
-from datetime import datetime, timezone, date
-from typing import Dict, Any, List, Optional
+from datetime import date
+from typing import Dict, Any, List
 from app.database import db
 from app.models.base import BaseModel, TimestampMixin
 
