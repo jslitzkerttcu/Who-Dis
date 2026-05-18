@@ -1,0 +1,57 @@
+{# License action buttons: Assign + Swap (admin-only, D-12).
+
+Included by _m365_section.html after the license list.
+Receives context via `data` dict:
+  - data.licenses: list of {name, displayName, skuId}
+  - data.graph_user_id: Graph user ID for API calls
+  - data.user_email: target user email
+  - data.display_name: target user display name
+#}
+{% if g.role == 'admin' %}
+<div class="mt-3 pt-3 border-t border-gray-100">
+  {% if not data.get('licenses') %}
+    <p class="text-sm text-gray-500 italic mb-2">No licenses assigned. Use "Assign License" to add one.</p>
+  {% endif %}
+
+  <div class="flex flex-wrap items-center gap-2">
+    {# Assign License button #}
+    <button type="button"
+            class="inline-flex items-center gap-1 py-2 px-3 text-xs font-semibold rounded bg-ttcu-green text-white hover:bg-green-700"
+            onclick="openWriteModal({
+              actionUrl: '/search/api/write/assign-license',
+              actionTitle: 'Assign License',
+              targetName: '{{ data.get('display_name', '') | e }}',
+              targetEmail: '{{ data.get('user_email', '') | e }}',
+              targetDn: '',
+              isDestructive: false,
+              confirmLabel: 'Confirm Assign',
+              modalType: 'assign-license',
+              userId: '{{ data.get('graph_user_id', '') | e }}'
+            })">
+      <i class="fas fa-plus-circle"></i>
+      Assign License
+    </button>
+
+    {# Swap License button (only show if user has at least one license) #}
+    {% if data.get('licenses') %}
+    <button type="button"
+            class="inline-flex items-center gap-1 py-2 px-3 text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
+            onclick="openWriteModal({
+              actionUrl: '/search/api/write/swap-license',
+              actionTitle: 'Swap License',
+              targetName: '{{ data.get('display_name', '') | e }}',
+              targetEmail: '{{ data.get('user_email', '') | e }}',
+              targetDn: '',
+              isDestructive: false,
+              confirmLabel: 'Confirm Swap',
+              modalType: 'swap-license',
+              userId: '{{ data.get('graph_user_id', '') | e }}',
+              currentLicenses: {{ data.get('licenses', []) | tojson }}
+            })">
+      <i class="fas fa-exchange-alt"></i>
+      Swap License
+    </button>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
