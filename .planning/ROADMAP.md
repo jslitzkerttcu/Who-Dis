@@ -266,6 +266,16 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
   4. Rate limit is enforced per token — exceeding the limit returns 429 with a Retry-After header
   5. OpenAPI spec is accessible at `/api/v1/docs` without authentication
 
+**Plans**: 3 plans
+
+Plans:
+- [ ] 10-01-PLAN.md -- Backend foundation: ExternalApiToken model, service, migration, auth decorator, schemas, flask-smorest init
+- [ ] 10-02-PLAN.md -- API endpoints: search and profile with rate limiting, audit, OpenAPI docs
+- [ ] 10-03-PLAN.md -- Admin UI: token create/list/revoke with HTMX modals
+
+**UI hint**: yes
+
+
 ### Phase 11: Workflow Automation
 
 **Goal**: Admins can generate onboarding and offboarding checklists from job role mappings, track each item's completion, and see active workflows on a dashboard
@@ -299,7 +309,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 | 7. Compliance Polish | 0/3 | Not started | - |
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
 | 9. Write Operations | 0/? | Not started | - |
-| 10. REST API | 0/? | Not started | - |
+| 10. REST API | 0/3 | Not started | - |
 | 11. Workflow Automation | 0/? | Not started | - |
 
 ## Backlog
