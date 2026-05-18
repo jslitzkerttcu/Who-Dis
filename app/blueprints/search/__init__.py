@@ -928,6 +928,8 @@ def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
         "last_sign_in": last_sign_in,
         "permission_warnings": warnings,
         "graph_user_id": user_profile.get("id"),
+        "display_name": user_profile.get("displayName", ""),
+        "user_email": user_profile.get("userPrincipalName", ""),
     }
 
 

@@ -9,7 +9,7 @@ The form submits via HTMX; HX-Trigger response header fires toast.
      aria-modal="true"
      aria-labelledby="write-modal-title"
      onclick="if(event.target===this) closeWriteModal()">
-  <div class="relative top-20 mx-auto p-5 border max-w-md shadow-lg rounded-md bg-white"
+  <div class="modal-box relative top-20 mx-auto p-5 border max-w-md shadow-lg rounded-md bg-white"
        onclick="event.stopPropagation()">
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
@@ -31,6 +31,9 @@ The form submits via HTMX; HX-Trigger response header fires toast.
       <i class="fas fa-exclamation-triangle mr-1"></i>
       This action will immediately affect the user's access.
     </div>
+
+    <!-- Extra fields for license actions (populated by JS) -->
+    <div id="write-modal-extra-fields" class="mt-4"></div>
 
     <!-- Reason textarea (D-03) -->
     <div class="mt-4">
