@@ -193,6 +193,10 @@ def _get_photo_element_for_card(user_data: Dict[str, Any]) -> Optional[str]:
 
 search_bp = Blueprint("search", __name__)
 
+# Register write operation routes (Phase 9)
+from app.blueprints.search import write_routes  # noqa: E402
+
+write_routes.register_routes(search_bp)
 
 # Configuration will be loaded lazily to avoid app context issues
 _config_cache: Dict[str, Any] = {}
@@ -1741,6 +1745,20 @@ def _render_unified_profile(results):
             user_id=export_user_id,
         )
 
+    # Phase 9: AD action buttons for admin users
+    ad_actions_html = ""
+    user_dn = ldap_data.get("distinguishedName", "")
+    user_email = ldap_data.get("mail", "")
+    if user_dn:
+        ad_actions_html = render_template(
+            "search/_ad_actions.html",
+            user_dn=user_dn,
+            display_name=name,
+            user_email=user_email,
+            account_locked=locked,
+            account_enabled=enabled,
+        )
+
     title_block = (
         '<div class="bg-yellow-50 border border-yellow-200 rounded-md p-2 mt-1"><div class="flex items-center"><i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i><div class="text-sm"><span class="font-medium text-yellow-800">Title Mismatch:</span> <span class="text-gray-700">LDAP:</span> <span class="font-medium" data-copy-field="Title (LDAP)">'
         + str(ldap_title)
@@ -1775,6 +1793,7 @@ def _render_unified_profile(results):
                 </dl>
             </div>
             {export_buttons_html}
+            {ad_actions_html}
         </div>
         {enrichment_accordion_html}
         {keystone_accordion_html}

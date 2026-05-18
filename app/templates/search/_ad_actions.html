@@ -1,0 +1,58 @@
+{# AD action buttons for admin users (Phase 9).
+
+Renders inside the identity/AD section of the expanded profile.
+Buttons trigger openWriteModal() from write-actions.js.
+
+Template variables:
+  user_dn        - LDAP distinguished name
+  display_name   - User's display name
+  user_email     - User's email address
+  account_locked - Boolean: is the account currently locked
+  account_enabled - Boolean: is the account currently enabled
+#}
+{% if g.role == 'admin' %}
+<div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
+  {# Unlock Account #}
+  <button type="button"
+          {% if not account_locked %}disabled title="Account is not locked" aria-disabled="true"{% endif %}
+          class="inline-flex items-center gap-1 py-2 px-3 min-h-[44px] text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-50 text-ttcu-green {% if not account_locked %}opacity-50 cursor-not-allowed{% endif %}"
+          data-action-id="unlock"
+          {% if account_locked %}
+          onclick="openWriteModal({actionUrl: '/search/api/write/unlock', actionTitle: 'Unlock Account', targetName: '{{ display_name | e }}', targetEmail: '{{ user_email | e }}', targetDn: '{{ user_dn | e }}', isDestructive: false, confirmLabel: 'Confirm Unlock'})"
+          {% endif %}>
+    <i class="fas fa-lock-open"></i>
+    Unlock Account
+  </button>
+
+  {# Reset Password #}
+  <button type="button"
+          class="inline-flex items-center gap-1 py-2 px-3 min-h-[44px] text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-50 text-ttcu-green"
+          data-action-id="reset-password"
+          onclick="openWriteModal({actionUrl: '/search/api/write/reset-password', actionTitle: 'Reset Password', targetName: '{{ display_name | e }}', targetEmail: '{{ user_email | e }}', targetDn: '{{ user_dn | e }}', isDestructive: false, confirmLabel: 'Confirm Reset'})">
+    <i class="fas fa-key"></i>
+    Reset Password
+  </button>
+
+  {# Enable Account -- shown when account is disabled #}
+  {% if not account_enabled %}
+  <button type="button"
+          class="inline-flex items-center gap-1 py-2 px-3 min-h-[44px] text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-50 text-ttcu-green"
+          data-action-id="enable"
+          onclick="openWriteModal({actionUrl: '/search/api/write/enable', actionTitle: 'Enable Account', targetName: '{{ display_name | e }}', targetEmail: '{{ user_email | e }}', targetDn: '{{ user_dn | e }}', isDestructive: false, confirmLabel: 'Confirm Enable'})">
+    <i class="fas fa-toggle-on"></i>
+    Enable Account
+  </button>
+  {% endif %}
+
+  {# Disable Account -- shown when account is enabled #}
+  {% if account_enabled %}
+  <button type="button"
+          class="inline-flex items-center gap-1 py-2 px-3 min-h-[44px] text-xs font-semibold rounded bg-white border border-gray-300 hover:bg-gray-50 text-red-600"
+          data-action-id="disable"
+          onclick="openWriteModal({actionUrl: '/search/api/write/disable', actionTitle: 'Disable Account', targetName: '{{ display_name | e }}', targetEmail: '{{ user_email | e }}', targetDn: '{{ user_dn | e }}', isDestructive: true, confirmLabel: 'Confirm Disable'})">
+    <i class="fas fa-toggle-off"></i>
+    Disable Account
+  </button>
+  {% endif %}
+</div>
+{% endif %}
