@@ -49,11 +49,17 @@
         </div>
     </div>
 
+    <!-- Password Banner Container (HTMX target for reset-password response) -->
+    <div id="password-banner-container"></div>
+
     <!-- Search Results Container -->
     <div id="searchResults">
         <!-- Results will be loaded here via Htmx -->
     </div>
 </div>
+
+<!-- Write Confirm Modal (Phase 9) -->
+{% include "search/_write_confirm_modal.html" %}
 
 <!-- Note Modal Container -->
 <div id="noteModal" class="fixed inset-0 z-50 overflow-y-auto hidden">
@@ -90,6 +96,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/write-actions.js') }}"></script>
 <script>
     // Session timeout handling - simpler approach without server polling
     document.addEventListener('DOMContentLoaded', function () {
