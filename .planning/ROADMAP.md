@@ -33,7 +33,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 - [ ] **Phase 7: Compliance Polish** - Bulk checks with progress, export, and warehouse sync visibility
 - [x] **Phase 8: Reporting** - License, security posture, and Genesys reports with scheduling (completed 2026-05-17)
 - [ ] **Phase 9: Write Operations** - AD account actions and license management from the UI
-- [ ] **Phase 10: REST API** - Token-authenticated read-only API with rate limiting and docs
+- [x] **Phase 10: REST API** - Token-authenticated read-only API with rate limiting and docs (completed 2026-05-18)
 - [ ] **Phase 11: Workflow Automation** - Onboarding/offboarding checklists with completion tracking
 
 ## Phase Details
@@ -275,8 +275,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 10-02-PLAN.md -- API endpoints: search and profile with rate limiting, audit, OpenAPI docs
-- [ ] 10-03-PLAN.md -- Admin UI: token create/list/revoke with HTMX modals
+- [x] 10-02-PLAN.md -- API endpoints: search and profile with rate limiting, audit, OpenAPI docs
+- [x] 10-03-PLAN.md -- Admin UI: token create/list/revoke with HTMX modals
 
 **UI hint**: yes
 
@@ -313,7 +313,7 @@ Plans:
 | 7. Compliance Polish | 0/3 | Not started | - |
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
 | 9. Write Operations | 0/? | Not started | - |
-| 10. REST API | 1/3 | In Progress|  |
+| 10. REST API | 3/3 | Complete   | 2026-05-18 |
 | 11. Workflow Automation | 0/? | Not started | - |
 
 ## Backlog
