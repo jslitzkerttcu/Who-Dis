@@ -92,6 +92,23 @@ admin_bp.route("/workflows/<int:workflow_id>/export")(
 )
 admin_bp.route("/workflows/employee-search")(workflows.employee_search)
 
+# Offboarding items management routes
+admin_bp.route("/workflows/offboarding-items")(
+    workflows.manage_offboarding_items
+)
+admin_bp.route("/workflows/offboarding-items/add", methods=["POST"])(
+    workflows.add_offboarding_item
+)
+admin_bp.route(
+    "/workflows/offboarding-items/<int:item_id>/delete", methods=["POST"]
+)(workflows.delete_offboarding_item)
+admin_bp.route(
+    "/workflows/offboarding-items/<int:item_id>/update", methods=["POST"]
+)(workflows.update_offboarding_item)
+admin_bp.route("/workflows/offboarding-items/reorder", methods=["POST"])(
+    workflows.reorder_offboarding_items
+)
+
 # Database management routes
 admin_bp.route("/database")(database.database)
 admin_bp.route("/api/database/health")(database.database_health)
