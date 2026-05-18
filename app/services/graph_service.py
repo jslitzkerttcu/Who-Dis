@@ -845,4 +845,162 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
             return []
 
 
+    # ------------------------------------------------------------------ #
+    # License write operations (Phase 9)                                   #
+    # ------------------------------------------------------------------ #
+
+    def assign_license(
+        self, user_id: str, sku_id: str, disabled_plans: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """Assign an M365 license to a user.
+
+        Args:
+            user_id: Graph user ID or UPN.
+            sku_id: SKU GUID to assign.
+            disabled_plans: Optional list of service plan IDs to disable.
+
+        Returns:
+            Dict with "success" bool, or permission_missing sentinel on 403.
+        """
+        token = self.get_access_token()
+        if not token:
+            return {"success": False, "error": "Failed to acquire access token"}
+
+        url = f"{self.graph_base_url}/users/{user_id}/assignLicense"
+        body = {
+            "addLicenses": [
+                {"skuId": sku_id, "disabledPlans": disabled_plans or []}
+            ],
+            "removeLicenses": [],
+        }
+
+        try:
+            response = self._make_request("POST", url, token, json=body)
+            if response.status_code == 200:
+                return {"success": True}
+            return {"success": False, "error": f"HTTP {response.status_code}"}
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("LicenseAssignment.ReadWrite.All")
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def remove_license(self, user_id: str, sku_id: str) -> Dict[str, Any]:
+        """Remove an M365 license from a user.
+
+        Args:
+            user_id: Graph user ID or UPN.
+            sku_id: SKU GUID to remove.
+
+        Returns:
+            Dict with "success" bool, or permission_missing sentinel on 403.
+        """
+        token = self.get_access_token()
+        if not token:
+            return {"success": False, "error": "Failed to acquire access token"}
+
+        url = f"{self.graph_base_url}/users/{user_id}/assignLicense"
+        body = {
+            "addLicenses": [],
+            "removeLicenses": [sku_id],
+        }
+
+        try:
+            response = self._make_request("POST", url, token, json=body)
+            if response.status_code == 200:
+                return {"success": True}
+            return {"success": False, "error": f"HTTP {response.status_code}"}
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 403:
+                return self._permission_missing("LicenseAssignment.ReadWrite.All")
+            return {"success": False, "error": str(e)}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def swap_license(
+        self, user_id: str, old_sku_id: str, new_sku_id: str
+    ) -> Dict[str, Any]:
+        """Swap one M365 license for another (atomic with fallback).
+
+        Strategy: attempt a single POST with both addLicenses and removeLicenses.
+        If that fails, fall back to two sequential calls with rollback on failure.
+
+        Args:
+            user_id: Graph user ID or UPN.
+            old_sku_id: SKU GUID to remove.
+            new_sku_id: SKU GUID to assign.
+
+        Returns:
+            Dict with keys: success, rollback_needed, rollback_success, error.
+        """
+        token = self.get_access_token()
+        if not token:
+            return {
+                "success": False,
+                "error": "Failed to acquire access token",
+                "rollback_needed": False,
+                "rollback_success": None,
+            }
+
+        # Attempt 1: atomic swap (single API call)
+        url = f"{self.graph_base_url}/users/{user_id}/assignLicense"
+        body = {
+            "addLicenses": [{"skuId": new_sku_id, "disabledPlans": []}],
+            "removeLicenses": [old_sku_id],
+        }
+
+        try:
+            response = self._make_request("POST", url, token, json=body)
+            if response.status_code == 200:
+                return {"success": True, "rollback_needed": False, "rollback_success": None}
+        except requests.HTTPError:
+            # Atomic swap failed — fall through to two-call approach
+            logger.warning(
+                f"Atomic license swap failed for user {user_id}, "
+                f"falling back to sequential remove+assign"
+            )
+        except Exception as e:
+            logger.warning(f"Atomic swap unexpected error: {str(e)}")
+
+        # Attempt 2: sequential remove then assign
+        remove_result = self.remove_license(user_id, old_sku_id)
+        if not remove_result.get("success"):
+            return {
+                "success": False,
+                "error": f"Remove failed: {remove_result.get('error')}",
+                "rollback_needed": False,
+                "rollback_success": None,
+            }
+
+        assign_result = self.assign_license(user_id, new_sku_id)
+        if assign_result.get("success"):
+            return {"success": True, "rollback_needed": False, "rollback_success": None}
+
+        # Assign failed after remove succeeded — attempt rollback
+        logger.error(
+            f"License swap partial failure for user {user_id}: "
+            f"removed {old_sku_id} but failed to assign {new_sku_id}. "
+            f"Attempting rollback."
+        )
+
+        rollback_result = self.assign_license(user_id, old_sku_id)
+        rollback_success = rollback_result.get("success", False)
+
+        if not rollback_success:
+            logger.error(
+                f"MANUAL_INTERVENTION_REQUIRED: License swap double failure "
+                f"for user {user_id}. Removed {old_sku_id}, failed to assign "
+                f"{new_sku_id}, AND failed to rollback. User has NO license "
+                f"for this slot."
+            )
+
+        return {
+            "success": False,
+            "error": f"Assign failed after remove: {assign_result.get('error')}",
+            "rollback_needed": True,
+            "rollback_success": rollback_success,
+        }
+
+
 graph_service = GraphService()
