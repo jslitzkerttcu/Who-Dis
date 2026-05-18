@@ -310,7 +310,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 11-02-PLAN.md — Admin routes and templates: workflow dashboard with KPI cards, create form with employee search, detail view with checklist completion/skip, admin index card (WKFL-01, WKFL-02, WKFL-03, WKFL-04)
+- [x] 11-02-PLAN.md — Admin routes and templates: workflow dashboard with KPI cards, create form with employee search, detail view with checklist completion/skip, admin index card (WKFL-01, WKFL-02, WKFL-03, WKFL-04)
 - [ ] 11-03-PLAN.md — Standard offboarding items admin CRUD, "Start Onboarding" button on search profile cards, end-of-phase human verification (WKFL-01, WKFL-02, WKFL-04)
 
 **UI hint**: yes
@@ -329,7 +329,7 @@ Plans:
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
 | 9. Write Operations | 3/3 | Complete   | 2026-05-18 |
 | 10. REST API | 3/3 | Complete   | 2026-05-18 |
-| 11. Workflow Automation | 1/3 | In Progress|  |
+| 11. Workflow Automation | 2/3 | In Progress|  |
 
 ## Backlog
 
