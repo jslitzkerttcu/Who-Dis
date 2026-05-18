@@ -250,7 +250,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 Plans:
 **Wave 1**
 
-- [ ] 09-01-PLAN.md — Backend services: LDAP write methods, Graph license methods, WriteOperationsService, password generator, tests
+- [x] 09-01-PLAN.md — Backend services: LDAP write methods, Graph license methods, WriteOperationsService, password generator, tests
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -321,7 +321,7 @@ Plans:
 | 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
 | 7. Compliance Polish | 0/3 | Not started | - |
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
-| 9. Write Operations | 0/3 | Not started | - |
+| 9. Write Operations | 1/3 | In Progress|  |
 | 10. REST API | 3/3 | Complete   | 2026-05-18 |
 | 11. Workflow Automation | 0/? | Not started | - |
 
