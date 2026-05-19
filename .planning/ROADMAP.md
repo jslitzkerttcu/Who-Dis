@@ -228,7 +228,7 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 
 - [x] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
 - [x] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
-- [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
+- [x] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
 
 **UI hint**: yes
 
