@@ -129,6 +129,8 @@ admin_bp.route("/api/tokens/status")(database.tokens_status)
 admin_bp.route("/api/tokens/refresh/<service_name>", methods=["POST"])(
     database.refresh_token
 )
+# Schema visualization (Phase 13)
+admin_bp.route("/api/database/schema")(database.database_schema)
 
 # Cache management routes (from database module)
 admin_bp.route("/api/cache/status", endpoint="api_cache_status")(database.cache_status)

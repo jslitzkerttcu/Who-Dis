@@ -2588,3 +2588,245 @@ def clear_single_cache(cache_type):
         """,
             500,
         )
+
+
+# --- Schema Visualization (Phase 13) ---
+
+TYPE_ALIASES = {
+    "character varying": "varchar",
+    "timestamp without time zone": "timestamp",
+    "timestamp with time zone": "timestamptz",
+    "double precision": "float8",
+    "boolean": "bool",
+    "integer": "int",
+    "bigint": "int8",
+    "smallint": "int2",
+    "text": "text",
+    "bytea": "bytea",
+    "jsonb": "jsonb",
+    "json": "json",
+    "uuid": "uuid",
+    "date": "date",
+}
+
+
+@require_role("admin")
+def database_schema():
+    """Return schema ER diagram as Mermaid erDiagram HTML fragment or JSON."""
+    from flask import current_app, url_for
+
+    try:
+        tables_data, columns_data, fk_data = _get_schema_metadata()
+
+        mermaid_def = _generate_mermaid_er(tables_data, columns_data, fk_data)
+        fk_map = _build_fk_adjacency_map(fk_data)
+
+        table_count = len(tables_data)
+        fk_count = len(fk_data)
+
+        if request.headers.get("HX-Request"):
+            return _render_schema_diagram(mermaid_def, fk_map, table_count, fk_count)
+
+        return jsonify({"mermaid": mermaid_def, "fk_map": fk_map})
+
+    except Exception as e:
+        import traceback
+        from flask import current_app
+
+        current_app.logger.error(f"Error loading schema diagram: {str(e)}")
+        current_app.logger.error(traceback.format_exc())
+
+        if request.headers.get("HX-Request"):
+            schema_url = url_for("admin.database_schema")
+            return f"""
+            <div class="text-center py-8">
+                <div class="text-3xl text-red-500 mb-3">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <h3 class="text-gray-700 text-base font-semibold mt-3">
+                    Unable to load schema diagram
+                </h3>
+                <p class="text-gray-500 text-sm mt-1">
+                    Check database connectivity and try refreshing the page.
+                </p>
+                <button hx-get="{schema_url}"
+                        hx-target="#schema-content"
+                        hx-swap="innerHTML"
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg mt-4">
+                    Retry
+                </button>
+            </div>
+            """
+
+        return jsonify({"error": str(e)}), 500
+
+
+def _get_schema_metadata():
+    """Query PostgreSQL pg_catalog for tables, columns, and foreign keys."""
+    from sqlalchemy import text  # noqa: F811
+
+    tables_query = text("""
+        SELECT c.relname AS table_name
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind = 'r'
+        ORDER BY c.relname
+    """)
+
+    columns_query = text("""
+        SELECT
+            c.relname AS table_name,
+            a.attname AS column_name,
+            pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+            CASE WHEN pk.contype = 'p' THEN true ELSE false END AS is_pk
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_attribute a ON a.attrelid = c.oid
+        LEFT JOIN (
+            SELECT conrelid, unnest(conkey) AS attnum, contype
+            FROM pg_constraint
+            WHERE contype = 'p'
+        ) pk ON pk.conrelid = c.oid AND pk.attnum = a.attnum
+        WHERE n.nspname = 'public'
+          AND c.relkind = 'r'
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+        ORDER BY c.relname, a.attnum
+    """)
+
+    fk_query = text("""
+        SELECT
+            c1.relname AS source_table,
+            a1.attname AS source_column,
+            c2.relname AS target_table,
+            a2.attname AS target_column
+        FROM pg_constraint con
+        JOIN pg_class c1 ON c1.oid = con.conrelid
+        JOIN pg_class c2 ON c2.oid = con.confrelid
+        JOIN pg_namespace n ON n.oid = c1.relnamespace
+        JOIN pg_attribute a1 ON a1.attrelid = con.conrelid
+            AND a1.attnum = ANY(con.conkey)
+        JOIN pg_attribute a2 ON a2.attrelid = con.confrelid
+            AND a2.attnum = ANY(con.confkey)
+        WHERE con.contype = 'f'
+          AND n.nspname = 'public'
+        ORDER BY c1.relname
+    """)
+
+    tables_data = list(db.session.execute(tables_query))
+    columns_data = list(db.session.execute(columns_query))
+    fk_data = list(db.session.execute(fk_query))
+
+    return tables_data, columns_data, fk_data
+
+
+def _sanitize_pg_type(pg_type: str) -> str:
+    """Convert PostgreSQL type to Mermaid-safe single token."""
+    base_type = pg_type.split("(")[0].strip().lower()
+    if base_type in TYPE_ALIASES:
+        return TYPE_ALIASES[base_type]
+    # Fallback: replace spaces with underscores, strip parens and commas
+    return (
+        pg_type.replace(" ", "_")
+        .replace("(", "")
+        .replace(")", "")
+        .replace(",", "")
+    )
+
+
+def _generate_mermaid_er(tables_data, columns_data, fk_data):
+    """Generate Mermaid erDiagram definition from PostgreSQL metadata."""
+    lines = ["erDiagram"]
+
+    # Group columns by table
+    table_columns = {}
+    for col in columns_data:
+        table_columns.setdefault(col.table_name, []).append(col)
+
+    # Build FK lookup for marking FK columns
+    fk_lookup = {}
+    for fk in fk_data:
+        fk_lookup[(fk.source_table, fk.source_column)] = (
+            fk.target_table,
+            fk.target_column,
+        )
+
+    # Emit entity definitions
+    for table in tables_data:
+        name = table.table_name
+        cols = table_columns.get(name, [])
+        lines.append(f"    {name} {{")
+        for col in cols:
+            mermaid_type = _sanitize_pg_type(col.data_type)
+            marker = ""
+            if col.is_pk:
+                marker = " PK"
+            elif (name, col.column_name) in fk_lookup:
+                marker = " FK"
+            lines.append(f"        {mermaid_type} {col.column_name}{marker}")
+        lines.append("    }")
+
+    # Emit relationships from FK data (deduplicated)
+    seen_rels = set()
+    for fk in fk_data:
+        rel_key = (fk.source_table, fk.target_table)
+        if rel_key not in seen_rels:
+            seen_rels.add(rel_key)
+            lines.append(
+                f"    {fk.target_table} ||--o{{ {fk.source_table}"
+                f' : "{fk.source_column}"'
+            )
+
+    return "\n".join(lines)
+
+
+def _build_fk_adjacency_map(fk_data):
+    """Build bidirectional adjacency map for FK highlight logic."""
+    adjacency = {}
+    for fk in fk_data:
+        adjacency.setdefault(fk.source_table, set()).add(fk.target_table)
+        adjacency.setdefault(fk.target_table, set()).add(fk.source_table)
+    return {k: sorted(v) for k, v in adjacency.items()}
+
+
+def _render_schema_diagram(mermaid_definition, fk_map, table_count, fk_count):
+    """Render schema diagram HTML fragment for HTMX."""
+    if table_count == 0:
+        return """
+        <div class="text-center py-8">
+            <div class="text-3xl text-gray-400">
+                <i class="fas fa-database"></i>
+            </div>
+            <h3 class="text-gray-700 text-base font-semibold mt-3">
+                No tables found
+            </h3>
+            <p class="text-gray-500 text-sm mt-1">
+                The database schema is empty. Tables will appear
+                here once the database is initialized.
+            </p>
+        </div>
+        """
+
+    fk_map_json = json.dumps(fk_map)
+
+    return f"""
+    <p class="sr-only">Database schema with {table_count} tables and {fk_count} relationships</p>
+    <div id="schema-diagram-container"
+         class="overflow-auto bg-white p-4"
+         style="min-height: 500px;">
+        <pre class="mermaid">
+{mermaid_definition}
+        </pre>
+    </div>
+    <script>window.__schemaFkMap = {fk_map_json};</script>
+    <script>
+        if (typeof mermaid !== 'undefined') {{
+            mermaid.run();
+        }}
+        setTimeout(function() {{
+            if (typeof initSchemaInteraction === 'function') {{
+                initSchemaInteraction();
+            }}
+        }}, 500);
+    </script>
+    """

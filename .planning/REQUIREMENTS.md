@@ -19,9 +19,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Schema Visualization
 
-- [ ] **SCHEMA-01**: Admin can view an ER diagram of the live database schema on a dedicated admin page
-- [ ] **SCHEMA-02**: ER diagram renders as interactive SVG with zoom, pan, and clickable table nodes
-- [ ] **SCHEMA-03**: Diagram is generated from live PostgreSQL metadata, not a static file
+- [x] **SCHEMA-01**: Admin can view an ER diagram of the live database schema on a dedicated admin page
+- [x] **SCHEMA-02**: ER diagram renders as interactive SVG with zoom, pan, and clickable table nodes
+- [x] **SCHEMA-03**: Diagram is generated from live PostgreSQL metadata, not a static file
 
 ### Exchange Reporting
 
@@ -95,9 +95,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEVOPS-01 | Phase 12 | Complete |
 | DEVOPS-02 | Phase 12 | Complete |
 | DEVOPS-03 | Phase 12 | Complete |
-| SCHEMA-01 | Phase 13 | Pending |
-| SCHEMA-02 | Phase 13 | Pending |
-| SCHEMA-03 | Phase 13 | Pending |
+| SCHEMA-01 | Phase 13 | Complete |
+| SCHEMA-02 | Phase 13 | Complete |
+| SCHEMA-03 | Phase 13 | Complete |
 | RINF-01 | Phase 14 | Pending |
 | RINF-02 | Phase 14 | Pending |
 | RINF-03 | Phase 14 | Pending |
