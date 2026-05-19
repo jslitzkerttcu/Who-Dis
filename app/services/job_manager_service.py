@@ -76,7 +76,7 @@ class JobManagerService:
             db.session.add(job_run)
             db.session.commit()
 
-        app = app or current_app._get_current_object()
+        app = app or current_app._get_current_object()  # type: ignore[attr-defined]
         self._executor.submit(self._run_with_context, app, run_id, runner_fn)
         return run_id
 

@@ -62,14 +62,14 @@ JOB_REGISTRY = [
     },
 ]
 
-_JOBS_BY_NAME: Dict[str, Dict[str, Any]] = {job["name"]: job for job in JOB_REGISTRY}
+_JOBS_BY_NAME: Dict[str, Dict[str, Any]] = {job["name"]: job for job in JOB_REGISTRY}  # type: ignore[misc]
 
 _JOB_RUNNERS: Dict[str, Callable] = {}
 
 
 def _run_compliance_check(run_id: str) -> None:
     """Runner function for compliance check job."""
-    service = current_app.container.get("compliance_checking_service")
+    service = current_app.container.get("compliance_checking_service")  # type: ignore[attr-defined]
     service.run_compliance_check(
         scope="all",
         started_by="sandcastle-scheduler",
@@ -79,19 +79,19 @@ def _run_compliance_check(run_id: str) -> None:
 
 def _run_warehouse_sync(run_id: str) -> None:
     """Runner function for warehouse sync job."""
-    service = current_app.container.get("job_role_warehouse_service")
+    service = current_app.container.get("job_role_warehouse_service")  # type: ignore[attr-defined]
     service.sync_all_compliance_data()
 
 
 def _run_report_license_sync(run_id: str) -> None:
     """Runner function for license report sync job."""
-    service = current_app.container.get("report_sync_service")
+    service = current_app.container.get("report_sync_service")  # type: ignore[attr-defined]
     service.sync_license_data()
 
 
 def _run_report_security_sync(run_id: str) -> None:
     """Runner function for security report sync job."""
-    service = current_app.container.get("report_sync_service")
+    service = current_app.container.get("report_sync_service")  # type: ignore[attr-defined]
     service.sync_security_data()
 
 
@@ -123,7 +123,7 @@ def trigger_job(name: str):
 
     from app.services.job_manager_service import ConflictError
 
-    job_manager = current_app.container.get("job_manager")
+    job_manager = current_app.container.get("job_manager")  # type: ignore[attr-defined]
 
     try:
         run_id = job_manager.start_job(
@@ -145,7 +145,7 @@ def get_job_status(name: str, run_id: str):
     if name not in _JOBS_BY_NAME:
         return jsonify({"error": f"Unknown job: {name}"}), 404
 
-    job_manager = current_app.container.get("job_manager")
+    job_manager = current_app.container.get("job_manager")  # type: ignore[attr-defined]
     status = job_manager.get_status(run_id)
 
     if status is None:

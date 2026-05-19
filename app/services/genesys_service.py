@@ -529,10 +529,11 @@ class GenesysCloudService(BaseAPITokenService, ISearchService, ITokenService):
                 if isinstance(lic, str):
                     licenses.append({"id": lic, "name": lic})
                 elif isinstance(lic, dict):
+                    lic_name = lic.get("name") or lic.get("id") or "Unknown"
                     licenses.append(
                         {
                             "id": lic.get("id", ""),
-                            "name": lic.get("name", lic.get("id", "Unknown")),
+                            "name": lic_name,
                         }
                     )
 

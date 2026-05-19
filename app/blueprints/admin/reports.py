@@ -130,7 +130,7 @@ def _render_security_tab() -> str:
 
     # Get sign-in data from service
     try:
-        report_sync_service = current_app.container.get("report_sync_service")
+        report_sync_service = current_app.container.get("report_sync_service")  # type: ignore[attr-defined]
         signin_data = report_sync_service.get_failed_signins(
             window=window,
             from_date=from_date,
@@ -318,7 +318,7 @@ def _render_genesys_tab() -> str:
     (no caching per D-09).
     """
     try:
-        genesys_service = current_app.container.get("genesys_service")
+        genesys_service = current_app.container.get("genesys_service")  # type: ignore[attr-defined]
         agents: List[Dict[str, Any]] = genesys_service.get_all_agents_presence()
     except Exception as e:
         logger.error(f"Error fetching Genesys agent presence: {e}", exc_info=True)

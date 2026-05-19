@@ -211,7 +211,7 @@ class SkuCatalogCache(BaseConfigurableService):
         logged and swallowed so a SKU-cache failure cannot crash the parent job.
         """
         try:
-            graph_service = current_app.container.get("graph_service")
+            graph_service = current_app.container.get("graph_service")  # type: ignore[attr-defined]
             result = graph_service.get_subscribed_skus()
 
             if result is None:

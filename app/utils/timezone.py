@@ -22,12 +22,12 @@ def get_configured_timezone() -> pytz.tzinfo.BaseTzInfo:
     timezone_str = config_get("app.timezone", "US/Central")
 
     try:
-        return pytz.timezone(timezone_str)
+        return pytz.timezone(timezone_str)  # type: ignore[no-any-return]
     except pytz.exceptions.UnknownTimeZoneError:
         logger.warning(
             f"Invalid timezone '{timezone_str}' in configuration, using US/Central"
         )
-        return pytz.timezone("US/Central")
+        return pytz.timezone("US/Central")  # type: ignore[no-any-return]
 
 
 def convert_to_configured_timezone(dt: datetime) -> datetime:

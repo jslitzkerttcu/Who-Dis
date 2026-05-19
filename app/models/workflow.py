@@ -69,9 +69,9 @@ class Workflow(BaseModel, TimestampMixin):
         """
         total = len(self.items)
         completed = sum(
-            1 for item in self.items if item.status in ("completed", "skipped")
+            1 for item in self.items if item.status in ("completed", "skipped")  # type: ignore[misc, attr-defined]
         )
-        pending = sum(1 for item in self.items if item.status == "pending")
+        pending = sum(1 for item in self.items if item.status == "pending")  # type: ignore[misc, attr-defined]
         percent = int((completed / total) * 100) if total > 0 else 0
         return {
             "total": total,
@@ -84,9 +84,9 @@ class Workflow(BaseModel, TimestampMixin):
     def overdue_count(self) -> int:
         """Return the count of overdue pending items."""
         today = date.today()
-        return sum(
-            1
-            for item in self.items
+        return sum(  # type: ignore[misc, attr-defined]
+            1  # type: ignore[misc, attr-defined]
+            for item in self.items  # type: ignore[attr-defined]
             if item.status == "pending"
             and item.due_date is not None
             and item.due_date < today

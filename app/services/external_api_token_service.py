@@ -68,14 +68,14 @@ class ExternalApiTokenService:
             f"API token revoked: prefix={token.token_prefix}... "
             f"id={token_id} by={revoked_by}"
         )
-        return token
+        return token  # type: ignore[no-any-return]
 
     def list_tokens(self) -> List[ExternalApiToken]:
         """List all tokens ordered by creation date (newest first).
 
         Returns both active and revoked tokens for the admin view.
         """
-        return ExternalApiToken.query.order_by(
+        return ExternalApiToken.query.order_by(  # type: ignore[no-any-return]
             ExternalApiToken.created_at.desc()
         ).all()
 
@@ -88,4 +88,4 @@ class ExternalApiTokenService:
         Returns:
             The token model, or None if not found.
         """
-        return ExternalApiToken.get_by_id(token_id)
+        return ExternalApiToken.get_by_id(token_id)  # type: ignore[no-any-return]

@@ -45,7 +45,7 @@ def require_api_token(f: Callable[..., Any]) -> Callable[..., Any]:
             }), 401
 
         # Validate via service layer — never log the raw token (T-10-02)
-        token_service = current_app.container.get("external_api_token_service")
+        token_service = current_app.container.get("external_api_token_service")  # type: ignore[attr-defined]
         token = token_service.validate_token(raw_token)
 
         if token is None:

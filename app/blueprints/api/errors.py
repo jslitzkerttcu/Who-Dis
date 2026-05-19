@@ -20,9 +20,9 @@ RATE_LIMITED = "RATE_LIMITED"
 INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
-def _error_response(code: str, message: str, status: int, details: dict = None):
+def _error_response(code: str, message: str, status: int, details: dict = None):  # type: ignore[assignment]
     """Build a D-07 error envelope response."""
-    error = {"code": code, "message": message}
+    error: dict = {"code": code, "message": message}
     if details:
         error["details"] = details
     return jsonify({"error": error}), status

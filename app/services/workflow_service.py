@@ -221,7 +221,7 @@ class WorkflowService(BaseConfigurableService):
 
         self._check_workflow_completion(item.workflow)
         db.session.commit()
-        return item
+        return item  # type: ignore[no-any-return]
 
     @handle_service_errors(raise_errors=True)
     def skip_item(
@@ -260,7 +260,7 @@ class WorkflowService(BaseConfigurableService):
 
         self._check_workflow_completion(item.workflow)
         db.session.commit()
-        return item
+        return item  # type: ignore[no-any-return]
 
     @handle_service_errors(raise_errors=True)
     def cancel_workflow(self, workflow_id: int) -> Workflow:
@@ -284,7 +284,7 @@ class WorkflowService(BaseConfigurableService):
         workflow.save()
 
         logger.info(f"Cancelled workflow {workflow_id}")
-        return workflow
+        return workflow  # type: ignore[no-any-return]
 
     @handle_service_errors(raise_errors=True)
     def get_dashboard_stats(self) -> Dict[str, Any]:
@@ -378,7 +378,7 @@ class WorkflowService(BaseConfigurableService):
         Returns:
             Workflow instance or None.
         """
-        return Workflow.query.get(workflow_id)
+        return Workflow.query.get(workflow_id)  # type: ignore[no-any-return]
 
     def _check_workflow_completion(self, workflow: Workflow) -> None:
         """Auto-complete the workflow when all items are done or skipped.
@@ -387,7 +387,7 @@ class WorkflowService(BaseConfigurableService):
             workflow: The parent Workflow to check.
         """
         all_done = all(
-            item.status in ("completed", "skipped") for item in workflow.items
+            item.status in ("completed", "skipped") for item in workflow.items  # type: ignore[attr-defined]
         )
         if all_done and workflow.items:
             workflow.status = "completed"

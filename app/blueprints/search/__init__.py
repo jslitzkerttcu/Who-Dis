@@ -205,7 +205,7 @@ _config_cache: Dict[str, Any] = {}
 def get_search_timeout() -> int:
     """Get search timeout configuration lazily"""
     if "timeout" not in _config_cache:
-        config_service: IConfigurationService = current_app.container.get("config")
+        config_service: IConfigurationService = current_app.container.get("config")  # type: ignore[attr-defined]
         timeout_value = int(config_service.get("search.overall_timeout", "20"))
         _config_cache["timeout"] = timeout_value
     return int(_config_cache["timeout"])
@@ -214,7 +214,7 @@ def get_search_timeout() -> int:
 def get_lazy_load_photos() -> bool:
     """Get lazy load photos configuration lazily"""
     if "lazy_load" not in _config_cache:
-        config_service: IConfigurationService = current_app.container.get("config")
+        config_service: IConfigurationService = current_app.container.get("config")  # type: ignore[attr-defined]
         lazy_load_config = config_service.get("search.lazy_load_photos", "true")
         # Handle both string and boolean values
         if isinstance(lazy_load_config, bool):

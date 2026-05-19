@@ -6,7 +6,7 @@ and employee assignments for compliance checking.
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 try:
@@ -531,9 +531,9 @@ class JobRoleWarehouseService(BaseAPIService):
         self,
         sync_type: str,
         success: bool,
-        duration_seconds: int = None,
-        records_synced: int = None,
-        error: Exception = None,
+        duration_seconds: Optional[int] = None,
+        records_synced: Optional[int] = None,
+        error: Optional[Exception] = None,
     ) -> None:
         """
         Update SyncMetadata record for a given sync type.

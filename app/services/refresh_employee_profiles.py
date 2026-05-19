@@ -7,16 +7,9 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
 try:
-    import httpx
-    from typing import TYPE_CHECKING
-
-    if TYPE_CHECKING:
-        AsyncClientType = httpx.AsyncClient
-    else:
-        AsyncClientType = Any
+    import httpx  # type: ignore[import-untyped]
 except ImportError:
-    httpx = None
-    AsyncClientType = Any  # Fallback type
+    httpx = None  # type: ignore[assignment]
 
 try:
     import pyodbc  # type: ignore[import-not-found]
@@ -586,7 +579,7 @@ class EmployeeProfilesRefreshService(BaseConfigurableService):
 
             # Capture app for async context propagation
             try:
-                app = current_app._get_current_object()
+                app = current_app._get_current_object()  # type: ignore[attr-defined]
             except RuntimeError:
                 app = None
 

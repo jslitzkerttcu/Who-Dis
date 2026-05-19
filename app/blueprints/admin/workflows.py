@@ -73,7 +73,7 @@ def _render_tab(tab: str) -> str:
 
 def _render_active_tab() -> str:
     """Render the active workflows table partial."""
-    workflow_service = current_app.container.get("workflow_service")
+    workflow_service = current_app.container.get("workflow_service")  # type: ignore[attr-defined]
     workflows = workflow_service.get_active_workflows()
     return render_template(
         "admin/partials/_workflow_active_table.html",
@@ -84,7 +84,7 @@ def _render_active_tab() -> str:
 def _render_completed_tab() -> str:
     """Render the completed workflows table partial with pagination."""
     page = request.args.get("page", 1, type=int)
-    workflow_service = current_app.container.get("workflow_service")
+    workflow_service = current_app.container.get("workflow_service")  # type: ignore[attr-defined]
     pagination = workflow_service.get_completed_workflows(page=page)
     return render_template(
         "admin/partials/_workflow_completed_table.html",
@@ -264,7 +264,7 @@ def preview_checklist():
 @require_role("admin")
 def workflow_detail(workflow_id: int):
     """Display workflow detail with checklist items."""
-    workflow_service = current_app.container.get("workflow_service")
+    workflow_service = current_app.container.get("workflow_service")  # type: ignore[attr-defined]
     workflow = workflow_service.get_workflow(workflow_id)
     if workflow is None:
         abort(404)
@@ -279,7 +279,7 @@ def workflow_detail(workflow_id: int):
 @csrf_double_submit.protect
 def complete_item(item_id: int):
     """Mark a workflow item as completed. HTMX endpoint."""
-    workflow_service = current_app.container.get("workflow_service")
+    workflow_service = current_app.container.get("workflow_service")  # type: ignore[attr-defined]
 
     try:
         item = workflow_service.complete_item(item_id, g.user)
@@ -293,7 +293,7 @@ def complete_item(item_id: int):
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-    current_app.container.get("audit_logger").log_admin_action(
+    current_app.container.get("audit_logger").log_admin_action(  # type: ignore[attr-defined]
         user_email=g.user,
         action="workflow_item_completed",
         target=item.item_text,
@@ -318,7 +318,7 @@ def skip_item(item_id: int):
     """Mark a workflow item as skipped with a reason. HTMX endpoint."""
     reason = request.form.get("skip_reason", "").strip()
 
-    workflow_service = current_app.container.get("workflow_service")
+    workflow_service = current_app.container.get("workflow_service")  # type: ignore[attr-defined]
 
     try:
         item = workflow_service.skip_item(item_id, g.user, reason)
@@ -332,7 +332,7 @@ def skip_item(item_id: int):
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-    current_app.container.get("audit_logger").log_admin_action(
+    current_app.container.get("audit_logger").log_admin_action(  # type: ignore[attr-defined]
         user_email=g.user,
         action="workflow_item_skipped",
         target=item.item_text,
@@ -356,7 +356,7 @@ def skip_item(item_id: int):
 @csrf_double_submit.protect
 def cancel_workflow(workflow_id: int):
     """Cancel an active workflow."""
-    workflow_service = current_app.container.get("workflow_service")
+    workflow_service = current_app.container.get("workflow_service")  # type: ignore[attr-defined]
 
     try:
         workflow = workflow_service.cancel_workflow(workflow_id)
@@ -367,7 +367,7 @@ def cancel_workflow(workflow_id: int):
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-    current_app.container.get("audit_logger").log_admin_action(
+    current_app.container.get("audit_logger").log_admin_action(  # type: ignore[attr-defined]
         user_email=g.user,
         action="workflow_cancelled",
         target=f"{workflow.employee_name} ({workflow.workflow_type})",
@@ -385,7 +385,7 @@ def cancel_workflow(workflow_id: int):
 @require_role("admin")
 def export_workflow_csv(workflow_id: int):
     """Export workflow checklist as CSV."""
-    workflow_service = current_app.container.get("workflow_service")
+    workflow_service = current_app.container.get("workflow_service")  # type: ignore[attr-defined]
     workflow = workflow_service.get_workflow(workflow_id)
     if workflow is None:
         abort(404)
@@ -565,7 +565,7 @@ def delete_offboarding_item(item_id: int):
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-    current_app.container.get("audit_logger").log_admin_action(
+    current_app.container.get("audit_logger").log_admin_action(  # type: ignore[attr-defined]
         user_email=g.user,
         action="offboarding_item_deleted",
         target=item.item_text,
@@ -604,7 +604,7 @@ def update_offboarding_item(item_id: int):
     admin_role = getattr(request, "user_role", None)
     user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-    current_app.container.get("audit_logger").log_admin_action(
+    current_app.container.get("audit_logger").log_admin_action(  # type: ignore[attr-defined]
         user_email=g.user,
         action="offboarding_item_updated",
         target=item_text,

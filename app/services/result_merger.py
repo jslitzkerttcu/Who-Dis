@@ -276,7 +276,7 @@ class ResultMerger(BaseConfigurableService):
     ) -> Tuple[Optional[Dict[str, Any]], bool]:
         """Fetch full Genesys user details for a matched user."""
         try:
-            genesys_service = current_app.container.get("genesys_service")
+            genesys_service = current_app.container.get("genesys_service")  # type: ignore[attr-defined]
             full_genesys_user = copy_current_request_context(
                 genesys_service.get_user_by_id
             )(matched_user["id"])
@@ -476,7 +476,7 @@ class ResultMerger(BaseConfigurableService):
             return None
 
         try:
-            graph_service = current_app.container.get("graph_service")
+            graph_service = current_app.container.get("graph_service")  # type: ignore[attr-defined]
             logger.info(f"Fetching full Graph details for user ID: {graph_user_id}")
 
             full_graph_user = copy_current_request_context(

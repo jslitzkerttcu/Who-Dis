@@ -24,15 +24,15 @@ class WriteOperationsService:
 
     @property
     def ldap_service(self) -> Any:
-        return current_app.container.get("ldap_service")
+        return current_app.container.get("ldap_service")  # type: ignore[attr-defined]
 
     @property
     def graph_service(self) -> Any:
-        return current_app.container.get("graph_service")
+        return current_app.container.get("graph_service")  # type: ignore[attr-defined]
 
     @property
     def audit_logger(self) -> Any:
-        return current_app.container.get("audit_logger")
+        return current_app.container.get("audit_logger")  # type: ignore[attr-defined]
 
     def _get_request_context(self) -> Dict[str, str]:
         """Extract IP and user-agent from current request for audit."""
@@ -250,7 +250,7 @@ class WriteOperationsService:
                 user_agent=ctx["user_agent"],
             )
 
-            return result
+            return result  # type: ignore[no-any-return]
 
         except Exception as e:
             logger.error(
@@ -312,7 +312,7 @@ class WriteOperationsService:
                 user_agent=ctx["user_agent"],
             )
 
-            return result
+            return result  # type: ignore[no-any-return]
 
         except Exception as e:
             logger.error(
@@ -394,7 +394,7 @@ class WriteOperationsService:
                 user_agent=ctx["user_agent"],
             )
 
-            return result
+            return result  # type: ignore[no-any-return]
 
         except Exception as e:
             logger.error(
