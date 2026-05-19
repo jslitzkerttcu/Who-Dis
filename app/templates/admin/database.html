@@ -204,7 +204,7 @@
     </div>
 
     <!-- Row 4: Table Statistics (full-width accordion on mobile) -->
-    <div class="bg-white rounded-2xl shadow-md border border-gray-200">
+    <div class="bg-white rounded-2xl shadow-md border border-gray-200 mb-4">
         <div class="bg-gray-700 text-white px-6 py-4 rounded-t-2xl cursor-pointer hover:bg-gray-600 transition duration-150"
              onclick="toggleTableStats()">
             <h2 class="text-xl font-semibold text-white flex items-center justify-between">
@@ -229,7 +229,49 @@
             </div>
         </div>
     </div>
+
+    <!-- Row 5: Database Schema (full-width accordion) -->
+    <div class="bg-white rounded-2xl shadow-md border border-gray-200 mt-4">
+        <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 rounded-t-2xl cursor-pointer hover:from-indigo-500 hover:to-indigo-600 transition duration-150"
+             onclick="toggleSchema()">
+            <h2 class="text-xl font-semibold text-white flex items-center justify-between">
+                <span>
+                    <i class="fas fa-project-diagram mr-2"></i>
+                    Database Schema
+                </span>
+                <i id="schema-icon" class="fas fa-chevron-down transition-transform"></i>
+            </h2>
+        </div>
+        <div id="schema-content" class="hidden">
+            <div hx-get="{{ url_for('admin.database_schema') }}"
+                 hx-trigger="revealed"
+                 hx-swap="innerHTML">
+                <div class="text-center py-8">
+                    <div class="inline-flex items-center">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mr-3"></div>
+                        <span class="text-gray-600">Loading schema diagram...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js"></script>
+<script>
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: 'default',
+        securityLevel: 'strict',
+        er: {
+            layoutDirection: 'TB',
+            minEntityWidth: 100,
+            minEntityHeight: 75,
+            entityPadding: 15,
+            fontSize: 12
+        }
+    });
+</script>
 
 <style>
     .htmx-indicator {
@@ -255,7 +297,7 @@
     function toggleTableStats() {
         const content = document.getElementById('table-stats-content');
         const icon = document.getElementById('table-stats-icon');
-        
+
         if (content.classList.contains('hidden')) {
             content.classList.remove('hidden');
             icon.classList.add('rotate-180');
@@ -264,28 +306,41 @@
             icon.classList.remove('rotate-180');
         }
     }
-    
+
+    function toggleSchema() {
+        const content = document.getElementById('schema-content');
+        const icon = document.getElementById('schema-icon');
+
+        if (content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            icon.classList.add('rotate-180');
+        } else {
+            content.classList.add('hidden');
+            icon.classList.remove('rotate-180');
+        }
+    }
+
     // Handle cache tab switching
     document.addEventListener('click', function(event) {
         if (event.target.closest('.cache-tab')) {
             const clickedTab = event.target.closest('.cache-tab');
             const allTabs = document.querySelectorAll('.cache-tab');
-            
+
             // Update tab styling
             allTabs.forEach(tab => {
                 tab.classList.remove('border-blue-500', 'text-blue-600', 'font-semibold');
                 tab.classList.add('border-transparent', 'text-gray-500');
             });
-            
+
             clickedTab.classList.remove('border-transparent', 'text-gray-500');
             clickedTab.classList.add('border-blue-500', 'text-blue-600', 'font-semibold');
         }
     });
-    
+
     // Handle Htmx events
     document.body.addEventListener('htmx:afterSwap', function(evt) {
         // Show/hide result messages after 5 seconds
-        if (evt.detail.target.id === 'cache-action-result' || 
+        if (evt.detail.target.id === 'cache-action-result' ||
             evt.detail.target.id === 'optimize-result') {
             if (evt.detail.target.querySelector('.bg-green-50')) {
                 setTimeout(() => {
@@ -293,6 +348,137 @@
                 }, 5000);
             }
         }
+
+        // Handle schema content swap -- render Mermaid and init interaction
+        if (evt.detail.target.id === 'schema-content' ||
+            (evt.detail.target.closest && evt.detail.target.closest('#schema-content'))) {
+            if (typeof mermaid !== 'undefined') {
+                var runResult = mermaid.run();
+                if (runResult && typeof runResult.then === 'function') {
+                    runResult.then(function() {
+                        setTimeout(initSchemaInteraction, 500);
+                    });
+                } else {
+                    // Fallback if mermaid.run() does not return a thenable
+                    setTimeout(initSchemaInteraction, 1000);
+                }
+            }
+        }
     });
+
+    /**
+     * Initialize click-to-highlight interaction on Mermaid ER diagram SVG.
+     * Reads window.__schemaFkMap (injected by backend) for FK adjacency data.
+     */
+    function initSchemaInteraction() {
+        var svg = document.querySelector('#schema-diagram-container svg');
+        if (!svg) return;
+
+        var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // Resilient entity selectors -- try multiple patterns (Pitfall 4)
+        var entities = svg.querySelectorAll('g[id^="entity-"]');
+        if (!entities.length) {
+            entities = svg.querySelectorAll('.er.entityBox');
+        }
+        if (!entities.length) {
+            entities = svg.querySelectorAll('.entityBox');
+        }
+
+        var fkMap = window.__schemaFkMap || {};
+        var highlightedTable = null;
+
+        function extractTableName(entity) {
+            if (entity.id && entity.id.indexOf('entity-') === 0) {
+                return entity.id.replace('entity-', '');
+            }
+            var textEl = entity.querySelector('text');
+            return textEl ? textEl.textContent.trim() : '';
+        }
+
+        function resetHighlight() {
+            highlightedTable = null;
+            entities.forEach(function(e) {
+                e.style.opacity = '1.0';
+            });
+            var lines = svg.querySelectorAll('path, line');
+            lines.forEach(function(l) {
+                l.style.opacity = '1.0';
+            });
+        }
+
+        function highlightTable(tableName) {
+            highlightedTable = tableName;
+            var connected = fkMap[tableName] || [];
+            var allConnected = new Set([tableName].concat(connected));
+
+            entities.forEach(function(e) {
+                var name = extractTableName(e);
+                if (allConnected.has(name)) {
+                    e.style.opacity = '1.0';
+                } else {
+                    e.style.opacity = '0.5';
+                }
+                if (!reducedMotion) {
+                    e.style.transition = 'opacity 0.2s ease';
+                }
+            });
+
+            // Dim relationship lines
+            var lines = svg.querySelectorAll('path, line');
+            lines.forEach(function(l) {
+                l.style.opacity = '0.15';
+                if (!reducedMotion) {
+                    l.style.transition = 'opacity 0.2s ease';
+                }
+            });
+        }
+
+        function handleEntityClick(entity) {
+            var tableName = extractTableName(entity);
+            if (highlightedTable === tableName) {
+                resetHighlight();
+                return;
+            }
+            highlightTable(tableName);
+        }
+
+        // Attach handlers to each entity node
+        entities.forEach(function(entity) {
+            entity.style.cursor = 'pointer';
+            entity.setAttribute('tabindex', '0');
+            entity.setAttribute('role', 'button');
+            entity.setAttribute('aria-label', 'Table: ' + extractTableName(entity));
+
+            // Focus style for accessibility
+            entity.addEventListener('focus', function() {
+                entity.style.outline = '2px solid #2563EB';
+                entity.style.outlineOffset = '2px';
+            });
+            entity.addEventListener('blur', function() {
+                entity.style.outline = '';
+                entity.style.outlineOffset = '';
+            });
+
+            entity.addEventListener('click', function(e) {
+                e.stopPropagation();
+                handleEntityClick(entity);
+            });
+
+            entity.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleEntityClick(entity);
+                }
+            });
+        });
+
+        // Click SVG background to reset
+        svg.addEventListener('click', function(e) {
+            if (e.target === svg || e.target.tagName === 'rect') {
+                resetHighlight();
+            }
+        });
+    }
 </script>
 {% endblock %}
