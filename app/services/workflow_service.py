@@ -217,9 +217,10 @@ class WorkflowService(BaseConfigurableService):
         item.status = "completed"
         item.completed_by = completed_by
         item.completed_at = datetime.now(timezone.utc)
-        item.save()
+        item.save(commit=False)
 
         self._check_workflow_completion(item.workflow)
+        db.session.commit()
         return item
 
     @handle_service_errors(raise_errors=True)
@@ -255,9 +256,10 @@ class WorkflowService(BaseConfigurableService):
         item.completed_by = completed_by
         item.completed_at = datetime.now(timezone.utc)
         item.skip_reason = reason.strip()
-        item.save()
+        item.save(commit=False)
 
         self._check_workflow_completion(item.workflow)
+        db.session.commit()
         return item
 
     @handle_service_errors(raise_errors=True)
@@ -390,5 +392,5 @@ class WorkflowService(BaseConfigurableService):
         if all_done and workflow.items:
             workflow.status = "completed"
             workflow.completed_at = datetime.now(timezone.utc)
-            workflow.save()
+            workflow.save(commit=False)
             logger.info(f"Auto-completed workflow {workflow.id}")

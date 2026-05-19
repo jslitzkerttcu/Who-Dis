@@ -11,6 +11,8 @@ import io
 import logging
 from typing import Dict, List
 
+from markupsafe import escape
+
 from flask import (
     abort,
     current_app,
@@ -249,8 +251,8 @@ def preview_checklist():
             '<li class="flex items-start gap-2 text-sm">'
             '<i class="fas fa-circle text-gray-300 text-xs mt-1"></i>'
             "<div>"
-            f'<span class="text-gray-900">{item["text"]}</span>'
-            f'<span class="text-xs text-gray-500 ml-1">({item["source"]})</span>'
+            f'<span class="text-gray-900">{escape(item["text"])}</span>'
+            f'<span class="text-xs text-gray-500 ml-1">({escape(item["source"])})</span>'
             "</div>"
             "</li>"
         )
@@ -437,7 +439,7 @@ def export_workflow_csv(workflow_id: int):
         csv_content,
         mimetype="text/csv",
         headers={
-            "Content-Disposition": f"attachment; filename={filename}"
+            "Content-Disposition": f'attachment; filename="{filename}"'
         },
     )
 
@@ -477,11 +479,11 @@ def employee_search():
         html_parts.append(
             '<div class="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0"'
             ' onclick="selectEmployee(this)"'
-            f' data-name="{name}"'
-            f' data-email="{email}"'
-            f' data-job-code="{job_code}">'
-            f'<div class="text-sm font-medium text-gray-900">{name}</div>'
-            f'<div class="text-xs text-gray-500">{email}</div>'
+            f' data-name="{escape(name)}"'
+            f' data-email="{escape(email)}"'
+            f' data-job-code="{escape(job_code)}">'
+            f'<div class="text-sm font-medium text-gray-900">{escape(name)}</div>'
+            f'<div class="text-xs text-gray-500">{escape(email)}</div>'
             "</div>"
         )
 
@@ -627,8 +629,12 @@ def reorder_offboarding_items():
             '<p class="text-sm text-red-800">No items to reorder.</p></div>'
         ), 400
 
+    items = StandardOffboardingItem.query.filter(
+        StandardOffboardingItem.id.in_(item_ids)
+    ).all()
+    item_map = {item.id: item for item in items}
     for idx, item_id in enumerate(item_ids):
-        item = StandardOffboardingItem.query.get(item_id)
+        item = item_map.get(item_id)
         if item:
             item.sort_order = idx
     db.session.commit()
@@ -678,7 +684,7 @@ def _render_offboarding_item_row(item: StandardOffboardingItem) -> str:
          class="bg-white border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between{inactive_class}"
          data-item-id="{item.id}">
         <div class="flex-1 text-sm text-gray-900" id="item-text-{item.id}">
-            {item.item_text}{inactive_badge}
+            {escape(item.item_text)}{inactive_badge}
         </div>
         <div class="flex items-center gap-2 ml-4">
             <button type="button"
