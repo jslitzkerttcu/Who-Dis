@@ -205,7 +205,7 @@ _config_cache: Dict[str, Any] = {}
 def get_search_timeout() -> int:
     """Get search timeout configuration lazily"""
     if "timeout" not in _config_cache:
-        config_service: IConfigurationService = current_app.container.get("config")
+        config_service: IConfigurationService = current_app.container.get("config")  # type: ignore[attr-defined]
         timeout_value = int(config_service.get("search.overall_timeout", "20"))
         _config_cache["timeout"] = timeout_value
     return int(_config_cache["timeout"])
@@ -214,7 +214,7 @@ def get_search_timeout() -> int:
 def get_lazy_load_photos() -> bool:
     """Get lazy load photos configuration lazily"""
     if "lazy_load" not in _config_cache:
-        config_service: IConfigurationService = current_app.container.get("config")
+        config_service: IConfigurationService = current_app.container.get("config")  # type: ignore[attr-defined]
         lazy_load_config = config_service.get("search.lazy_load_photos", "true")
         # Handle both string and boolean values
         if isinstance(lazy_load_config, bool):
@@ -894,18 +894,22 @@ def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
             if not sku_id:
                 continue
             friendly = None
+            service_plans_data = None
             if sku_catalog is not None:
                 try:
-                    friendly = sku_catalog.get_sku_name(sku_id)
+                    details = sku_catalog.get_sku_details(sku_id)
+                    friendly = details.get("name")
+                    service_plans_data = details.get("service_plans")
                 except Exception as e:  # noqa: BLE001
                     logger.debug(f"sku_catalog lookup failed for {sku_id}: {e}")
-            licenses.append(
-                {
-                    "name": friendly or sku_id,
-                    "displayName": friendly or sku_id,
-                    "skuId": sku_id,
-                }
-            )
+            lic_dict = {
+                "name": friendly or sku_id,
+                "displayName": friendly or sku_id,
+                "skuId": sku_id,
+            }
+            if service_plans_data is not None:
+                lic_dict["service_plans"] = service_plans_data
+            licenses.append(lic_dict)
 
     # Manager — Graph $expand=manager returns nested dict with displayName, mail, jobTitle.
     manager_field = user_profile.get("manager")

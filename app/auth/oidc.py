@@ -108,7 +108,6 @@ def authorize():
     try:
         from app.middleware.user_provisioner import UserProvisioner
 
-        name = session["user"]["name"]
         role = "admin" if "admin" in list(roles) else "viewer"
         UserProvisioner().get_or_create_user(email=email, role=role)
     except Exception as exc:  # noqa: BLE001 — non-fatal; auth still succeeds

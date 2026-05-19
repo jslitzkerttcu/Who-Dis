@@ -2,7 +2,7 @@
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional, Union
 from msal import ConfidentialClientApplication  # type: ignore[import-untyped]
 import base64
 import requests
@@ -581,7 +581,7 @@ class GraphService(BaseAPITokenService, ISearchService, ITokenService):
 
     def get_user_devices(
         self, user_id: str
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> Optional[Union[List[Dict[str, Any]], Dict[str, Any]]]:
         """Get devices registered/owned by a user from Graph.
 
         Requires Directory.Read.All permission on the app registration.

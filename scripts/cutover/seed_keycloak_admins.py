@@ -48,7 +48,7 @@ def get_admin_token(kc_base: str, user: str, password: str) -> str:
         timeout=30,
     )
     resp.raise_for_status()
-    return resp.json()["access_token"]
+    return resp.json()["access_token"]  # type: ignore[no-any-return]
 
 
 def get_client_uuid(kc_base: str, realm: str, client_id: str, headers: dict) -> str:
@@ -63,7 +63,7 @@ def get_client_uuid(kc_base: str, realm: str, client_id: str, headers: dict) -> 
     clients = resp.json()
     if not clients:
         raise SystemExit(f"Client '{client_id}' not found in realm '{realm}'")
-    return clients[0]["id"]
+    return clients[0]["id"]  # type: ignore[no-any-return]
 
 
 def get_role_rep(
@@ -76,7 +76,7 @@ def get_role_rep(
         timeout=30,
     )
     resp.raise_for_status()
-    return resp.json()
+    return resp.json()  # type: ignore[no-any-return]
 
 
 def find_user_id(kc_base: str, realm: str, email: str, headers: dict) -> Optional[str]:

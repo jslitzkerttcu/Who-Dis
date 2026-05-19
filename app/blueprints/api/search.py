@@ -119,7 +119,7 @@ class SearchResource(MethodView):
         try:
             from flask import current_app
 
-            audit_service = current_app.container.get("audit_logger")
+            audit_service = current_app.container.get("audit_logger")  # type: ignore[attr-defined]
             audit_service.log_search(
                 user_email=g.user,
                 search_query=q,

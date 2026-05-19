@@ -13,7 +13,7 @@ from typing import Optional
 import jwt
 from jwt import PyJWKClient
 
-from flask import abort, current_app, g, request
+from flask import abort, g, request
 
 logger = logging.getLogger(__name__)
 

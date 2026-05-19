@@ -173,7 +173,6 @@ def create_app():
     # All secrets now come from os.environ via portal env-var injection (D-11, D-16).
     try:
         from app.services.configuration_service import (
-            get_debug_mode,
             get_flask_config_from_env,
         )
 

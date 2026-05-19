@@ -63,7 +63,7 @@ class JobCode(BaseModel, TimestampMixin, JSONDataMixin):
         query = self.role_mappings
         if mapping_type:
             query = query.filter(JobRoleMapping.mapping_type == mapping_type)
-        return query.order_by(JobRoleMapping.priority.desc()).all()
+        return query.order_by(JobRoleMapping.priority.desc()).all()  # type: ignore[misc, operator]
 
 
 class SystemRole(BaseModel, TimestampMixin, JSONDataMixin):
