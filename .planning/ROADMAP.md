@@ -65,7 +65,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 13-01-PLAN.md — Backend schema metadata extraction and Mermaid erDiagram generation endpoint
+- [x] 13-01-PLAN.md — Backend schema metadata extraction and Mermaid erDiagram generation endpoint
 - [ ] 13-02-PLAN.md — Frontend accordion card with Mermaid.js rendering and click-to-highlight interaction
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -131,7 +131,7 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15 -> 16
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 12. UX Polish & DevOps | 1/3 | In Progress|  |
-| 13. Schema Visualization | 0/2 | Not started | - |
+| 13. Schema Visualization | 1/2 | In Progress|  |
 | 14. Reporting Infrastructure & Exchange | 0/0 | Not started | - |
 | 15. Teams Reporting | 0/0 | Not started | - |
 | 16. SharePoint & OneDrive Reporting | 0/0 | Not started | - |
