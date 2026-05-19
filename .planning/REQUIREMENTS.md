@@ -81,9 +81,9 @@ Deferred to future milestone. Tracked but not in current roadmap.
 | Ticketing system integration | Requires ITSM vendor commitment not in place |
 | Multi-tenant support | Single-organization deployment only |
 | PowerBI/analytics embedding | Adds complexity without clear ROI for team size |
-| Teams call quality (individual records) | Requires webhook infrastructure — deferred to v2 |
-| Exchange forwarding rule detection | N+1 API calls per user — not scalable for bulk reports |
-| Cross-report correlation dashboard | Premature optimization — build individual reports first |
+| Teams call quality (individual records) | Requires webhook infrastructure -- deferred to v2 |
+| Exchange forwarding rule detection | N+1 API calls per user -- not scalable for bulk reports |
+| Cross-report correlation dashboard | Premature optimization -- build individual reports first |
 
 ## Traceability
 
@@ -91,35 +91,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UXP-01 | TBD | Pending |
-| DEVOPS-01 | TBD | Pending |
-| DEVOPS-02 | TBD | Pending |
-| DEVOPS-03 | TBD | Pending |
-| SCHEMA-01 | TBD | Pending |
-| SCHEMA-02 | TBD | Pending |
-| SCHEMA-03 | TBD | Pending |
-| EXCH-01 | TBD | Pending |
-| EXCH-02 | TBD | Pending |
-| EXCH-03 | TBD | Pending |
-| EXCH-04 | TBD | Pending |
-| TEAMS-01 | TBD | Pending |
-| TEAMS-02 | TBD | Pending |
-| TEAMS-03 | TBD | Pending |
-| TEAMS-04 | TBD | Pending |
-| SPOD-01 | TBD | Pending |
-| SPOD-02 | TBD | Pending |
-| SPOD-03 | TBD | Pending |
-| SPOD-04 | TBD | Pending |
-| SPOD-05 | TBD | Pending |
-| RINF-01 | TBD | Pending |
-| RINF-02 | TBD | Pending |
-| RINF-03 | TBD | Pending |
-| RINF-04 | TBD | Pending |
+| UXP-01 | Phase 12 | Pending |
+| DEVOPS-01 | Phase 12 | Pending |
+| DEVOPS-02 | Phase 12 | Pending |
+| DEVOPS-03 | Phase 12 | Pending |
+| SCHEMA-01 | Phase 13 | Pending |
+| SCHEMA-02 | Phase 13 | Pending |
+| SCHEMA-03 | Phase 13 | Pending |
+| RINF-01 | Phase 14 | Pending |
+| RINF-02 | Phase 14 | Pending |
+| RINF-03 | Phase 14 | Pending |
+| RINF-04 | Phase 14 | Pending |
+| EXCH-01 | Phase 14 | Pending |
+| EXCH-02 | Phase 14 | Pending |
+| EXCH-03 | Phase 14 | Pending |
+| EXCH-04 | Phase 14 | Pending |
+| TEAMS-01 | Phase 15 | Pending |
+| TEAMS-02 | Phase 15 | Pending |
+| TEAMS-03 | Phase 15 | Pending |
+| TEAMS-04 | Phase 15 | Pending |
+| SPOD-01 | Phase 16 | Pending |
+| SPOD-02 | Phase 16 | Pending |
+| SPOD-03 | Phase 16 | Pending |
+| SPOD-04 | Phase 16 | Pending |
+| SPOD-05 | Phase 16 | Pending |
 
 **Coverage:**
 - v1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24
+- Mapped to phases: 24
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-19*
+*Traceability updated: 2026-05-19 -- all 24 requirements mapped to Phases 12-16*
