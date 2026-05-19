@@ -30,11 +30,11 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 - [x] **Phase 4: Keycloak OIDC Authentication** - Replace Azure AD header auth with Keycloak OIDC; preserve role decorators (verified; PR #25)
 - [x] **Phase 5: Database Migration & Alembic** - Move schema to Alembic, switch to DATABASE_URL, document data-migration path (verified; delivered via PR #25)
 - [x] **Phase 6: Enriched Profiles & Search Export** - Surface full Graph/Genesys data on profile cards with export (verified; all UAT passed)
-- [ ] **Phase 7: Compliance Polish** - Bulk checks with progress, export, and warehouse sync visibility
+- [x] **Phase 7: Compliance Polish** - Bulk checks with progress, export, and warehouse sync visibility (completed 2026-05-17)
 - [x] **Phase 8: Reporting** - License, security posture, and Genesys reports with scheduling (completed 2026-05-17)
 - [x] **Phase 9: Write Operations** - AD account actions and license management from the UI (completed 2026-05-18)
 - [x] **Phase 10: REST API** - Token-authenticated read-only API with rate limiting and docs (completed 2026-05-18)
-- [ ] **Phase 11: Workflow Automation** - Onboarding/offboarding checklists with completion tracking
+- [x] **Phase 11: Workflow Automation** - Onboarding/offboarding checklists with completion tracking (completed 2026-05-19)
 
 ## Phase Details
 
@@ -204,9 +204,9 @@ The SandCastle hosting integration introduces 38 new requirements that fundament
 
 **Plans**: 3 plans
 
-- [ ] 07-01-PLAN.md — Schema migration, models (JobRun, SyncMetadata, checked_count), JobManagerService + DI registration
-- [ ] 07-02-PLAN.md — SandCastle jobs blueprint, portal M2M auth, warehouse error categorization, compliance progress callback
-- [ ] 07-03-PLAN.md — UI layer: progress polling, sync status card, sortable violations table, CSV export, client-side sort JS
+- [x] 07-01-PLAN.md — Schema migration, models (JobRun, SyncMetadata, checked_count), JobManagerService + DI registration
+- [x] 07-02-PLAN.md — SandCastle jobs blueprint, portal M2M auth, warehouse error categorization, compliance progress callback
+- [x] 07-03-PLAN.md — UI layer: progress polling, sync status card, sortable violations table, CSV export, client-side sort JS
 
 **UI hint**: yes
 
@@ -303,9 +303,15 @@ Plans:
 
 **Plans**: 3 plans
 
-- [ ] 08-01-PLAN.md — Backend data layer: ReportCache model, ReportSyncService, Graph/Genesys bulk methods, job registration
-- [ ] 08-02-PLAN.md — License and security tabs: blueprint routes, KPI cards, data tables, CSV exports, stale indicators
-- [ ] 08-03-PLAN.md — Contact Center and Run History tabs: Genesys presence, job history, Genesys CSV export
+Plans:
+**Wave 1**
+
+- [x] 11-01-PLAN.md — Data layer: Workflow/WorkflowItem/StandardOffboardingItem models, Alembic migration 005, WorkflowService, DI registration, unit tests (WKFL-01, WKFL-02, WKFL-03, WKFL-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 11-02-PLAN.md — Admin routes and templates: workflow dashboard with KPI cards, create form with employee search, detail view with checklist completion/skip, admin index card (WKFL-01, WKFL-02, WKFL-03, WKFL-04)
+- [x] 11-03-PLAN.md — Standard offboarding items admin CRUD, "Start Onboarding" button on search profile cards, end-of-phase human verification (WKFL-01, WKFL-02, WKFL-04)
 
 **UI hint**: yes
 
@@ -319,11 +325,11 @@ Plans:
 | 4. Keycloak OIDC Authentication | 2/2 | Complete | 2026-04-27 |
 | 5. Database Migration & Alembic | 0/0 | Complete (PR #25) | 2026-04-27 |
 | 6. Enriched Profiles & Search Export | 4/4 | Complete | 2026-05-16 |
-| 7. Compliance Polish | 0/3 | Not started | - |
+| 7. Compliance Polish | 3/3 | Complete | 2026-05-17 |
 | 8. Reporting | 3/3 | Complete   | 2026-05-17 |
 | 9. Write Operations | 3/3 | Complete   | 2026-05-18 |
 | 10. REST API | 3/3 | Complete   | 2026-05-18 |
-| 11. Workflow Automation | 0/? | Not started | - |
+| 11. Workflow Automation | 3/3 | Complete   | 2026-05-19 |
 
 ## Backlog
 
@@ -334,3 +340,4 @@ Plans:
 *Last updated: 2026-04-24 — SandCastle integration insertion + re-prioritization (3 new phases inserted at positions 3-5; original Phases 3-8 renumbered to 6-11)*
 *Revised: 2026-04-26 — Phase 3 plans finalized (3 gap-closure plans: 03-01 Redis, 03-02 DATABASE_URL, 03-03 README+ops)*
 *Revised: 2026-05-16 — Progress table updated: Phases 3-6 marked complete (verified against codebase)*
+*Revised: 2026-05-18 — Phase 11 plans finalized (3 plans: data layer, routes/templates, offboarding items + search integration)*

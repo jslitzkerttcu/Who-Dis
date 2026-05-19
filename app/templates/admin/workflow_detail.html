@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}{{ workflow.employee_name }} - Workflow Detail{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+    <!-- Header with breadcrumb -->
+    <div class="mb-6">
+        <nav class="text-sm text-gray-500 mb-1">
+            <a href="{{ url_for('admin.index') }}" class="hover:text-gray-700">Admin</a>
+            <span class="mx-1">/</span>
+            <a href="{{ url_for('admin.workflows_dashboard') }}" class="hover:text-gray-700">Workflows</a>
+            <span class="mx-1">/</span>
+            <span class="text-gray-900">{{ workflow.employee_name }}</span>
+        </nav>
+    </div>
+
+    <!-- Workflow Header -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <div class="flex items-center gap-3 mb-2">
+                    <h1 class="text-2xl font-semibold text-gray-900">{{ workflow.employee_name }}</h1>
+                    {% if workflow.workflow_type == 'onboarding' %}
+                    <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Onboarding</span>
+                    {% else %}
+                    <span class="bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Offboarding</span>
+                    {% endif %}
+                    {% if workflow.status == 'completed' %}
+                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Completed</span>
+                    {% elif workflow.status == 'cancelled' %}
+                    <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Cancelled</span>
+                    {% endif %}
+                </div>
+                <div class="text-sm text-gray-500 space-y-1">
+                    {% if workflow.employee_email %}
+                    <div><i class="fas fa-envelope mr-2 text-gray-400 w-4"></i>{{ workflow.employee_email }}</div>
+                    {% endif %}
+                    <div><i class="fas fa-briefcase mr-2 text-gray-400 w-4"></i>{{ workflow.job_code }}{% if workflow.job_title %} - {{ workflow.job_title }}{% endif %}</div>
+                    <div><i class="fas fa-calendar mr-2 text-gray-400 w-4"></i>Created {{ workflow.created_at.strftime('%b %d, %Y') if workflow.created_at else 'N/A' }} by {{ workflow.created_by }}</div>
+                    {% if workflow.completed_at %}
+                    <div><i class="fas fa-check mr-2 text-gray-400 w-4"></i>Completed {{ workflow.completed_at.strftime('%b %d, %Y') }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <a href="{{ url_for('admin.export_workflow_csv', workflow_id=workflow.id) }}"
+                   class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-download mr-1"></i> Export CSV
+                </a>
+                {% if workflow.status == 'active' %}
+                <form method="POST" action="{{ url_for('admin.cancel_workflow', workflow_id=workflow.id) }}"
+                      onsubmit="return confirm('Delete this workflow? All checklist items and completion history will be permanently removed. This cannot be undone.');">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit"
+                            class="inline-flex items-center px-3 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                            hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
+                        <i class="fas fa-trash mr-1"></i> Delete Workflow
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Overall Progress Bar -->
+        {% set progress = workflow.progress %}
+        <div class="mt-4">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-sm text-gray-600">{{ progress.completed }} of {{ progress.total }} items complete</span>
+                <span class="text-sm font-medium text-gray-700">{{ progress.percent }}%</span>
+            </div>
+            <div class="bg-gray-200 rounded-full h-2" role="progressbar" aria-valuenow="{{ progress.percent }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="{% if progress.percent == 100 %}bg-green-600{% else %}bg-blue-600{% endif %} rounded-full h-2 transition-all duration-300" style="width: {{ progress.percent }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checklist Section -->
+    <div class="space-y-2" hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'>
+        {% set ns = namespace(current_source='') %}
+        {% for item in workflow.items %}
+            {% if item.item_source != ns.current_source %}
+                {% set ns.current_source = item.item_source %}
+                <!-- Section Header -->
+                <div class="mt-6 mb-3">
+                    {% if item.item_source == 'role_mapping' %}
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Role Mappings</h3>
+                    {% elif item.item_source == 'standard_offboarding' %}
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Standard Offboarding Items</h3>
+                    {% else %}
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">{{ item.item_source|replace('_', ' ')|title }}</h3>
+                    {% endif %}
+                    <hr class="mt-1 border-gray-200">
+                </div>
+            {% endif %}
+
+            {% include "admin/partials/_workflow_item.html" %}
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    // Skip menu toggle
+    function toggleSkipMenu(btn) {
+        var menu = btn.nextElementSibling;
+        // Close all other menus first
+        document.querySelectorAll('.skip-menu').forEach(function(m) {
+            if (m !== menu) m.classList.add('hidden');
+        });
+        menu.classList.toggle('hidden');
+    }
+
+    function showSkipForm(itemId) {
+        // Close the dropdown menu
+        document.querySelectorAll('.skip-menu').forEach(function(m) {
+            m.classList.add('hidden');
+        });
+        // Show the skip form
+        var form = document.getElementById('skip-form-' + itemId);
+        if (form) {
+            form.classList.remove('hidden');
+        }
+    }
+
+    function hideSkipForm(itemId) {
+        var form = document.getElementById('skip-form-' + itemId);
+        if (form) {
+            form.classList.add('hidden');
+        }
+    }
+
+    // Close skip menus when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.skip-menu') && !e.target.closest('button[onclick*="toggleSkipMenu"]')) {
+            document.querySelectorAll('.skip-menu').forEach(function(m) {
+                m.classList.add('hidden');
+            });
+        }
+    });
+</script>
+{% endblock %}

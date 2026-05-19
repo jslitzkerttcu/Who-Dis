@@ -1761,6 +1761,21 @@ def _render_unified_profile(results):
             account_enabled=enabled,
         )
 
+    # Phase 11: Start Onboarding button for admin users
+    workflow_button_html = ""
+    if hasattr(g, "role") and g.role == "admin" and user_email:
+        workflow_url = url_for("admin.create_workflow", employee_email=user_email)
+        workflow_button_html = (
+            '<div class="mt-3 pt-3 border-t border-gray-200">'
+            f'<a href="{workflow_url}"'
+            ' class="inline-flex items-center px-3 py-1.5 border border-gray-300'
+            " shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white"
+            ' hover:bg-gray-50">'
+            '<i class="fas fa-clipboard-list mr-1.5"></i>'
+            "Start Onboarding"
+            "</a></div>"
+        )
+
     title_block = (
         '<div class="bg-yellow-50 border border-yellow-200 rounded-md p-2 mt-1"><div class="flex items-center"><i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i><div class="text-sm"><span class="font-medium text-yellow-800">Title Mismatch:</span> <span class="text-gray-700">LDAP:</span> <span class="font-medium" data-copy-field="Title (LDAP)">'
         + str(ldap_title)
@@ -1796,6 +1811,7 @@ def _render_unified_profile(results):
             </div>
             {export_buttons_html}
             {ad_actions_html}
+            {workflow_button_html}
         </div>
         {enrichment_accordion_html}
         {keystone_accordion_html}

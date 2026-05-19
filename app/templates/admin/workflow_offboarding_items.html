@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Standard Offboarding Items - Admin{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+    <!-- Header with breadcrumb -->
+    <div class="mb-6">
+        <nav class="text-sm text-gray-500 mb-1">
+            <a href="{{ url_for('admin.index') }}" class="hover:text-gray-700">Admin</a>
+            <span class="mx-1">/</span>
+            <a href="{{ url_for('admin.workflows_dashboard') }}" class="hover:text-gray-700">Workflows</a>
+            <span class="mx-1">/</span>
+            <span class="text-gray-900">Offboarding Items</span>
+        </nav>
+        <h1 class="text-2xl font-semibold text-gray-900">Standard Offboarding Items</h1>
+        <p class="text-sm text-gray-500 mt-1">
+            These items appear in every offboarding checklist in addition to role-based items from job code mappings.
+        </p>
+    </div>
+
+    <!-- Items list -->
+    <div id="offboarding-items-list" class="space-y-2">
+        {% for item in items %}
+        <div id="offboarding-item-{{ item.id }}"
+             class="bg-white border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between{% if not item.is_active %} opacity-50{% endif %}"
+             data-item-id="{{ item.id }}">
+            <div class="flex-1 text-sm text-gray-900" id="item-text-{{ item.id }}">
+                {{ item.item_text }}
+                {% if not item.is_active %}
+                <span class="text-xs text-red-500 font-medium">(inactive)</span>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-2 ml-4">
+                <button type="button"
+                        class="text-gray-400 hover:text-gray-600 p-1"
+                        title="Move up"
+                        onclick="moveOffboardingItem({{ item.id }}, 'up')">
+                    <i class="fas fa-arrow-up text-xs"></i>
+                </button>
+                <button type="button"
+                        class="text-gray-400 hover:text-gray-600 p-1"
+                        title="Move down"
+                        onclick="moveOffboardingItem({{ item.id }}, 'down')">
+                    <i class="fas fa-arrow-down text-xs"></i>
+                </button>
+                <button type="button"
+                        class="text-gray-400 hover:text-blue-600 p-1"
+                        title="Edit"
+                        onclick="editOffboardingItem({{ item.id }})">
+                    <i class="fas fa-pen text-xs"></i>
+                </button>
+                <button type="button"
+                        class="text-gray-400 hover:text-red-600 p-1"
+                        title="Delete"
+                        onclick="if(window.confirm('Remove this standard offboarding item? It will no longer appear in new offboarding checklists.'))deleteOffboardingItem({{ item.id }})">
+                    <i class="fas fa-trash text-xs"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not items %}
+    <div class="text-center py-8 text-gray-500">
+        <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-3"></i>
+        <p class="text-sm">No standard offboarding items yet. Add one below.</p>
+    </div>
+    {% endif %}
+
+    <!-- Inline add form -->
+    <div class="mt-4 bg-gray-50 border border-gray-200 rounded-md p-4">
+        <form hx-post="{{ url_for('admin.add_offboarding_item') }}"
+              hx-target="#offboarding-items-list"
+              hx-swap="beforeend"
+              hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
+              class="flex items-center gap-3">
+            <input type="text" name="item_text"
+                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                   placeholder="Enter offboarding item text..."
+                   maxlength="500"
+                   required>
+            <button type="submit"
+                    class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap">
+                <i class="fas fa-plus mr-1.5"></i> Add Item
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function getCsrfToken() {
+    return '{{ csrf_token() }}';
+}
+
+function deleteOffboardingItem(itemId) {
+    fetch('/admin/workflows/offboarding-items/' + itemId + '/delete', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'HX-Request': 'true'
+        }
+    }).then(function(response) {
+        if (response.ok) {
+            var el = document.getElementById('offboarding-item-' + itemId);
+            if (el) el.remove();
+        }
+    });
+}
+
+function editOffboardingItem(itemId) {
+    var textEl = document.getElementById('item-text-' + itemId);
+    var currentText = textEl.textContent.trim().replace(/\s*\(inactive\)\s*$/, '');
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentText;
+    input.maxLength = 500;
+    input.className = 'flex-1 px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'text-blue-600 hover:text-blue-800 text-xs font-medium ml-2';
+    saveBtn.textContent = 'Save';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'text-gray-500 hover:text-gray-700 text-xs font-medium ml-1';
+    cancelBtn.textContent = 'Cancel';
+
+    var originalHTML = textEl.innerHTML;
+    textEl.innerHTML = '';
+    textEl.appendChild(input);
+    textEl.appendChild(saveBtn);
+    textEl.appendChild(cancelBtn);
+    input.focus();
+
+    cancelBtn.onclick = function() {
+        textEl.innerHTML = originalHTML;
+    };
+
+    saveBtn.onclick = function() {
+        var formData = new FormData();
+        formData.append('item_text', input.value);
+        fetch('/admin/workflows/offboarding-items/' + itemId + '/update', {
+            method: 'POST',
+            headers: {'X-CSRFToken': getCsrfToken()},
+            body: formData
+        }).then(function(response) {
+            return response.text();
+        }).then(function(html) {
+            var container = document.getElementById('offboarding-item-' + itemId);
+            container.outerHTML = html;
+        });
+    };
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
+        if (e.key === 'Escape') { cancelBtn.click(); }
+    });
+}
+
+function moveOffboardingItem(itemId, direction) {
+    var list = document.getElementById('offboarding-items-list');
+    var items = Array.from(list.querySelectorAll('[data-item-id]'));
+    var itemIds = items.map(function(el) { return parseInt(el.getAttribute('data-item-id')); });
+    var idx = itemIds.indexOf(itemId);
+
+    if (direction === 'up' && idx > 0) {
+        itemIds.splice(idx, 1);
+        itemIds.splice(idx - 1, 0, itemId);
+    } else if (direction === 'down' && idx < itemIds.length - 1) {
+        itemIds.splice(idx, 1);
+        itemIds.splice(idx + 1, 0, itemId);
+    } else {
+        return;
+    }
+
+    var formData = new FormData();
+    itemIds.forEach(function(id) { formData.append('item_ids[]', id); });
+
+    fetch('/admin/workflows/offboarding-items/reorder', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData
+    }).then(function(response) {
+        return response.text();
+    }).then(function(html) {
+        list.innerHTML = html;
+    });
+}
+</script>
+{% endblock %}
