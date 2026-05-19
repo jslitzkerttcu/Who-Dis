@@ -42,7 +42,7 @@ Plans:
 **Wave 1**
 
 - [x] 12-01-PLAN.md — SKU license tooltip (service plan extraction, humanization, template rendering)
-- [ ] 12-02-PLAN.md — Docker multi-stage build optimization with healthcheck and .dockerignore
+- [x] 12-02-PLAN.md — Docker multi-stage build optimization with healthcheck and .dockerignore
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
