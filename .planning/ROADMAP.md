@@ -18,7 +18,7 @@
 - Decimal phases (12.1, 12.2): Urgent insertions if needed (marked with INSERTED)
 
 - [ ] **Phase 12: UX Polish & DevOps** - SKU tooltips and Docker image optimization (zero external permissions needed)
-- [ ] **Phase 13: Schema Visualization** - Live ER diagrams from database metadata for admin tooling
+- [x] **Phase 13: Schema Visualization** - Live ER diagrams from database metadata for admin tooling (completed 2026-05-19)
 - [ ] **Phase 14: Reporting Infrastructure & Exchange** - CSV parsing foundation, freshness indicators, privacy detection, and Exchange mailbox/activity reports
 - [ ] **Phase 15: Teams Reporting** - Teams usage, adoption trends, meeting analytics, and CSV export
 - [ ] **Phase 16: SharePoint & OneDrive Reporting** - Site storage, OneDrive usage, sharing activity, growth trends, and CSV export
@@ -66,7 +66,7 @@ Plans:
 **Wave 1**
 
 - [x] 13-01-PLAN.md — Backend schema metadata extraction and Mermaid erDiagram generation endpoint
-- [ ] 13-02-PLAN.md — Frontend accordion card with Mermaid.js rendering and click-to-highlight interaction
+- [x] 13-02-PLAN.md — Frontend accordion card with Mermaid.js rendering and click-to-highlight interaction
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -131,7 +131,7 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15 -> 16
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 12. UX Polish & DevOps | 1/3 | In Progress|  |
-| 13. Schema Visualization | 1/2 | In Progress|  |
+| 13. Schema Visualization | 2/2 | Complete   | 2026-05-19 |
 | 14. Reporting Infrastructure & Exchange | 0/0 | Not started | - |
 | 15. Teams Reporting | 0/0 | Not started | - |
 | 16. SharePoint & OneDrive Reporting | 0/0 | Not started | - |
