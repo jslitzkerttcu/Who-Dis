@@ -894,18 +894,27 @@ def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
             if not sku_id:
                 continue
             friendly = None
+            service_plans_data = None
             if sku_catalog is not None:
                 try:
                     friendly = sku_catalog.get_sku_name(sku_id)
                 except Exception as e:  # noqa: BLE001
                     logger.debug(f"sku_catalog lookup failed for {sku_id}: {e}")
-            licenses.append(
-                {
-                    "name": friendly or sku_id,
-                    "displayName": friendly or sku_id,
-                    "skuId": sku_id,
-                }
-            )
+                try:
+                    service_plans_data = sku_catalog.get_service_plans(sku_id)
+                except Exception as e:  # noqa: BLE001
+                    logger.debug(
+                        f"sku_catalog service_plans lookup failed for {sku_id}: {e}"
+                    )
+                    service_plans_data = {"plans": [], "total": 0}
+            lic_dict = {
+                "name": friendly or sku_id,
+                "displayName": friendly or sku_id,
+                "skuId": sku_id,
+            }
+            if service_plans_data is not None:
+                lic_dict["service_plans"] = service_plans_data
+            licenses.append(lic_dict)
 
     # Manager — Graph $expand=manager returns nested dict with displayName, mail, jobTitle.
     manager_field = user_profile.get("manager")
