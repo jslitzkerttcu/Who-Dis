@@ -138,6 +138,12 @@ _PRIORITY_PLANS: List[str] = [
 # humanization (e.g., _P1, _P2, _E3, _E5, _S1).
 _VERSION_SUFFIX_RE = re.compile(r"[_\s](?:P\d+|E\d+|S\d+)$", re.IGNORECASE)
 
+# Pre-built priority index for sorting (lower index = higher priority).
+_PRIORITY_INDEX: Dict[str, int] = {
+    name: idx for idx, name in enumerate(_PRIORITY_PLANS)
+}
+_PRIORITY_FALLBACK: int = len(_PRIORITY_PLANS)
+
 
 def _humanize_service_plan(plan_name: str) -> str:
     """Return a friendly display name for a Microsoft service plan.
@@ -250,6 +256,41 @@ class SkuCatalogCache(BaseConfigurableService):
         """Resolve a SKU GUID to its friendly skuPartNumber, or None if unknown."""
         return ExternalServiceData.get_name_by_id("graph", "sku", sku_id)
 
+    def get_sku_details(
+        self, sku_id: str, plan_limit: int = 5
+    ) -> Dict[str, Any]:
+        """Return SKU name and service plans in a single DB lookup.
+
+        Avoids the N+1 pattern of calling get_sku_name + get_service_plans
+        separately for each license.
+
+        Returns:
+            ``{"name": "E3", "service_plans": {"plans": [...], "total": 8}}``
+        """
+        empty_plans: Dict[str, Any] = {"plans": [], "total": 0}
+        try:
+            entry = ExternalServiceData.get_by_service_id(
+                "graph", "sku", sku_id
+            )
+            if entry is None:
+                return {"name": None, "service_plans": empty_plans}
+
+            name = entry.name
+            if entry.raw_data is None:
+                return {"name": name, "service_plans": empty_plans}
+
+            service_plans = self._extract_service_plans(
+                entry.raw_data, sku_id, plan_limit
+            )
+            return {"name": name, "service_plans": service_plans}
+
+        except Exception as e:
+            logger.error(
+                f"Error fetching SKU details for {sku_id}: {str(e)}",
+                exc_info=True,
+            )
+            return {"name": None, "service_plans": empty_plans}
+
     def get_service_plans(
         self, sku_id: str, limit: int = 5
     ) -> Dict[str, Any]:
@@ -273,11 +314,25 @@ class SkuCatalogCache(BaseConfigurableService):
             if entry is None or entry.raw_data is None:
                 return empty
 
-            raw_plans: List[Dict[str, Any]] = entry.raw_data.get(
-                "servicePlans", []
-            )
+            return self._extract_service_plans(entry.raw_data, sku_id, limit)
 
-            # Filter to user-applicable, successfully provisioned plans.
+        except Exception as e:
+            logger.error(
+                f"Error extracting service plans for SKU {sku_id}: {str(e)}",
+                exc_info=True,
+            )
+            return empty
+
+    def _extract_service_plans(
+        self, raw_data: Dict[str, Any], sku_id: str, limit: int = 5
+    ) -> Dict[str, Any]:
+        """Extract, filter, sort, and humanize service plans from raw SKU data."""
+        empty: Dict[str, Any] = {"plans": [], "total": 0}
+        try:
+            raw_plans: List[Dict[str, Any]] = raw_data.get(
+                "servicePlans"
+            ) or []
+
             filtered: List[Dict[str, Any]] = [
                 p
                 for p in raw_plans
@@ -286,16 +341,10 @@ class SkuCatalogCache(BaseConfigurableService):
                 and p.get("provisioningStatus") == "Success"
             ]
 
-            # Build a priority index for sorting (lower index = higher priority).
-            priority_index = {
-                name: idx for idx, name in enumerate(_PRIORITY_PLANS)
-            }
-            fallback_priority = len(_PRIORITY_PLANS)
-
             def _sort_key(plan: Dict[str, Any]) -> tuple:  # type: ignore[type-arg]
                 name = plan.get("servicePlanName", "")
                 return (
-                    priority_index.get(name, fallback_priority),
+                    _PRIORITY_INDEX.get(name, _PRIORITY_FALLBACK),
                     name.lower(),
                 )
 

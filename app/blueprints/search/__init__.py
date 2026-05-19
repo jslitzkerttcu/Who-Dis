@@ -897,16 +897,11 @@ def _build_m365_section_data(user_profile, mfa_result, sku_catalog):
             service_plans_data = None
             if sku_catalog is not None:
                 try:
-                    friendly = sku_catalog.get_sku_name(sku_id)
+                    details = sku_catalog.get_sku_details(sku_id)
+                    friendly = details.get("name")
+                    service_plans_data = details.get("service_plans")
                 except Exception as e:  # noqa: BLE001
                     logger.debug(f"sku_catalog lookup failed for {sku_id}: {e}")
-                try:
-                    service_plans_data = sku_catalog.get_service_plans(sku_id)
-                except Exception as e:  # noqa: BLE001
-                    logger.debug(
-                        f"sku_catalog service_plans lookup failed for {sku_id}: {e}"
-                    )
-                    service_plans_data = {"plans": [], "total": 0}
             lic_dict = {
                 "name": friendly or sku_id,
                 "displayName": friendly or sku_id,
