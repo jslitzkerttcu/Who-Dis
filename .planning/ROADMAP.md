@@ -46,7 +46,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 12-03-PLAN.md — Human verification checkpoint for tooltip and Docker
+- [x] 12-03-PLAN.md — Human verification checkpoint for tooltip and Docker
 
 **UI hint**: yes
 
