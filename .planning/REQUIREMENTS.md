@@ -13,9 +13,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### DevOps Optimization
 
-- [ ] **DEVOPS-01**: Dockerfile uses multi-stage build with builder and runtime stages, reducing image size by at least 30%
-- [ ] **DEVOPS-02**: `.dockerignore` excludes all non-runtime files (tests, docs, .planning, .git, __pycache__, venv)
-- [ ] **DEVOPS-03**: Docker build layers are ordered for optimal cache reuse (dependencies before source code)
+- [x] **DEVOPS-01**: Dockerfile uses multi-stage build with builder and runtime stages, reducing image size by at least 30%
+- [x] **DEVOPS-02**: `.dockerignore` excludes all non-runtime files (tests, docs, .planning, .git, __pycache__, venv)
+- [x] **DEVOPS-03**: Docker build layers are ordered for optimal cache reuse (dependencies before source code)
 
 ### Schema Visualization
 
@@ -92,9 +92,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | UXP-01 | Phase 12 | Pending |
-| DEVOPS-01 | Phase 12 | Pending |
-| DEVOPS-02 | Phase 12 | Pending |
-| DEVOPS-03 | Phase 12 | Pending |
+| DEVOPS-01 | Phase 12 | Complete |
+| DEVOPS-02 | Phase 12 | Complete |
+| DEVOPS-03 | Phase 12 | Complete |
 | SCHEMA-01 | Phase 13 | Pending |
 | SCHEMA-02 | Phase 13 | Pending |
 | SCHEMA-03 | Phase 13 | Pending |
@@ -117,6 +117,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPOD-05 | Phase 16 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 24 total
 - Mapped to phases: 24
 - Unmapped: 0
