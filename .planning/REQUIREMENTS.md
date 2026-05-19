@@ -9,7 +9,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### UX Polish
 
-- [ ] **UXP-01**: User can hover over any license SKU badge on a profile card and see the friendly display name in a tooltip
+- [x] **UXP-01**: User can hover over any license SKU badge on a profile card and see the friendly display name in a tooltip
 
 ### DevOps Optimization
 
@@ -91,7 +91,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UXP-01 | Phase 12 | Pending |
+| UXP-01 | Phase 12 | Complete |
 | DEVOPS-01 | Phase 12 | Pending |
 | DEVOPS-02 | Phase 12 | Pending |
 | DEVOPS-03 | Phase 12 | Pending |
@@ -117,6 +117,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPOD-05 | Phase 16 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 24 total
 - Mapped to phases: 24
 - Unmapped: 0
