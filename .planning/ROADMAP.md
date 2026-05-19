@@ -33,7 +33,11 @@
   2. Dockerfile uses a multi-stage build with separate builder and runtime stages, and the final image is at least 30% smaller than the current single-stage image
   3. `.dockerignore` excludes tests, docs, .planning, .git, __pycache__, and venv -- none of these appear in the runtime image
   4. Docker build layers are ordered so that `requirements.txt` installs before source code copy, enabling pip cache reuse when only source changes
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 12-01-PLAN.md — SKU license tooltip (service plan extraction, humanization, template rendering)
+- [ ] 12-02-PLAN.md — Docker multi-stage build optimization with healthcheck and .dockerignore
+- [ ] 12-03-PLAN.md — Human verification checkpoint for tooltip and Docker
 **UI hint**: yes
 
 ### Phase 13: Schema Visualization
@@ -94,7 +98,7 @@ Phases execute in numeric order: 12 -> 13 -> 14 -> 15 -> 16
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 12. UX Polish & DevOps | 0/0 | Not started | - |
+| 12. UX Polish & DevOps | 0/3 | Not started | - |
 | 13. Schema Visualization | 0/0 | Not started | - |
 | 14. Reporting Infrastructure & Exchange | 0/0 | Not started | - |
 | 15. Teams Reporting | 0/0 | Not started | - |
